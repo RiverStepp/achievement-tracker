@@ -1,4 +1,14 @@
+using Serilog;
+using Serilog.Exceptions;
+
 var builder = WebApplication.CreateBuilder(args);
+
+// Adding Serilog
+
+builder.Host.UseSerilog((ctx, lc) => lc
+    .ReadFrom.Configuration(ctx.Configuration)
+    .Enrich.FromLogContext()
+    .Enrich.WithExceptionDetails());
 
 // Add services to the container.
 
