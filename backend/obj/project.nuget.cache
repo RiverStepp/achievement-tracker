@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "UOyKMRpR8wQ=",
+  "dgSpecHash": "eIuDh+W4NeY=",
   "success": true,
-  "projectFilePath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\AchievementTracker.Api.csproj",
+  "projectFilePath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\River Stepp\\.nuget\\packages\\azure.core\\1.49.0\\azure.core.1.49.0.nupkg.sha512",
     "C:\\Users\\River Stepp\\.nuget\\packages\\azure.extensions.aspnetcore.configuration.secrets\\1.4.0\\azure.extensions.aspnetcore.configuration.secrets.1.4.0.nupkg.sha512",

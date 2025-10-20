@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+65c2c2606a93f81618ffa44181d54d284b8c4273")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+e7c042f73a15159a5ae369d580eef4c41f815232")]
 [assembly: System.Reflection.AssemblyProductAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
