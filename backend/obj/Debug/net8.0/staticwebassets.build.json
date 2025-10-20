@@ -1,1 +1,11 @@
-{"Version":1,"Hash":"FqsRTT227XLNw7X6si4zTv+WaO0ufo+oput8J1oG9Ps=","Source":"AchievementTracker.Api","BasePath":"_content/AchievementTracker.Api","Mode":"Default","ManifestType":"Build","ReferencedProjectsConfiguration":[],"DiscoveryPatterns":[],"Assets":[],"Endpoints":[]}
+{
+  "Version": 1,
+  "Hash": "3FobjteTuF5cTTlLmNw7yBaHlnQ/Q7Beca4rH/driDY=",
+  "Source": "AchievementTracker.Api",
+  "BasePath": "_content/AchievementTracker.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}

@@ -1,24 +1,20 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj": {}
+    "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj": {}
   },
   "projects": {
-    "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj": {
+    "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj",
+        "projectUniqueName": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj",
         "projectName": "AchievementTracker.Api",
-        "projectPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj",
-        "packagesPath": "C:\\Users\\River Stepp\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\obj\\",
+        "projectPath": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj",
+        "packagesPath": "C:\\Users\\brand\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\obj\\",
         "projectStyle": "PackageReference",
-        "fallbackFolders": [
-          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-        ],
         "configFilePaths": [
-          "C:\\Users\\River Stepp\\AppData\\Roaming\\NuGet\\NuGet.Config",
-          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Users\\brand\\AppData\\Roaming\\NuGet\\NuGet.Config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
@@ -38,13 +34,7 @@
           "warnAsError": [
             "NU1605"
           ]
-        },
-        "restoreAuditProperties": {
-          "enableAudit": "true",
-          "auditLevel": "low",
-          "auditMode": "direct"
-        },
-        "SdkAnalysisLevel": "9.0.300"
+        }
       },
       "frameworks": {
         "net8.0": {
@@ -102,7 +92,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
