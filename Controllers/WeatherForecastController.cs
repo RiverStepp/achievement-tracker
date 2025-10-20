@@ -21,8 +21,6 @@ namespace AchievementTracker.Api.Controllers
         [HttpGet(Name = "GetWeatherForecast")]
         public IEnumerable<WeatherForecast> Get()
         {
-
-            throw new Exception("Meowww");
             return Enumerable.Range(1, 5).Select(index => new WeatherForecast
             {
                 Date = DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
@@ -31,5 +29,11 @@ namespace AchievementTracker.Api.Controllers
             })
             .ToArray();
         }
-    }
+
+        // Testing the keyvault
+        // if its working, it will respond with pong
+        [HttpGet("ping")]
+        public IActionResult Ping([FromServices] IConfiguration cfg)
+          => Ok(cfg["ping"] ?? "missing");
+     }
 }

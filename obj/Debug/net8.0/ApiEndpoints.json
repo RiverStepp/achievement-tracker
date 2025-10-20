@@ -19,5 +19,15 @@
       }
     ],
     "EndpointName": "GetWeatherForecast"
+  },
+  {
+    "ContainingType": "AchievementTracker.Api.Controllers.WeatherForecastController",
+    "Method": "Ping",
+    "RelativePath": "WeatherForecast/ping",
+    "HttpMethod": "GET",
+    "IsController": true,
+    "Order": 0,
+    "Parameters": [],
+    "ReturnTypes": []
   }
 ]

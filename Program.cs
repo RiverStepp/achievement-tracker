@@ -1,9 +1,16 @@
 using Serilog;
 using Serilog.Exceptions;
+using Azure.Identity;
+using Azure.Extensions.AspNetCore.Configuration.Secrets;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Adding Serilog
+
+var kvUri = builder.Configuration["KeyVault:VaultUri"];
+builder.Configuration.AddAzureKeyVault(
+    new Uri(kvUri),
+    new DefaultAzureCredential());
 
 builder.Host.UseSerilog((ctx, lc) => lc
     .ReadFrom.Configuration(ctx.Configuration)
