@@ -1,20 +1,24 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj": {}
+    "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj": {}
   },
   "projects": {
-    "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj": {
+    "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj",
+        "projectUniqueName": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj",
         "projectName": "AchievementTracker.Api",
-        "projectPath": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\AchievementTracker.Api.csproj",
-        "packagesPath": "C:\\Users\\brand\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\brand\\OneDrive\\Desktop\\seniordesign\\achievement-tracker\\backend\\obj\\",
+        "projectPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Api.csproj",
+        "packagesPath": "C:\\Users\\River Stepp\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\obj\\",
         "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
         "configFilePaths": [
-          "C:\\Users\\brand\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Users\\River Stepp\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
           "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
         ],
         "originalTargetFrameworks": [
@@ -27,14 +31,24 @@
         "frameworks": {
           "net8.0": {
             "targetAlias": "net8.0",
-            "projectReferences": {}
+            "projectReferences": {
+              "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\AchievementTracker.Data.csproj": {
+                "projectPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\AchievementTracker.Data.csproj"
+              }
+            }
           }
         },
         "warningProperties": {
           "warnAsError": [
             "NU1605"
           ]
-        }
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
       },
       "frameworks": {
         "net8.0": {
@@ -108,7 +122,88 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\8.0.101/PortableRuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
+        }
+      }
+    },
+    "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\AchievementTracker.Data.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\AchievementTracker.Data.csproj",
+        "projectName": "AchievementTracker.Data",
+        "projectPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\AchievementTracker.Data.csproj",
+        "packagesPath": "C:\\Users\\River Stepp\\.nuget\\packages\\",
+        "outputPath": "C:\\Users\\River Stepp\\source\\repos\\AchievementTracker.Api\\backend\\AchievementTracker.Data\\obj\\",
+        "projectStyle": "PackageReference",
+        "fallbackFolders": [
+          "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+        ],
+        "configFilePaths": [
+          "C:\\Users\\River Stepp\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net8.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net8.0": {
+            "targetAlias": "net8.0",
+            "projectReferences": {}
+          }
+        },
+        "warningProperties": {
+          "warnAsError": [
+            "NU1605"
+          ]
+        },
+        "restoreAuditProperties": {
+          "enableAudit": "true",
+          "auditLevel": "low",
+          "auditMode": "direct"
+        },
+        "SdkAnalysisLevel": "9.0.300"
+      },
+      "frameworks": {
+        "net8.0": {
+          "targetAlias": "net8.0",
+          "dependencies": {
+            "Microsoft.EntityFrameworkCore": {
+              "target": "Package",
+              "version": "[8.0.10, )"
+            },
+            "Microsoft.EntityFrameworkCore.Design": {
+              "include": "Runtime, Build, Native, ContentFiles, Analyzers, BuildTransitive",
+              "suppressParent": "All",
+              "target": "Package",
+              "version": "[8.0.10, )"
+            },
+            "Microsoft.EntityFrameworkCore.SqlServer": {
+              "target": "Package",
+              "version": "[8.0.10, )"
+            }
+          },
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48",
+            "net481"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.306/PortableRuntimeIdentifierGraph.json"
         }
       }
     }
