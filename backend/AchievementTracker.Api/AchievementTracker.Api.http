@@ -1,6 +1,0 @@
-@AchievementTracker.Api_HostAddress = http://localhost:5073
-
-GET {{AchievementTracker.Api_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

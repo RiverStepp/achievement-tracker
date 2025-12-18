@@ -1,111 +1,136 @@
-﻿using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+﻿using System.Text;
 using AchievementTracker.Data.Extensions;
-using AspNet.Security.OpenId.Steam;
+using AchievementTracker.Models.Options;
+using AchievementTracker.Services;
 using Azure.Identity;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
+using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Key Vault
-var kv = builder.Configuration["KeyVault:VaultUri"]
-         ?? throw new InvalidOperationException("Set KeyVault:VaultUri");
-builder.Configuration.AddAzureKeyVault(new Uri(kv), new DefaultAzureCredential());
+// Sets up key vault
+string keyVaultUri = builder.Configuration["KeyVault:VaultUri"]!;
+builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
 
-// JWT + Steam config
-var jwtKey = builder.Configuration["Jwt:SigningKey"]
-            ?? throw new InvalidOperationException("Missing Jwt:SigningKey in Key Vault");
-var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
-var issuer = builder.Configuration["Jwt:Issuer"] ?? "AchievementTracker";
-var audience = builder.Configuration["Jwt:Audience"] ?? "AchievementTrackerClients";
+JwtSettings jwtSettings = new JwtSettings();
+builder.Configuration.GetSection("Jwt").Bind(jwtSettings);
 
-builder.Services.AddAuthentication(o =>
-{
-     o.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-     o.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(o =>
-{
-     o.TokenValidationParameters = new TokenValidationParameters
-     {
-          ValidateIssuer = true,
-          ValidIssuer = issuer,
-          ValidateAudience = true,
-          ValidAudience = audience,
-          ValidateIssuerSigningKey = true,
-          IssuerSigningKey = key,
-          ValidateLifetime = true
-     };
-})
-.AddCookie("External")
-.AddSteam(o =>
-{
-     o.ApplicationKey = builder.Configuration["Authentication:Steam:ApiKey"]
-         ?? throw new InvalidOperationException("Missing Authentication:Steam:ApiKey in Key Vault");
-     o.SignInScheme = "External";
-});
+AuthSettings authSettings = new AuthSettings();
+builder.Configuration.GetSection("Auth").Bind(authSettings);
 
-// Add services to the container.
-const string DevCors = "DevCors";
+CorsSettings corsSettings = new CorsSettings();
+builder.Configuration.GetSection("Cors").Bind(corsSettings);
+
+string jwtSigningKeyValue = builder.Configuration["Jwt:SigningKey"]!;
+SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKeyValue));
+
+builder.Services.AddSingleton(jwtSettings);
+builder.Services.AddSingleton(authSettings);
+builder.Services.AddSingleton(corsSettings);
+builder.Services.AddSingleton(jwtSigningKey);
+
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy(DevCors, policy =>
-        policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
-              .AllowAnyHeader()
-              .AllowAnyMethod()
-    // .AllowCredentials() // only if you actually use cookies
-    );
+     // Origins come from config so dev/prod differ without code changes.
+     options.AddDefaultPolicy(policy =>
+         policy.WithOrigins(corsSettings.AllowedOrigins)
+               .AllowAnyHeader()
+               .AllowAnyMethod()
+               .AllowCredentials());
 });
 
+// REDIS_REQUIRED: Replace this with a Redis-backed IDistributedCache for restart-safe + multi-instance refresh tokens.
+builder.Services.AddDistributedMemoryCache();
+
+builder.Services.AddAuthentication(options =>
+{
+     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+     options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+     options.TokenValidationParameters = new TokenValidationParameters
+     {
+          ValidateIssuer = true,
+          ValidIssuer = jwtSettings.Issuer,
+          ValidateAudience = true,
+          ValidAudience = jwtSettings.Audience,
+          ValidateIssuerSigningKey = true,
+          IssuerSigningKey = jwtSigningKey,
+          ValidateLifetime = true,
+          ClockSkew = TimeSpan.FromMinutes(1)
+     };
+})
+.AddCookie(authSettings.ExternalScheme, options =>
+{
+     // External cookie is only used to complete the Steam callback.
+     options.Cookie.HttpOnly = true;
+     options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
+     options.Cookie.SameSite = SameSiteMode.Lax;
+})
+.AddSteam(options =>
+{
+     string steamApiKey = builder.Configuration["Authentication:Steam:ApiKey"]!;
+     options.ApplicationKey = steamApiKey;
+     options.SignInScheme = authSettings.ExternalScheme;
+});
+
+builder.Services.AddAuthorization();
+
+builder.Services.AddScoped<IAuthBusinessLogic, AuthBusinessLogic>();
+builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+     string securitySchemeId = JwtBearerDefaults.AuthenticationScheme;
 
-var app = builder.Build();
+     OpenApiSecurityScheme bearer = new OpenApiSecurityScheme
+     {
+          Name = HeaderNames.Authorization,
+          Type = SecuritySchemeType.Http,
+          Scheme = "bearer",
+          BearerFormat = "JWT",
+          In = ParameterLocation.Header
+     };
 
-// Configure the HTTP request pipeline.
+     options.AddSecurityDefinition(securitySchemeId, bearer);
+
+     options.AddSecurityRequirement(new OpenApiSecurityRequirement
+     {
+          {
+               new OpenApiSecurityScheme
+               {
+                    Reference = new OpenApiReference
+                    {
+                         Type = ReferenceType.SecurityScheme,
+                         Id = securitySchemeId
+                    }
+               },
+               Array.Empty<string>()
+          }
+     });
+});
+
+WebApplication app = builder.Build();
+
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-    app.UseCors(DevCors);
-
+     app.UseSwagger();
+     app.UseSwaggerUI();
 }
 
+app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// start login
-app.MapGet("/auth/steam/login", (HttpContext ctx) =>
-    Results.Challenge(new AuthenticationProperties { RedirectUri = "/auth/steam/callback" },
-        [SteamAuthenticationDefaults.AuthenticationScheme]));
-
-// callback → mint JWT
-app.MapGet("/auth/steam/callback", async (HttpContext ctx) =>
-{
-     var res = await ctx.AuthenticateAsync("External");
-     if (!res.Succeeded) return Results.Unauthorized();
-
-     var steamId = res.Principal!.FindFirst("urn:steam:id")?.Value
-                ?? res.Principal.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                ?? "unknown";
-
-     var token = new JwtSecurityToken(
-         issuer: issuer, audience: audience,
-         claims: new[] { new Claim("steamId", steamId) },
-         expires: DateTime.UtcNow.AddHours(1),
-         signingCredentials: new SigningCredentials(key, SecurityAlgorithms.HmacSha256));
-
-     return Results.Json(new { token = new JwtSecurityTokenHandler().WriteToken(token), steamId });
-});
-
-app.MapGet("/me", (ClaimsPrincipal user) =>
-    Results.Ok(new { steamId = user.FindFirst("steamId")?.Value ?? "none" })
-).RequireAuthorization();
+app.MapControllers();
 
 app.Run();
