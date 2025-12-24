@@ -7,7 +7,7 @@ module.exports = {
       colors: {
         brand: {
           DEFAULT: '#3b82f6',
-          dark: '#1f2937'
+          dark: '#21262bff'
         }
       }
     }
