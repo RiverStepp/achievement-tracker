@@ -1,6 +1,6 @@
 export const NavBar = () => {
     return (
-        <div>
+        <div className="p-6">
             hello world
         </div> );
 };
