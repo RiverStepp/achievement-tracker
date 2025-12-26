@@ -3,7 +3,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import ProfilePage from '@/routes/ProfilePage';
 import { HomePage } from '@/routes/HomePage';
 import axios from 'axios';
-import { NavBar } from '@/components/Navbar';
+import { NavBar } from '@/components/NavBar';
 
 const App: React.FC = () => {
   axios.get<string>('https://localhost:7111/WeatherForecast/ping')

@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+6f5a72f4fc53c18bf3908ab6c1d9704901106671")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+15ad6cf44527d5927eb7195a644aa9e8d2609481")]
 [assembly: System.Reflection.AssemblyProductAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyTitleAttribute("AchievementTracker.Api")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
