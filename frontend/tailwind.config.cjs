@@ -4,23 +4,67 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Your brand blue (already have this)
         brand: {
-          DEFAULT: "#3b82f6",
-          dark: "#2162b6ff"
+          DEFAULT: '#3b82f6',
+          dark: '#2162b6ff',
+        },
+        app: {
+          bg: '#232a34',
+          panel: '#454D58',
+          panel2: '#3a4452',
+          border: '#1b2028',
+          text: '#e2e8f0',
+          muted: '#94a3b8',
         },
 
-        // Blue-gray system (site palette)
-        app: {
-          bg: "#232a34",       // page background
-          panel: "#454D58",    // cards/panels
-          panel2: "#3a4452",   // elevated panel
-          border: "#1b2028",   // subtle borders/dividers
-          text: "#e2e8f0",     // main text
-          muted: "#94a3b8"     // secondary text
-        }
-      }
-    }
+        // Shadcn tokens (leave these mapped to CSS vars)
+        background: 'hsl(var(--background))',
+        foreground: 'hsl(var(--foreground))',
+        card: {
+          DEFAULT: 'hsl(var(--card))',
+          foreground: 'hsl(var(--card-foreground))',
+        },
+        popover: {
+          DEFAULT: 'hsl(var(--popover))',
+          foreground: 'hsl(var(--popover-foreground))',
+        },
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        secondary: {
+          DEFAULT: 'hsl(var(--secondary))',
+          foreground: 'hsl(var(--secondary-foreground))',
+        },
+        muted: {
+          DEFAULT: 'hsl(var(--muted))',
+          foreground: 'hsl(var(--muted-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
+        destructive: {
+          DEFAULT: 'hsl(var(--destructive))',
+          foreground: 'hsl(var(--destructive-foreground))',
+        },
+        border: 'hsl(var(--border))',
+        input: 'hsl(var(--input))',
+        ring: 'hsl(var(--ring))',
+        chart: {
+          1: 'hsl(var(--chart-1))',
+          2: 'hsl(var(--chart-2))',
+          3: 'hsl(var(--chart-3))',
+          4: 'hsl(var(--chart-4))',
+          5: 'hsl(var(--chart-5))',
+        },
+      },
+      borderRadius: {
+        lg: 'var(--radius)',
+        md: 'calc(var(--radius) - 2px)',
+        sm: 'calc(var(--radius) - 4px)',
+      },
+    },
   },
-  plugins: []
+  plugins: [require("tailwindcss-animate")],
 };
