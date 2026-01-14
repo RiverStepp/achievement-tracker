@@ -33,6 +33,7 @@ export interface SteamAchievement {
 export interface SteamGameStats {
   steamID: string;
   gameName: string;
+  appid?: number;
   achievements: SteamAchievement[];
   stats?: any;
 }
