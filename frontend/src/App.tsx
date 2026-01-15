@@ -1,22 +1,28 @@
 import React, { useEffect } from "react";
 import { Route, Routes } from "react-router-dom";
+import { useAuth } from "@/auth/AuthProvider";
+
 import ProfilePage from "@/routes/ProfilePage";
 import { HomePage } from "@/routes/HomePage";
+import { AuthCallbackPage } from "@/routes/AuthCallbackPage";
+
 import axios from "axios";
+
 import { NavBar } from "@/components/NavBar";
 import { SideBar } from "@/components/SideBar";
-
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 
 const App: React.FC = () => {
+  const { user, isLoading } = useAuth();
+
   useEffect(() => {
-    axios
-      .get<string>("https://localhost:7111/WeatherForecast/ping")
-      .then(({ data }) => console.log("ping:", data))
-      .catch(console.error);
+    console.log("Current user:", user);
+    
   }, []);
+
+  
 
   return (
     <>
@@ -56,6 +62,7 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/u/:handle" element={<ProfilePage />} />
+            <Route path="/auth/callback" element={<AuthCallbackPage />} />
           </Routes>
         </main>
 
