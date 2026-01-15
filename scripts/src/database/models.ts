@@ -102,7 +102,7 @@ export interface Achievement {
 
 export interface User {
     id?: number;
-    steam_id: number;
+    steam_id: number | string | bigint;
     username: string;
     profile_url?: string;
     avatar_url?: string;
@@ -134,7 +134,7 @@ export class DatabaseService {
     // Helper method to parse owners string like "0 .. 20000" into min/max
     private parseOwners(owners: string | undefined): { min: number | null, max: number | null } {
         if (!owners) return { min: null, max: null };
-        
+
         const rangeMatch = owners.match(/(\d+)\s*\.\.\s*(\d+)/);
         if (rangeMatch) {
             return {
@@ -142,13 +142,13 @@ export class DatabaseService {
                 max: parseInt(rangeMatch[2], 10)
             };
         }
-        
+
         const exactMatch = owners.match(/^(\d+)$/);
         if (exactMatch) {
             const value = parseInt(exactMatch[1], 10);
             return { min: value, max: null };
         }
-        
+
         return { min: null, max: null };
     }
 
@@ -158,16 +158,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(50), name)
             .query('SELECT id FROM platforms WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(50), name)
             .query('INSERT INTO platforms (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -176,16 +176,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(100), name)
             .query('SELECT id FROM genres WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(100), name)
             .query('INSERT INTO genres (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -194,16 +194,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(100), name)
             .query('SELECT id FROM categories WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(100), name)
             .query('INSERT INTO categories (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -212,16 +212,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(100), name)
             .query('SELECT id FROM tags WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(100), name)
             .query('INSERT INTO tags (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -230,18 +230,18 @@ export class DatabaseService {
         const result = await request
             .input('code', sql.NVarChar(10), code)
             .query('SELECT id FROM languages WHERE code = @code');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const languageName = name || code; // Use provided name or fall back to code
         const insertResult = await insertRequest
             .input('code', sql.NVarChar(10), code)
             .input('name', sql.NVarChar(100), languageName)
             .query('INSERT INTO languages (code, name) OUTPUT INSERTED.id VALUES (@code, @name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -250,16 +250,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(255), name)
             .query('SELECT id FROM developers WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(255), name)
             .query('INSERT INTO developers (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -268,16 +268,16 @@ export class DatabaseService {
         const result = await request
             .input('name', sql.NVarChar(255), name)
             .query('SELECT id FROM publishers WHERE name = @name');
-        
+
         if (result.recordset.length > 0) {
             return result.recordset[0].id;
         }
-        
+
         const insertRequest = transaction ? new sql.Request(transaction) : this.pool.request();
         const insertResult = await insertRequest
             .input('name', sql.NVarChar(255), name)
             .query('INSERT INTO publishers (name) OUTPUT INSERTED.id VALUES (@name)');
-        
+
         return insertResult.recordset[0].id;
     }
 
@@ -287,7 +287,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_platforms WHERE game_id = @game_id');
-        
+
         // Add new platforms
         for (const platformName of platformNames) {
             const platformId = await this.getOrCreatePlatform(platformName);
@@ -310,7 +310,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_genres WHERE game_id = @game_id');
-        
+
         // Add new genres
         for (const genreName of genreNames) {
             const genreId = await this.getOrCreateGenre(genreName);
@@ -333,7 +333,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_categories WHERE game_id = @game_id');
-        
+
         // Add new categories
         for (const categoryName of categoryNames) {
             const categoryId = await this.getOrCreateCategory(categoryName);
@@ -356,7 +356,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_tags WHERE game_id = @game_id');
-        
+
         // Add new tags
         for (const tagName of tagNames) {
             const tagId = await this.getOrCreateTag(tagName);
@@ -379,7 +379,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_developers WHERE game_id = @game_id');
-        
+
         // Add new developers
         for (const developerName of developerNames) {
             const developerId = await this.getOrCreateDeveloper(developerName);
@@ -402,7 +402,7 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_publishers WHERE game_id = @game_id');
-        
+
         // Add new publishers
         for (const publisherName of publisherNames) {
             const publisherId = await this.getOrCreatePublisher(publisherName);
@@ -425,14 +425,14 @@ export class DatabaseService {
         await this.pool.request()
             .input('game_id', sql.Int, gameId)
             .query('DELETE FROM game_languages WHERE game_id = @game_id');
-        
+
         // Add new languages
         for (const lang of languages) {
             let languageId: number;
             let hasInterface = false;
             let hasFullAudio = false;
             let hasSubtitles = false;
-            
+
             if (typeof lang === 'string') {
                 // Simple string format (just language code)
                 languageId = await this.getOrCreateLanguage(lang);
@@ -449,7 +449,7 @@ export class DatabaseService {
                 hasFullAudio = lang.has_full_audio || false;
                 hasSubtitles = lang.has_subtitles || false;
             }
-            
+
             await this.pool.request()
                 .input('game_id', sql.Int, gameId)
                 .input('language_id', sql.Int, languageId)
@@ -472,10 +472,10 @@ export class DatabaseService {
     // Game operations
     async upsertGame(game: Game): Promise<number> {
         const transaction = new sql.Transaction(this.pool);
-        
+
         try {
             await transaction.begin();
-            
+
             // Parse owners if provided as string
             let minOwners = game.min_owners;
             let maxOwners = game.max_owners;
@@ -488,13 +488,13 @@ export class DatabaseService {
                     maxOwners = parsed.max || undefined;
                 }
             }
-            
+
             // Handle developers
             const developerNames: string[] = game.developers || [];
-            
+
             // Handle publishers
             const publisherNames: string[] = game.publishers || [];
-            
+
             // Check if game exists
             const checkResult = await new sql.Request(transaction)
                 .input('steam_appid', sql.Int, game.steam_appid)
@@ -725,7 +725,7 @@ export class DatabaseService {
                     let hasInterface = false;
                     let hasFullAudio = false;
                     let hasSubtitles = false;
-                    
+
                     if (typeof lang === 'string') {
                         // Simple string format (just language code)
                         languageId = await this.getOrCreateLanguage(lang, undefined, transaction);
@@ -742,7 +742,7 @@ export class DatabaseService {
                         hasFullAudio = lang.has_full_audio || false;
                         hasSubtitles = lang.has_subtitles || false;
                     }
-                    
+
                     await new sql.Request(transaction)
                         .input('game_id', sql.Int, gameId)
                         .input('language_id', sql.Int, languageId)
@@ -833,10 +833,24 @@ export class DatabaseService {
     // User operations
     async upsertUser(user: User): Promise<number> {
         try {
+            // Convert steam_id to BigInt safely (handles string, number, or bigint)
+            let steamIdValue: bigint;
+            if (typeof user.steam_id === 'string') {
+                steamIdValue = BigInt(user.steam_id);
+            } else if (typeof user.steam_id === 'bigint') {
+                steamIdValue = user.steam_id;
+            } else {
+                steamIdValue = BigInt(user.steam_id);
+            }
+
+            // Convert BigInt to string for SQL (mssql doesn't support BigInt directly)
+            // We'll cast it in SQL to BIGINT
+            const steamIdStr = steamIdValue.toString();
+
             // Check if user exists
             const checkResult = await this.pool.request()
-                .input('steam_id', sql.BigInt, user.steam_id)
-                .query('SELECT id FROM users WHERE steam_id = @steam_id');
+                .input('steam_id', sql.NVarChar(50), steamIdStr)
+                .query('SELECT id FROM users WHERE steam_id = CAST(@steam_id AS BIGINT)');
 
             if (checkResult.recordset.length > 0) {
                 // Update existing user
@@ -856,14 +870,14 @@ export class DatabaseService {
             } else {
                 // Insert new user
                 const insertResult = await this.pool.request()
-                    .input('steam_id', sql.BigInt, user.steam_id)
+                    .input('steam_id', sql.NVarChar(50), steamIdStr)
                     .input('username', sql.NVarChar(255), user.username)
                     .input('profile_url', sql.NVarChar(500), user.profile_url)
                     .input('avatar_url', sql.NVarChar(500), user.avatar_url)
                     .query(`
                         INSERT INTO users (steam_id, username, profile_url, avatar_url)
                         OUTPUT INSERTED.id
-                        VALUES (@steam_id, @username, @profile_url, @avatar_url)
+                        VALUES (CAST(@steam_id AS BIGINT), @username, @profile_url, @avatar_url)
                     `);
                 return insertResult.recordset[0].id;
             }
@@ -1002,7 +1016,7 @@ export class DatabaseService {
             const result = await this.pool.request()
                 .input('steam_appid', sql.Int, steamAppId)
                 .query('SELECT id FROM games WHERE steam_appid = @steam_appid');
-            
+
             if (result.recordset.length > 0) {
                 return result.recordset[0].id;
             }
@@ -1020,7 +1034,7 @@ export class DatabaseService {
                 .input('game_id', sql.Int, gameId)
                 .input('steam_apiname', sql.NVarChar(255), steamApiname)
                 .query('SELECT id FROM achievements WHERE game_id = @game_id AND steam_apiname = @steam_apiname');
-            
+
             if (result.recordset.length > 0) {
                 return result.recordset[0].id;
             }
@@ -1032,12 +1046,25 @@ export class DatabaseService {
     }
 
     // Delete user and all their achievements
-    async deleteUserBySteamId(steamId: number): Promise<boolean> {
+    async deleteUserBySteamId(steamId: number | string | bigint): Promise<boolean> {
         try {
+            // Convert steam_id to BigInt safely (handles string, number, or bigint)
+            let steamIdValue: bigint;
+            if (typeof steamId === 'string') {
+                steamIdValue = BigInt(steamId);
+            } else if (typeof steamId === 'bigint') {
+                steamIdValue = steamId;
+            } else {
+                steamIdValue = BigInt(steamId);
+            }
+
+            // Convert BigInt to string for SQL (mssql doesn't support BigInt directly)
+            const steamIdStr = steamIdValue.toString();
+
             // First, get the user ID
             const userResult = await this.pool.request()
-                .input('steam_id', sql.BigInt, steamId)
-                .query('SELECT id FROM users WHERE steam_id = @steam_id');
+                .input('steam_id', sql.NVarChar(50), steamIdStr)
+                .query('SELECT id FROM users WHERE steam_id = CAST(@steam_id AS BIGINT)');
 
             if (userResult.recordset.length === 0) {
                 console.log(`User with steam_id ${steamId} not found`);

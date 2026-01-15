@@ -17,7 +17,7 @@ import { loadConfigFromKeyVault } from './config/keyVaultConfig';
  */
 async function main() {
     const args = process.argv.slice(2);
-    
+
     if (args.length === 0) {
         console.error('Usage: npm run test -- <steamIdOrUsername> [--cleanup]');
         console.error('Example: npm run test -- 76561198046029799 --cleanup');
@@ -75,9 +75,9 @@ async function main() {
         if (shouldCleanup && steamId) {
             console.log('\n--- Cleanup Mode ---');
             console.log(`Removing test data for user ${steamId}...`);
-            
-            const deleted = await dbService.deleteUserBySteamId(parseInt(steamId, 10));
-            
+
+            const deleted = await dbService.deleteUserBySteamId(steamId); // Pass as string to preserve precision
+
             if (deleted) {
                 console.log(`Successfully removed test data for user ${steamId}`);
             } else {

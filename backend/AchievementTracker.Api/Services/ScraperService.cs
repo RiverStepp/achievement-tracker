@@ -179,10 +179,25 @@ public class ScraperService : IScraperService
                 _logger.LogError("Scraper process failed with exit code {ExitCode}. Error output: {ErrorOutput}. Standard output: {Output}",
                     process.ExitCode, errorText, outputText);
 
+                // Try to extract a more user-friendly error message
+                string userFriendlyError = errorText;
+                if (errorText.Contains("Login failed"))
+                {
+                    userFriendlyError = "Database connection failed. Please verify the connection string in Azure Key Vault (ConnectionStrings--DefaultConnection) uses SQL Authentication (not Windows Authentication) and has the correct password.";
+                }
+                else if (errorText.Contains("Cannot find module"))
+                {
+                    userFriendlyError = "Missing dependencies. Please run 'npm install' in the scripts directory.";
+                }
+                else if (errorText.Contains("Cannot compile TypeScript"))
+                {
+                    userFriendlyError = "TypeScript compilation failed. Please check the scripts for errors or run 'npm install' in the scripts directory.";
+                }
+
                 return new ScrapeResult
                 {
                     Success = false,
-                    ErrorMessage = $"Scraper process exited with code {process.ExitCode}. {errorText}"
+                    ErrorMessage = userFriendlyError
                 };
             }
         }
