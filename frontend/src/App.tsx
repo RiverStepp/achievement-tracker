@@ -1,6 +1,7 @@
 import React, { useEffect} from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ProfilePage from '@/routes/ProfilePage';
+import ScraperTestPage from '@/routes/ScraperTestPage';
 import axios from 'axios';
 
 const App: React.FC = () => {
@@ -11,6 +12,7 @@ const App: React.FC = () => {
     <Routes>
       <Route path="/" element={<Navigate to="/u/kaio" replace />} />
       <Route path="/u/:handle" element={<ProfilePage />} />
+      <Route path="/test/scraper" element={<ScraperTestPage />} />
     </Routes>
   );
 };

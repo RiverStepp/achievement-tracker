@@ -1,6 +1,8 @@
 # Steam Achievement Scraper Scripts
 
-This directory contains Node.js/TypeScript scripts for scraping Steam user achievement data and saving it to the MSSQL database.
+This directory contains Node.js/TypeScript scripts for **development and testing** of the Steam scraper functionality.
+
+**Note:** These scripts are for development/testing only. In production, the scraper functionality will be integrated into the .NET backend API, and users will interact with it through the website (not by running scripts).
 
 ## Setup
 

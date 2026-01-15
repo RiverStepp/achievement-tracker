@@ -56,10 +56,10 @@ function parseConnectionString(connectionString: string): sql.config {
 const config: sql.config = process.env.DB_CONNECTION_STRING 
     ? parseConnectionString(process.env.DB_CONNECTION_STRING)
     : {
-        user: process.env.DB_USER || process.env.DB_USERNAME || 'sa',
-        password: process.env.DB_PASSWORD || '',
+        user: process.env.DB_USER || process.env.DB_USERNAME || 'Cursor',
+        password: process.env.DB_PASSWORD || 'Completion100',
         server: process.env.DB_SERVER || process.env.DB_HOST || 'localhost',
-        database: process.env.DB_NAME || process.env.DB_DATABASE || 'AchievementTracker',
+        database: process.env.DB_NAME || process.env.DB_DATABASE || 'Steam-Games-Achievements',
         port: process.env.DB_PORT ? parseInt(process.env.DB_PORT) : 1433,
         options: {
             encrypt: process.env.DB_ENCRYPT === 'true', // Set to true if using Azure SQL

@@ -10,6 +10,8 @@
     "test": "ts-node src/testScraper.ts"
   },
   "dependencies": {
+    "@azure/identity": "^4.2.1",
+    "@azure/keyvault-secrets": "^4.7.3",
     "axios": "^1.13.2",
     "dotenv": "^16.4.5",
     "mssql": "^12.2.0"

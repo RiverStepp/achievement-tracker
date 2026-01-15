@@ -1,0 +1,67 @@
+﻿using AchievementTracker.Services;
+using Microsoft.AspNetCore.Mvc;
+
+namespace AchievementTracker.Controllers;
+
+[ApiController]
+[Route("api/scraper")]
+public class ScraperController : ControllerBase
+{
+    private readonly ILogger<ScraperController> _logger;
+    private readonly IScraperService _scraperService;
+
+    public ScraperController(ILogger<ScraperController> logger, IScraperService scraperService)
+    {
+        _logger = logger;
+        _scraperService = scraperService;
+    }
+
+    [HttpPost("scrape")]
+    public async Task<IActionResult> ScrapeUser([FromBody] ScrapeRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.SteamIdOrUsername))
+        {
+            return BadRequest(new { error = "SteamIdOrUsername is required" });
+        }
+
+        try
+        {
+            _logger.LogInformation("Scrape request received for: {SteamIdOrUsername}", request.SteamIdOrUsername);
+
+            var result = await _scraperService.ScrapeUserAsync(request.SteamIdOrUsername);
+
+            if (result.Success)
+            {
+                return Ok(new
+                {
+                    success = true,
+                    message = "User scraped successfully",
+                    steamId = result.SteamId,
+                    username = result.Username,
+                    steamIdOrUsername = result.SteamId ?? request.SteamIdOrUsername
+                });
+            }
+            else
+            {
+                _logger.LogWarning("Scraper failed for {SteamIdOrUsername}: {Error}",
+                    request.SteamIdOrUsername, result.ErrorMessage);
+
+                return StatusCode(500, new
+                {
+                    success = false,
+                    error = result.ErrorMessage ?? "Scraping failed"
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error processing scrape request");
+            return StatusCode(500, new { success = false, error = "Internal server error", message = ex.Message });
+        }
+    }
+}
+
+public class ScrapeRequest
+{
+    public string SteamIdOrUsername { get; set; } = string.Empty;
+}

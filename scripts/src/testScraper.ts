@@ -1,11 +1,8 @@
-import * as dotenv from 'dotenv';
 import { SteamScraper } from './services/steamScraper';
 import { ScrapingConfig } from './types';
 import { getConnection, closeConnection } from './database/connection';
 import { DatabaseService } from './database/models';
-
-// Load environment variables
-dotenv.config();
+import { loadConfigFromKeyVault } from './config/keyVaultConfig';
 
 /**
  * Test script that scrapes a user and optionally removes test data
@@ -34,27 +31,26 @@ async function main() {
     console.log(`Testing user: ${steamIdOrUsername}`);
     console.log(`Cleanup after test: ${shouldCleanup ? 'YES' : 'NO'}\n`);
 
-    // Validate required environment variables
-    const steamApiKey = process.env.STEAM_API_KEY;
-    if (!steamApiKey) {
-        console.error('STEAM_API_KEY environment variable is required');
-        console.error('Please create a .env file with STEAM_API_KEY=your_key');
-        process.exit(1);
-    }
-
-    // Configuration
-    const config: ScrapingConfig = {
-        steamApiKey,
-        maxConcurrentRequests: parseInt(process.env.MAX_CONCURRENT_REQUESTS || '1'),
-        requestDelay: parseInt(process.env.REQUEST_DELAY || '2000'),
-        maxRetries: parseInt(process.env.MAX_RETRIES || '3'),
-        outputFile: process.env.OUTPUT_FILE || './data/steam_achievements.json'
-    };
-
-    const scraper = new SteamScraper(config);
     let steamId: string | null = null;
 
     try {
+        // Load configuration from Azure Key Vault
+        const keyVaultConfig = await loadConfigFromKeyVault();
+
+        // Configuration
+        const config: ScrapingConfig = {
+            steamApiKey: keyVaultConfig.steamApiKey,
+            maxConcurrentRequests: parseInt(process.env.MAX_CONCURRENT_REQUESTS || '1'),
+            requestDelay: parseInt(process.env.REQUEST_DELAY || '2000'),
+            maxRetries: parseInt(process.env.MAX_RETRIES || '3'),
+            outputFile: process.env.OUTPUT_FILE || './data/steam_achievements.json'
+        };
+
+        const scraper = new SteamScraper(config);
+
+        // Set connection string for database connection
+        process.env.DB_CONNECTION_STRING = keyVaultConfig.dbConnectionString;
+
         // Test database connection
         console.log('Testing database connection...');
         const pool = await getConnection();
