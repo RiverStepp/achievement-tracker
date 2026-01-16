@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import { SteamScraper } from './services/steamScraper';
 import { DataStorage } from './utils/dataStorage';
 import { ScrapingConfig } from './types';
+import { ScraperApiService } from './services/scraperApi';
 
 // Load environment variables
 dotenv.config();
@@ -79,4 +80,4 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-export { SteamScraper, DataStorage };
+export { SteamScraper, DataStorage, ScraperApiService };

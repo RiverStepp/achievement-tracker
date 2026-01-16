@@ -1,47 +1,60 @@
-export type User = {
-  id: number;
-  steamId: string;
-  username: string;
-  profileUrl: string;
-  avatarUrl: string;
-  createdAt: string;
-};
+// src/types/models.ts
 
-export type Game = {
+export interface User {
   id: number;
-  steamAppid: number | null;
+  steamId: string;        // BIGINT → string on FE
+  handle: string;         // URL handle, e.g. "SakaKishiyami"
+  username: string;       // display name
+  profileUrl?: string;
+  avatarUrl?: string;
+  createdAt?: string;     // ISO string
+}
+
+export interface Game {
+  id: number;
+  steamAppId: number;
   name: string;
-  releaseDate: string | null;
-  developer: string | null;
-  publisher: string | null;
-  genres: unknown;
-  headerImageUrl: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
+  headerImageUrl?: string;
+  shortDescription?: string;
+  metacriticScore?: number;
+  recommendations?: number;
+  isUnlisted?: boolean;
+  isRemoved?: boolean;
+  mainStoryHours?: number;
+  mainSidesHours?: number;
+  completionistHours?: number;
+  allStylesHours?: number;
+  alias?: string;
+  scoreRank?: number;
+  minOwners?: number;
+  maxOwners?: number | null;
+  peakCcu?: number;
+}
 
-export type Achievement = {
+export interface Achievement {
   id: number;
   gameId: number;
   steamApiname: string;
   name: string;
-  description: string | null;
-  iconUrl: string | null;
-  points: number | null;
-  isHidden: boolean;
-  createdAt: string;
-};
+  description?: string;
+  iconUrl?: string;
+  points?: number;
+  isHidden?: boolean;
+  createdAt?: string;
+  descriptionSource?: string;
+  lastUpdated?: string;
+}
 
-export type UserAchievement = {
+export interface UserAchievement {
   id: number;
   userId: number;
   achievementId: number;
-  unlockedAt: string | null;
-  createdAt: string;
-};
+  unlockedAt?: string;
+  createdAt?: string;
+}
 
-export type AchievementStat = {
+export interface AchievementStats {
   achievementId: number;
   globalPercentage: number;
-  updatedAt: string;
-};
+  updatedAt?: string;
+}

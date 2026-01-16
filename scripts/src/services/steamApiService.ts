@@ -12,6 +12,41 @@ export class SteamApiService {
     this.rateLimiter = new RateLimiter();
   }
 
+  /**
+   * Resolves a Steam username/custom URL to Steam ID 64-bit
+   * @param username Steam username or custom URL (e.g., "MyUsername" or "76561198046029799")
+   * @returns Steam ID 64-bit string, or null if not found
+   */
+  async resolveUsername(username: string): Promise<string | null> {
+    // If it's already a Steam ID (numeric), return it
+    if (/^\d+$/.test(username)) {
+      return username;
+    }
+
+    await this.rateLimiter.waitIfNeeded();
+    
+    try {
+      const response: AxiosResponse = await axios.get(
+        `${this.baseUrl}/ISteamUser/ResolveVanityURL/v0001/`,
+        {
+          params: {
+            key: this.apiKey,
+            vanityurl: username
+          }
+        }
+      );
+
+      if (response.data.response.success === 1) {
+        return response.data.response.steamid;
+      }
+
+      return null;
+    } catch (error) {
+      console.error(`Error resolving username ${username}:`, error);
+      throw error;
+    }
+  }
+
   async getUserProfile(steamId: string): Promise<SteamUser | null> {
     await this.rateLimiter.waitIfNeeded();
     

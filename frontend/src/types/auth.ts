@@ -1,7 +1,8 @@
-import { User } from "./models";
+// src/types/auth.ts
+import type { User } from "./models";
 
 export type AuthUser = User;
 
-export type AuthTokenResponse = {
-  token: string; // JWT
-};
+export interface AuthTokenResponse {
+  token: string;
+}
