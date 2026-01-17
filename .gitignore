@@ -31,5 +31,8 @@ backend/**/*.db
 backend/**/*.db-shm
 backend/**/*.db-wal
 
+scripts/node_modules/
+frontend/node_modules/
+
 .DS_Store
 Thumbs.db
