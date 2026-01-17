@@ -1,4 +1,5 @@
-﻿using AchievementTracker.Services;
+﻿using AchievementTracker.Models.Dtos;
+using AchievementTracker.Services;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AchievementTracker.Controllers;
@@ -59,9 +60,4 @@ public class ScraperController : ControllerBase
             return StatusCode(500, new { success = false, error = "Internal server error", message = ex.Message });
         }
     }
-}
-
-public class ScrapeRequest
-{
-    public string SteamIdOrUsername { get; set; } = string.Empty;
 }
