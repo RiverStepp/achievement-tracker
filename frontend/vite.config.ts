@@ -15,7 +15,7 @@ export default defineConfig({
     },  
     proxy: {
       // proxy the controller directly
-      '/WeatherForecast': {
+      '/api': {
         target: 'https://localhost:7111',   // or 'http://localhost:5111'
         changeOrigin: true,
         secure: false,                       // allow self-signed https in dev
