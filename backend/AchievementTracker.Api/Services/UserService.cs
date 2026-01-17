@@ -1,6 +1,7 @@
 using AchievementTracker.Models.Dtos;
 using AchievementTracker.Models.Options;
 using Microsoft.Data.SqlClient;
+using Microsoft.Extensions.Configuration;
 using System.Data;
 
 namespace AchievementTracker.Services;
@@ -13,20 +14,25 @@ public interface IUserService
 public class UserService : IUserService
 {
     private readonly UserSettings _userSettings;
+    private readonly IConfiguration _configuration;
 
-    public UserService(UserSettings userSettings)
+    public UserService(UserSettings userSettings, IConfiguration configuration)
     {
         _userSettings = userSettings;
+        _configuration = configuration;
     }
 
     private string BuildConnectionString()
     {
-        // Hardcoded values - same as Node.js connection file defaults
-        const string user = "Cursor";
-        const string password = "Completion100";
-        const string server = "localhost";
-        const string database = "Steam-Games-Achievements";
-        const int port = 1433;
+        // Get database connection values from environment variables
+        var user = Environment.GetEnvironmentVariable("DB_USER")
+            ?? throw new InvalidOperationException("DB_USER environment variable is not set");
+        var password = Environment.GetEnvironmentVariable("DB_PASSWORD")
+            ?? throw new InvalidOperationException("DB_PASSWORD environment variable is not set");
+        var server = Environment.GetEnvironmentVariable("DB_SERVER");
+        var database = Environment.GetEnvironmentVariable("DB_NAME");
+        var portStr = Environment.GetEnvironmentVariable("DB_PORT");
+        var port = int.TryParse(portStr, out var portInt);
 
         // Force TCP/IP by always including port number (format: server,port)
         var builder = new SqlConnectionStringBuilder

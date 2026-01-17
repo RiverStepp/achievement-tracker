@@ -6,13 +6,11 @@ namespace AchievementTracker.Services;
 
 public class ScraperService : IScraperService
 {
-    private readonly ILogger<ScraperService> _logger;
     private readonly IConfiguration _configuration;
     private readonly string _scriptsDirectory;
 
-    public ScraperService(ILogger<ScraperService> logger, IConfiguration configuration)
+    public ScraperService(IConfiguration configuration)
     {
-        _logger = logger;
         _configuration = configuration;
 
         // Get scripts directory path (relative to backend directory)
@@ -39,24 +37,18 @@ public class ScraperService : IScraperService
     {
         try
         {
-            _logger.LogInformation("Starting scraper for user: {SteamIdOrUsername}", steamIdOrUsername);
-            _logger.LogInformation("Scripts directory: {ScriptsDirectory}", _scriptsDirectory);
-
             var nodeExe = FindNodeExecutable();
             if (nodeExe == null)
             {
-                _logger.LogError("Node.js executable not found");
                 return new ScrapeResult
                 {
                     Success = false,
                     ErrorMessage = "Node.js not found. Please ensure Node.js is installed and in PATH."
                 };
             }
-            _logger.LogInformation("Found Node.js at: {NodeExe}", nodeExe);
 
             if (!Directory.Exists(_scriptsDirectory))
             {
-                _logger.LogError("Scripts directory not found: {ScriptsDirectory}", _scriptsDirectory);
                 return new ScrapeResult
                 {
                     Success = false,
@@ -69,15 +61,12 @@ public class ScraperService : IScraperService
 
             if (executable == null)
             {
-                _logger.LogError("ts-node executable not found in scripts directory: {ScriptsDirectory}", _scriptsDirectory);
                 return new ScrapeResult
                 {
                     Success = false,
                     ErrorMessage = "ts-node not found. Please ensure dependencies are installed (npm install) in the scripts directory."
                 };
             }
-
-            _logger.LogInformation("Using executable: {Executable} with arguments: {Arguments}", executable, arguments);
 
             // ProcessStartInfo can execute .cmd files directly when UseShellExecute = false
             // It also handles paths with spaces automatically, so no need to quote
@@ -119,7 +108,6 @@ public class ScraperService : IScraperService
                 if (e.Data != null)
                 {
                     output.AppendLine(e.Data);
-                    _logger.LogInformation("Scraper output: {Output}", e.Data);
                 }
             };
 
@@ -128,7 +116,6 @@ public class ScraperService : IScraperService
                 if (e.Data != null)
                 {
                     errorOutput.AppendLine(e.Data);
-                    _logger.LogWarning("Scraper error: {Error}", e.Data);
                 }
             };
 
@@ -164,7 +151,6 @@ public class ScraperService : IScraperService
 
                 // If we can't parse the output but exit code is 0, still report success
                 // The user might already be in the database or the script completed successfully
-                _logger.LogWarning("Could not parse user information from scraper output, but process exited successfully");
                 return new ScrapeResult
                 {
                     Success = true,
@@ -176,8 +162,6 @@ public class ScraperService : IScraperService
             {
                 var errorText = errorOutput.ToString();
                 var outputText = output.ToString();
-                _logger.LogError("Scraper process failed with exit code {ExitCode}. Error output: {ErrorOutput}. Standard output: {Output}",
-                    process.ExitCode, errorText, outputText);
 
                 // Try to extract a more user-friendly error message
                 string userFriendlyError = errorText;
@@ -203,7 +187,6 @@ public class ScraperService : IScraperService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error running scraper");
             return new ScrapeResult
             {
                 Success = false,
