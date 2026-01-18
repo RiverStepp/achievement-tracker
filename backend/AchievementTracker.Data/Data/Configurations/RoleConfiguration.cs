@@ -10,6 +10,11 @@ public sealed class RoleConfiguration: IEntityTypeConfiguration<Role>
      {
           b.HasKey(x => x.RoleId);
 
+          b.Property(x => x.RoleId)
+               .HasConversion<short>()
+               .HasColumnType("smallint")
+               .ValueGeneratedNever();
+
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
           b.Property(x => x.UpdateDate).HasDefaultValueSql("SYSUTCDATETIME()");

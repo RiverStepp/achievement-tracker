@@ -8,7 +8,10 @@ public sealed class UserSteamProfileConfiguration : IEntityTypeConfiguration<Use
 {
      public void Configure(EntityTypeBuilder<UserSteamProfile> b)
      {
-          b.HasKey(x => x.UserExternalLoginId);
+          b.ToTable("SteamProfiles");
+
+          b.HasKey(x => x.SteamId);
+          b.Property(x => x.SteamId).ValueGeneratedNever();
 
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
@@ -20,6 +23,8 @@ public sealed class UserSteamProfileConfiguration : IEntityTypeConfiguration<Use
           b.Property(x => x.AvatarMediumUrl).HasMaxLength(256);
           b.Property(x => x.AvatarFullUrl).HasMaxLength(256);
 
-          b.HasIndex(x => x.SteamId).IsUnique();
+          b.HasIndex(x => x.UserExternalLoginId)
+              .IsUnique()
+              .HasFilter("[UserExternalLoginId] IS NOT NULL");
      }
 }

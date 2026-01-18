@@ -5,10 +5,12 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace AchievementTracker.Data.Data.Configurations;
 
-public sealed class UserExternalLoginConfiguration: IEntityTypeConfiguration<UserExternalLogin>
+public sealed class UserExternalLoginConfiguration : IEntityTypeConfiguration<UserExternalLogin>
 {
      public void Configure(EntityTypeBuilder<UserExternalLogin> b)
      {
+          b.ToTable("UserExternalLogins");
+
           b.HasKey(x => x.UserExternalLoginId);
 
           b.Property(x => x.IsActive).HasDefaultValue(true);
@@ -33,19 +35,22 @@ public sealed class UserExternalLoginConfiguration: IEntityTypeConfiguration<Use
               .HasForeignKey(x => x.AppUserId)
               .OnDelete(DeleteBehavior.Cascade);
 
+
           b.HasOne(x => x.SteamProfile)
               .WithOne(x => x.ExternalLogin)
               .HasForeignKey<UserSteamProfile>(x => x.UserExternalLoginId)
-              .OnDelete(DeleteBehavior.Cascade);
+              .OnDelete(DeleteBehavior.SetNull);
 
           // Forces a valid auth provider
-          string enumValues = string.Join(", ",
-              Enum.GetValues<eAuthProvider>()
-                  .Select(v => (short)v)
+          var enumValues = string.Join(", ",
+              Enum.GetValues<eAuthProvider>().Select(v => (short)v)
           );
 
           b.ToTable(tb =>
-              tb.HasCheckConstraint("CK_UserExternalLogins_AuthProvider", $"[AuthProvider] IN ({enumValues})")
+              tb.HasCheckConstraint(
+                  "CK_UserExternalLogins_AuthProvider",
+                  $"[AuthProvider] IN ({enumValues})"
+              )
           );
      }
 }

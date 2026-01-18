@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AchievementTracker.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260116031503_UsersAndRolesInitial")]
-    partial class UsersAndRolesInitial
+    [Migration("20260118042246_IsActiveDefaultTweak")]
+    partial class IsActiveDefaultTweak
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -46,7 +46,7 @@ namespace AchievementTracker.Data.Migrations
                     b.Property<bool>("IsListedOnLeaderboards")
                         .HasColumnType("bit");
 
-                    b.Property<DateTime?>("LastLoginOnUtc")
+                    b.Property<DateTime?>("LastLoginDate")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid>("PublicId")
@@ -69,11 +69,8 @@ namespace AchievementTracker.Data.Migrations
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
                 {
-                    b.Property<int>("RoleId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("RoleId"));
+                    b.Property<short>("RoleId")
+                        .HasColumnType("smallint");
 
                     b.Property<DateTime>("CreateDate")
                         .ValueGeneratedOnAdd()
@@ -149,7 +146,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("AuthProvider", "ProviderUserId")
                         .IsUnique();
 
-                    b.ToTable("UserExternalLogins", t =>
+                    b.ToTable("UserExternalLogins", null, t =>
                         {
                             t.HasCheckConstraint("CK_UserExternalLogins_AuthProvider", "[AuthProvider] IN (1)");
                         });
@@ -160,8 +157,8 @@ namespace AchievementTracker.Data.Migrations
                     b.Property<int>("AppUserId")
                         .HasColumnType("int");
 
-                    b.Property<int>("RoleId")
-                        .HasColumnType("int");
+                    b.Property<short>("RoleId")
+                        .HasColumnType("smallint");
 
                     b.HasKey("AppUserId", "RoleId");
 
@@ -172,8 +169,8 @@ namespace AchievementTracker.Data.Migrations
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserSteamProfile", b =>
                 {
-                    b.Property<int>("UserExternalLoginId")
-                        .HasColumnType("int");
+                    b.Property<long>("SteamId")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("AvatarFullUrl")
                         .HasMaxLength(256)
@@ -214,20 +211,21 @@ namespace AchievementTracker.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("nvarchar(256)");
 
-                    b.Property<long>("SteamId")
-                        .HasColumnType("bigint");
-
                     b.Property<DateTime>("UpdateDate")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
-                    b.HasKey("UserExternalLoginId");
+                    b.Property<int?>("UserExternalLoginId")
+                        .HasColumnType("int");
 
-                    b.HasIndex("SteamId")
-                        .IsUnique();
+                    b.HasKey("SteamId");
 
-                    b.ToTable("UserSteamProfiles");
+                    b.HasIndex("UserExternalLoginId")
+                        .IsUnique()
+                        .HasFilter("[UserExternalLoginId] IS NOT NULL");
+
+                    b.ToTable("SteamProfiles", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
@@ -265,8 +263,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasOne("AchievementTracker.Data.Entities.UserExternalLogin", "ExternalLogin")
                         .WithOne("SteamProfile")
                         .HasForeignKey("AchievementTracker.Data.Entities.UserSteamProfile", "UserExternalLoginId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("ExternalLogin");
                 });

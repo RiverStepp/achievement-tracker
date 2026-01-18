@@ -1,6 +1,6 @@
-﻿using AchievementTracker.Models.Options;
+﻿using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Models.Options;
 using AchievementTracker.Models.Responses;
-using AchievementTracker.Services;
 using AspNet.Security.OpenId.Steam;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
@@ -27,6 +27,7 @@ public class AuthController : ControllerBase
      {
           AuthenticationProperties properties = new AuthenticationProperties
           {
+               // try this?           RedirectUri = Url.Action(nameof(SteamCallback))!
                RedirectUri = "/auth/steam/callback"
           };
 

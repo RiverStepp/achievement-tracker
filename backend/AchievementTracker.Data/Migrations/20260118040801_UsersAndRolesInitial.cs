@@ -19,7 +19,7 @@ namespace AchievementTracker.Data.Migrations
                         .Annotation("SqlServer:Identity", "1, 1"),
                     PublicId = table.Column<Guid>(type: "uniqueidentifier", nullable: false, defaultValueSql: "NEWSEQUENTIALID()"),
                     IsListedOnLeaderboards = table.Column<bool>(type: "bit", nullable: false),
-                    LastLoginOnUtc = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    LastLoginDate = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
                     CreateDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()"),
                     UpdateDate = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "SYSUTCDATETIME()")
@@ -33,8 +33,7 @@ namespace AchievementTracker.Data.Migrations
                 name: "Roles",
                 columns: table => new
                 {
-                    RoleId = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
+                    RoleId = table.Column<short>(type: "smallint", nullable: false),
                     Name = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
                     Description = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: true),
                     IsActive = table.Column<bool>(type: "bit", nullable: false, defaultValue: true),
@@ -76,7 +75,7 @@ namespace AchievementTracker.Data.Migrations
                 columns: table => new
                 {
                     AppUserId = table.Column<int>(type: "int", nullable: false),
-                    RoleId = table.Column<int>(type: "int", nullable: false)
+                    RoleId = table.Column<short>(type: "smallint", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -96,11 +95,11 @@ namespace AchievementTracker.Data.Migrations
                 });
 
             migrationBuilder.CreateTable(
-                name: "UserSteamProfiles",
+                name: "SteamProfiles",
                 columns: table => new
                 {
-                    UserExternalLoginId = table.Column<int>(type: "int", nullable: false),
                     SteamId = table.Column<long>(type: "bigint", nullable: false),
+                    UserExternalLoginId = table.Column<int>(type: "int", nullable: true),
                     PersonaName = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: true),
                     ProfileUrl = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
                     AvatarSmallUrl = table.Column<string>(type: "nvarchar(256)", maxLength: 256, nullable: true),
@@ -115,13 +114,13 @@ namespace AchievementTracker.Data.Migrations
                 },
                 constraints: table =>
                 {
-                    table.PrimaryKey("PK_UserSteamProfiles", x => x.UserExternalLoginId);
+                    table.PrimaryKey("PK_SteamProfiles", x => x.SteamId);
                     table.ForeignKey(
-                        name: "FK_UserSteamProfiles_UserExternalLogins_UserExternalLoginId",
+                        name: "FK_SteamProfiles_UserExternalLogins_UserExternalLoginId",
                         column: x => x.UserExternalLoginId,
                         principalTable: "UserExternalLogins",
                         principalColumn: "UserExternalLoginId",
-                        onDelete: ReferentialAction.Cascade);
+                        onDelete: ReferentialAction.SetNull);
                 });
 
             migrationBuilder.CreateIndex(
@@ -135,6 +134,13 @@ namespace AchievementTracker.Data.Migrations
                 table: "Roles",
                 column: "Name",
                 unique: true);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_SteamProfiles_UserExternalLoginId",
+                table: "SteamProfiles",
+                column: "UserExternalLoginId",
+                unique: true,
+                filter: "[UserExternalLoginId] IS NOT NULL");
 
             migrationBuilder.CreateIndex(
                 name: "IX_UserExternalLogins_AppUserId_AuthProvider",
@@ -152,28 +158,22 @@ namespace AchievementTracker.Data.Migrations
                 name: "IX_UserRoles_RoleId",
                 table: "UserRoles",
                 column: "RoleId");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_UserSteamProfiles_SteamId",
-                table: "UserSteamProfiles",
-                column: "SteamId",
-                unique: true);
         }
 
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(
+                name: "SteamProfiles");
+
+            migrationBuilder.DropTable(
                 name: "UserRoles");
 
             migrationBuilder.DropTable(
-                name: "UserSteamProfiles");
+                name: "UserExternalLogins");
 
             migrationBuilder.DropTable(
                 name: "Roles");
-
-            migrationBuilder.DropTable(
-                name: "UserExternalLogins");
 
             migrationBuilder.DropTable(
                 name: "AppUsers");

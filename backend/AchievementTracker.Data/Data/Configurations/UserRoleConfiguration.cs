@@ -10,6 +10,10 @@ public sealed class UserRoleConfiguration: IEntityTypeConfiguration<UserRole>
      {
           b.HasKey(x => new { x.AppUserId, x.RoleId });
 
+          b.Property(x => x.RoleId)
+               .HasConversion<short>()
+               .HasColumnType("smallint");
+
           b.HasOne(x => x.AppUser)
               .WithMany(x => x.UserRoles)
               .HasForeignKey(x => x.AppUserId)

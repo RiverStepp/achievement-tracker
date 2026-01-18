@@ -4,9 +4,10 @@ namespace AchievementTracker.Data.Entities;
 
 public sealed class UserSteamProfile: AuditableEntity
 {
-     public int UserExternalLoginId { get; set; }
      public long SteamId { get; set; }
-     
+     public int? UserExternalLoginId { get; set; }
+
+
      // TODO
      // THERE IS A SLIM CHANCE THAT STEAM WILL FAIL TO RETRIEVE THIS DATA WHEN WE CREATE A PROFILE
      // If it fails on account creation, we should still allow the user to create an account 
@@ -21,6 +22,6 @@ public sealed class UserSteamProfile: AuditableEntity
      public DateTime? LastSyncedDate { get; set; }
 
      #region navigation
-     public UserExternalLogin ExternalLogin { get; set; } = null!;
+     public UserExternalLogin? ExternalLogin { get; set; }
      #endregion
 }
