@@ -27,11 +27,10 @@ public class AuthController : ControllerBase
      {
           AuthenticationProperties properties = new AuthenticationProperties
           {
-               // try this?           RedirectUri = Url.Action(nameof(SteamCallback))!
-               RedirectUri = "/auth/steam/callback"
+               RedirectUri = Url.Action(nameof(SteamCallback))
           };
 
-          return Challenge(properties, new[] { SteamAuthenticationDefaults.AuthenticationScheme });
+          return Challenge(properties, [SteamAuthenticationDefaults.AuthenticationScheme]);
      }
 
      // Phase 2: Steam returns here
