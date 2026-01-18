@@ -1,11 +1,14 @@
-﻿using System.Text;
+﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Repositories;
+using AchievementTracker.Api.Services.BusinessLogic;
+using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Extensions;
 using AchievementTracker.Models.Options;
-using AchievementTracker.Services;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using System.Text;
 using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -117,6 +120,14 @@ builder.Services.AddSwaggerGen(options =>
           }
      });
 });
+
+builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
+{
+     client.BaseAddress = new Uri(builder.Configuration["Steam:BaseUrl"]!);
+});
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
 
 WebApplication app = builder.Build();
 

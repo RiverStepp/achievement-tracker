@@ -5,7 +5,7 @@
 namespace AchievementTracker.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class AddExampleEntity : Migration
+    public partial class IsActiveDefaultTweak : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)

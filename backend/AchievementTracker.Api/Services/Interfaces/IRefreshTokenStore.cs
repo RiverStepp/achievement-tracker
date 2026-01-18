@@ -1,6 +1,4 @@
-﻿using Microsoft.AspNetCore.Http;
-
-namespace AchievementTracker.Services;
+﻿namespace AchievementTracker.Api.Services.Interfaces;
 
 public interface IRefreshTokenStore
 {
