@@ -27,8 +27,11 @@ async function main() {
     resumeFrom: process.env.RESUME_FROM
   };
 
+  // Get tracking API URL if configured
+  const trackingApiUrl = process.env.TRACKING_API_URL;
+
   // Initialize services
-  const scraper = new SteamScraper(config);
+  const scraper = new SteamScraper(config, trackingApiUrl);
   const dataStorage = new DataStorage('./data');
 
   // Example Steam IDs to scrape (replace with actual IDs)

@@ -8,7 +8,7 @@ import { ScrapingConfig } from '../types';
 export class ScraperApiService {
   private scraper: SteamScraper;
 
-  constructor(steamApiKey: string) {
+  constructor(steamApiKey: string, trackingApiUrl?: string) {
     const config: ScrapingConfig = {
       steamApiKey,
       maxConcurrentRequests: 1,
@@ -16,7 +16,11 @@ export class ScraperApiService {
       maxRetries: 3,
       outputFile: './data/steam_achievements.json'
     };
-    this.scraper = new SteamScraper(config);
+    this.scraper = new SteamScraper(config, trackingApiUrl);
+  }
+
+  cancel(): void {
+    this.scraper.cancel();
   }
 
   /**

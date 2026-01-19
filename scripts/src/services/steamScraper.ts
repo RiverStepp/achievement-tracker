@@ -11,10 +11,11 @@ export class SteamScraper {
     private progress: ScrapingProgress;
     private outputData: any[] = [];
     private dbService: DatabaseService | null = null;
+    private cancellationToken: { cancelled: boolean } = { cancelled: false };
 
-    constructor(config: ScrapingConfig) {
+    constructor(config: ScrapingConfig, trackingApiUrl?: string) {
         this.config = config;
-        this.steamApi = new SteamApiService(config.steamApiKey);
+        this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl);
         this.progress = {
             totalUsers: 0,
             completedUsers: 0,
@@ -22,6 +23,12 @@ export class SteamScraper {
             errors: 0,
             achievementsFound: 0
         };
+        this.steamApi.setCancellationToken(this.cancellationToken);
+    }
+
+    cancel(): void {
+        this.cancellationToken.cancelled = true;
+        console.log('Scraping operation cancelled');
     }
 
     private async getDbService(): Promise<DatabaseService> {
@@ -33,6 +40,10 @@ export class SteamScraper {
     }
 
     async scrapeUser(usernameOrId: string): Promise<{ steamId: string; username: string; gameStats: SteamGameStats[]; outputFile: string } | null> {
+        if (this.cancellationToken.cancelled) {
+            throw new Error('Operation cancelled');
+        }
+
         console.log(`\nScraping user: ${usernameOrId}`);
         this.progress.currentUser = usernameOrId;
 
@@ -63,6 +74,10 @@ export class SteamScraper {
             // Process games in batches to avoid overwhelming the API
             const batchSize = 5;
             for (let i = 0; i < games.length; i += batchSize) {
+                if (this.cancellationToken.cancelled) {
+                    throw new Error('Operation cancelled');
+                }
+
                 const batch = games.slice(i, i + batchSize);
                 const batchPromises = batch.map(async (game) => {
                     try {

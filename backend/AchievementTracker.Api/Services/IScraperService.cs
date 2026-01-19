@@ -3,6 +3,8 @@ namespace AchievementTracker.Services;
 public interface IScraperService
 {
     Task<ScrapeResult> ScrapeUserAsync(string steamIdOrUsername);
+    bool CancelScraping(string? processId = null);
+    int GetRunningProcessCount();
 }
 
 public class ScrapeResult

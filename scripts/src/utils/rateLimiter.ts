@@ -4,13 +4,18 @@ export class RateLimiter {
   private requests: number[] = [];
   private dailyRequests: number = 0;
   private lastReset: number = Date.now();
-  private readonly maxRequestsPer10Seconds = 10;
+  private readonly maxRequestsPerSecond = 1; // 1 request per second
   private readonly maxRequestsPerDay = 100000;
   private readonly resetInterval = 24 * 60 * 60 * 1000; // 24 hours
+  private cancellationToken: { cancelled: boolean } = { cancelled: false };
 
   constructor() {
     // Reset daily counter if it's been more than 24 hours
     this.resetIfNeeded();
+  }
+
+  setCancellationToken(token: { cancelled: boolean }): void {
+    this.cancellationToken = token;
   }
 
   private resetIfNeeded(): void {
@@ -22,12 +27,17 @@ export class RateLimiter {
   }
 
   async waitIfNeeded(): Promise<void> {
+    // Check for cancellation
+    if (this.cancellationToken.cancelled) {
+      throw new Error('Operation cancelled');
+    }
+
     this.resetIfNeeded();
     
     const now = Date.now();
     
-    // Remove requests older than 10 seconds
-    this.requests = this.requests.filter(time => now - time < 10000);
+    // Remove requests older than 1 second (for 1 req/sec limit)
+    this.requests = this.requests.filter(time => now - time < 1000);
     
     // Check if we've hit the daily limit
     if (this.dailyRequests >= this.maxRequestsPerDay) {
@@ -37,13 +47,18 @@ export class RateLimiter {
       this.resetIfNeeded();
     }
     
-    // Check if we've hit the 10-second limit
-    if (this.requests.length >= this.maxRequestsPer10Seconds) {
+    // Check if we've hit the 1-second limit (1 request per second)
+    if (this.requests.length >= this.maxRequestsPerSecond) {
       const oldestRequest = Math.min(...this.requests);
-      const waitTime = 10000 - (now - oldestRequest);
+      const waitTime = 1000 - (now - oldestRequest);
       if (waitTime > 0) {
-        console.log(`Rate limit reached. Waiting ${Math.ceil(waitTime / 1000)} seconds...`);
+        console.log(`Rate limit: Waiting ${Math.ceil(waitTime)}ms before next request...`);
         await this.sleep(waitTime);
+        
+        // Check for cancellation after waiting
+        if (this.cancellationToken.cancelled) {
+          throw new Error('Operation cancelled');
+        }
       }
     }
     
@@ -55,12 +70,12 @@ export class RateLimiter {
   getRateLimitInfo(): RateLimitInfo {
     this.resetIfNeeded();
     const now = Date.now();
-    const requestsInLast10Seconds = this.requests.filter(time => now - time < 10000).length;
+    const requestsInLastSecond = this.requests.filter(time => now - time < 1000).length;
     
     return {
-      requestsPer10Seconds: requestsInLast10Seconds,
+      requestsPer10Seconds: requestsInLastSecond, // Keep for compatibility, but represents per-second now
       requestsPerDay: this.dailyRequests,
-      currentRequests: requestsInLast10Seconds,
+      currentRequests: requestsInLastSecond,
       resetTime: this.lastReset + this.resetInterval
     };
   }

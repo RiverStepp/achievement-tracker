@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Text;
 using System.Linq;
@@ -8,10 +9,13 @@ public class ScraperService : IScraperService
 {
     private readonly IConfiguration _configuration;
     private readonly string _scriptsDirectory;
+    private readonly ConcurrentDictionary<string, Process> _runningProcesses = new();
+    private readonly ILogger<ScraperService> _logger;
 
-    public ScraperService(IConfiguration configuration)
+    public ScraperService(IConfiguration configuration, ILogger<ScraperService> logger)
     {
         _configuration = configuration;
+        _logger = logger;
 
         // Get scripts directory path (relative to backend directory)
         // Try multiple path patterns to find the scripts directory
@@ -90,7 +94,15 @@ public class ScraperService : IScraperService
                 ?? _configuration["KeyVault:VaultUri"]
                 ?? throw new InvalidOperationException("Key Vault URI not configured");
 
-            using var process = Process.Start(processStartInfo);
+            // Set tracking API URL if configured
+            var trackingApiUrl = _configuration["Tracking:ApiUrl"] 
+                ?? Environment.GetEnvironmentVariable("TRACKING_API_URL");
+            if (!string.IsNullOrWhiteSpace(trackingApiUrl))
+            {
+                processStartInfo.Environment["TRACKING_API_URL"] = trackingApiUrl;
+            }
+
+            var process = Process.Start(processStartInfo);
             if (process == null)
             {
                 return new ScrapeResult
@@ -99,6 +111,16 @@ public class ScraperService : IScraperService
                     ErrorMessage = "Failed to start scraper process"
                 };
             }
+
+            // Track the process for cancellation
+            var processId = process.Id.ToString();
+            _runningProcesses.TryAdd(processId, process);
+
+            // Clean up when process exits
+            process.Exited += (sender, e) =>
+            {
+                _runningProcesses.TryRemove(processId, out _);
+            };
 
             var output = new StringBuilder();
             var errorOutput = new StringBuilder();
@@ -123,6 +145,9 @@ public class ScraperService : IScraperService
             process.BeginErrorReadLine();
 
             await process.WaitForExitAsync();
+
+            // Remove from tracking
+            _runningProcesses.TryRemove(processId, out _);
 
             if (process.ExitCode == 0)
             {
@@ -294,5 +319,73 @@ public class ScraperService : IScraperService
         }
 
         return (null, string.Empty);
+    }
+
+    public bool CancelScraping(string? processId = null)
+    {
+        if (string.IsNullOrWhiteSpace(processId))
+        {
+            // Cancel all running processes
+            var cancelled = false;
+            foreach (var kvp in _runningProcesses.ToArray())
+            {
+                try
+                {
+                    if (!kvp.Value.HasExited)
+                    {
+                        kvp.Value.Kill();
+                        cancelled = true;
+                        _logger.LogInformation("Cancelled scraping process {ProcessId}", kvp.Key);
+                    }
+                    _runningProcesses.TryRemove(kvp.Key, out _);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cancelling process {ProcessId}", kvp.Key);
+                }
+            }
+            return cancelled;
+        }
+        else
+        {
+            // Cancel specific process
+            if (_runningProcesses.TryGetValue(processId, out var process))
+            {
+                try
+                {
+                    if (!process.HasExited)
+                    {
+                        process.Kill();
+                        _logger.LogInformation("Cancelled scraping process {ProcessId}", processId);
+                        return true;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Error cancelling process {ProcessId}", processId);
+                }
+                finally
+                {
+                    _runningProcesses.TryRemove(processId, out _);
+                }
+            }
+            return false;
+        }
+    }
+
+    public int GetRunningProcessCount()
+    {
+        // Clean up exited processes
+        var toRemove = _runningProcesses
+            .Where(kvp => kvp.Value.HasExited)
+            .Select(kvp => kvp.Key)
+            .ToList();
+        
+        foreach (var key in toRemove)
+        {
+            _runningProcesses.TryRemove(key, out _);
+        }
+
+        return _runningProcesses.Count;
     }
 }

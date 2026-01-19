@@ -96,6 +96,7 @@ builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IScraperService, ScraperService>();
 builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddSingleton<ISteamApiTrackingService, SteamApiTrackingService>();
 
 builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);

@@ -1,5 +1,6 @@
 ﻿using AchievementTracker.Models.Dtos;
 using AchievementTracker.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AchievementTracker.Controllers;
@@ -58,6 +59,47 @@ public class ScraperController : ControllerBase
         {
             _logger.LogError(ex, "Error processing scrape request");
             return StatusCode(500, new { success = false, error = "Internal server error", message = ex.Message });
+        }
+    }
+
+    [HttpPost("cancel")]
+    [Authorize]
+    public IActionResult CancelScraping([FromQuery] string? processId = null)
+    {
+        try
+        {
+            var cancelled = _scraperService.CancelScraping(processId);
+            return Ok(new
+            {
+                success = true,
+                cancelled = cancelled,
+                message = cancelled ? "Scraping operation cancelled" : "No running scraping operations found"
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error cancelling scraping operation");
+            return StatusCode(500, new { success = false, error = "Failed to cancel scraping operation", message = ex.Message });
+        }
+    }
+
+    [HttpGet("status")]
+    [Authorize]
+    public IActionResult GetScrapingStatus()
+    {
+        try
+        {
+            var runningCount = _scraperService.GetRunningProcessCount();
+            return Ok(new
+            {
+                runningProcesses = runningCount,
+                isRunning = runningCount > 0
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error getting scraping status");
+            return StatusCode(500, new { success = false, error = "Failed to get scraping status", message = ex.Message });
         }
     }
 }
