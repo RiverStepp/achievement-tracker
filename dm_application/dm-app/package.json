@@ -1,0 +1,24 @@
+{
+  "name": "simple-dm-app",
+  "version": "1.0.0",
+  "description": "A WebSocket-based direct messaging application",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": [
+    "websocket",
+    "dm",
+    "chat",
+    "messaging"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
