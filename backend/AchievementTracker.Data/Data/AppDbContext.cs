@@ -1,38 +1,63 @@
 using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities.Common;
 using Microsoft.EntityFrameworkCore;
 
 namespace AchievementTracker.Data.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
-    public DbSet<ExampleEntity> Examples => Set<ExampleEntity>();
+     public DbSet<AppUser> AppUsers => Set<AppUser>();
+     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
+     public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
+     public DbSet<Role> Roles => Set<Role>();
+     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
-    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
-    {
-        if (!optionsBuilder.IsConfigured)
-        {
-            // This fallback allows design-time commands to run if DI has not configured the context.
-            optionsBuilder.UseSqlServer("Name=ConnectionStrings:DefaultConnection");
-        }
-    }
+     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+     {
+          if (!optionsBuilder.IsConfigured)
+          {
+               // This fallback allows design-time commands to run if DI has not configured the context.
+               optionsBuilder.UseSqlServer("Name=ConnectionStrings:DefaultConnection");
+          }
+     }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
+     public override int SaveChanges()
+     {
+          ApplyAuditStamps();
+          return base.SaveChanges();
+     }
 
-        modelBuilder.Entity<ExampleEntity>(entity =>
-        {
-            entity.ToTable("Examples");
+     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+     {
+          ApplyAuditStamps();
+          return base.SaveChangesAsync(cancellationToken);
+     }
 
-            entity.HasKey(e => e.Id);
+     private void ApplyAuditStamps()
+     {
+          var now = DateTime.UtcNow;
 
-            entity.Property(e => e.Name)
-                  .HasMaxLength(256)
-                  .IsRequired();
+          foreach (var entry in ChangeTracker.Entries<AuditableEntity>())
+          {
+               if (entry.State == EntityState.Added)
+               {
+                    entry.Entity.CreateDate = now;
+                    entry.Entity.UpdateDate = now;
+               }
+               else if(entry.State == EntityState.Modified)
+               {
+                    // Prevents me from being dumb and changing the create date 
+                    entry.Property(x => x.CreateDate).IsModified = false;
 
-            entity.Property(e => e.CreatedAt)
-                  .HasDefaultValueSql("GETUTCDATE()");
-        });
-    }
+                    entry.Entity.UpdateDate = now;
+               } 
+          }
+     }
+
+     protected override void OnModelCreating(ModelBuilder modelBuilder)
+     {
+          base.OnModelCreating(modelBuilder);
+          modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+     }
 }
 
