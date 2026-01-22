@@ -1,5 +1,6 @@
 ﻿using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.DataAccess.Repositories;
+using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Services.BusinessLogic;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Extensions;
@@ -45,7 +46,7 @@ builder.Services.AddCors(options =>
 });
 
 // REDIS_REQUIRED: Replace this with a Redis-backed IDistributedCache for restart-safe + multi-instance refresh tokens.
-builder.Services.AddDistributedMemoryCache();
+// builder.Services.AddDistributedMemoryCache();
 
 builder.Services.AddAuthentication(options =>
 {
@@ -128,6 +129,24 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+
+// Redis
+RedisOptions redisOptions = new RedisOptions();
+builder.Configuration.GetSection("Redis").Bind(redisOptions);
+
+if (string.IsNullOrWhiteSpace(redisOptions.ConnectionString))
+    throw new InvalidOperationException("Missing config: Redis:ConnectionString");
+
+if (string.IsNullOrWhiteSpace(redisOptions.InstanceName))
+    throw new InvalidOperationException("Missing config: Redis:InstanceName");
+
+builder.Services.AddSingleton(redisOptions);
+
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = redisOptions.ConnectionString;
+    options.InstanceName = redisOptions.InstanceName;
+});
 
 WebApplication app = builder.Build();
 
