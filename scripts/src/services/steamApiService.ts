@@ -8,11 +8,13 @@ export class SteamApiService {
   private baseUrl = 'https://api.steampowered.com';
   private trackingApiUrl: string | null = null;
   private cancellationToken: { cancelled: boolean } = { cancelled: false };
+  private isInvokedThroughApi: boolean = false;
 
-  constructor(apiKey: string, trackingApiUrl?: string) {
+  constructor(apiKey: string, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
     this.apiKey = apiKey;
     this.rateLimiter = new RateLimiter();
     this.trackingApiUrl = trackingApiUrl || process.env.TRACKING_API_URL || null;
+    this.isInvokedThroughApi = isInvokedThroughApi;
     this.rateLimiter.setCancellationToken(this.cancellationToken);
   }
 
@@ -45,7 +47,10 @@ export class SteamApiService {
       throw new Error('Operation cancelled');
     }
 
-    await this.rateLimiter.waitIfNeeded();
+    // Skip rate limiting if invoked through API (API handles rate limiting)
+    if (!this.isInvokedThroughApi) {
+      await this.rateLimiter.waitIfNeeded();
+    }
 
     const startTime = Date.now();
     const fullUrl = `${this.baseUrl}${endpoint}`;

@@ -3,6 +3,7 @@ import { SteamScraper } from './services/steamScraper';
 import { DataStorage } from './utils/dataStorage';
 import { ScrapingConfig } from './types';
 import { ScraperApiService } from './services/scraperApi';
+import { loadSteamApiKey } from './config/configLoader';
 
 // Load environment variables
 dotenv.config();
@@ -10,10 +11,12 @@ dotenv.config();
 async function main() {
   console.log('Steam Achievement Scraper Starting...\n');
 
-  // Validate required environment variables
-  const steamApiKey = process.env.STEAM_API_KEY;
-  if (!steamApiKey) {
-    console.error('STEAM_API_KEY environment variable is required');
+  // Load Steam API key: Key Vault -> Environment variables
+  let steamApiKey: string;
+  try {
+    steamApiKey = await loadSteamApiKey();
+  } catch (error) {
+    console.error('Error loading Steam API key:', error instanceof Error ? error.message : String(error));
     process.exit(1);
   }
 

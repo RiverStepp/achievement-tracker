@@ -73,12 +73,23 @@
   dotnet ef database update
   ```
 
-## Step 7: Run the API from Visual Studio. The API will run on port 7111.
+## Step 7: Setup HTTPS (One-time)
 
-## Step 8: Restore dependencies & run the frontend
+Run this command to trust the .NET development certificate:
+```powershell
+dotnet dev-certs https --trust
+```
+
+## Step 8: Run the API from Visual Studio. The API will run on https://localhost:7111.
+
+## Step 9: Restore dependencies & run the frontend
 
 * Open a new PowerShell instance
 * cd into frontend folder
 * Type "npm i" to restore dependencies
 * Type "npm run dev" to start the dev server
-* The frontend will now be running on port 5173.
+* The frontend will now be running on https://localhost:5173.
+
+## Production Deployment
+
+For Azure deployment, see [DEPLOYMENT.md](./DEPLOYMENT.md).

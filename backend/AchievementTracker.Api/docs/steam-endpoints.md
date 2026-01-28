@@ -1,8 +1,8 @@
 # Steam API Endpoints
 
-This document lists all Steam API endpoints that are called by the achievement tracker scraper.
+Complete list of Steam API endpoints used by the scraper. All endpoints are defined in `SteamApiService.STEAM_ENDPOINTS`.
 
-## Endpoints Used
+## Endpoints
 
 ### 1. Resolve Vanity URL
 - **Endpoint**: `/ISteamUser/ResolveVanityURL/v0001/`
@@ -57,25 +57,16 @@ This document lists all Steam API endpoints that are called by the achievement t
 - **Used in**: `SteamApiService.getGameSchema()`
 - **Note**: Currently available but not actively used in the scraping flow
 
-## Rate Limiting
+## Rate Limiting & Configuration
 
-- **Rate Limit**: 1 request per second
+- **Rate Limit**: 1 request per second (when `IsInvokedThroughApi=0`)
 - **Daily Limit**: 100,000 requests per day
-- **Implementation**: `RateLimiter` class in `scripts/src/utils/rateLimiter.ts`
+- **IsInvokedThroughApi=1**: Script skips rate limiting (API handles it)
+- **IsInvokedThroughApi=0**: Script enforces 1 req/sec
 
-## Tracking
+## API Endpoints
 
-All Steam API calls are tracked and can be monitored via the API:
-
-- **View Stats**: `GET /api/steam-api/stats`
-- **View Recent Calls**: `GET /api/steam-api/calls?limit=100`
-- **View Endpoint Summaries**: `GET /api/steam-api/endpoints`
-- **Clear History**: `DELETE /api/steam-api/history`
-
-## Cancellation
-
-Scraping operations can be cancelled:
-
-- **Cancel All**: `POST /api/scraper/cancel`
-- **Cancel Specific**: `POST /api/scraper/cancel?processId={id}`
-- **Check Status**: `GET /api/scraper/status`
+- `GET /api/steam-api/stats` - View API call statistics
+- `GET /api/steam-api/calls` - View recent API calls
+- `GET /api/steam-api/endpoints` - View endpoint summaries
+- `POST /api/scraper/cancel` - Cancel scraping operations

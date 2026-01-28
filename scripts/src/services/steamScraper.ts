@@ -2,20 +2,18 @@ import { SteamApiService } from './steamApiService';
 import { SteamUser, SteamGame, SteamGameStats, ScrapingProgress, ScrapingConfig } from '../types';
 import { getConnection } from '../database/connection';
 import { DatabaseService } from '../database/models';
-import * as fs from 'fs';
-import * as path from 'path';
 
 export class SteamScraper {
     private steamApi: SteamApiService;
-    private config: ScrapingConfig;
+    private config: ScrapingConfig; 
     private progress: ScrapingProgress;
     private outputData: any[] = [];
     private dbService: DatabaseService | null = null;
     private cancellationToken: { cancelled: boolean } = { cancelled: false };
 
-    constructor(config: ScrapingConfig, trackingApiUrl?: string) {
+    constructor(config: ScrapingConfig, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
         this.config = config;
-        this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl);
+        this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl, isInvokedThroughApi);
         this.progress = {
             totalUsers: 0,
             completedUsers: 0,
@@ -70,6 +68,9 @@ export class SteamScraper {
             console.log(`Found ${games.length} games`);
 
             const gameStats: SteamGameStats[] = [];
+            
+            // Store games with playtime for saving to database
+            const gamesWithPlaytime = games;
 
             // Process games in batches to avoid overwhelming the API
             const batchSize = 5;
@@ -116,7 +117,7 @@ export class SteamScraper {
             console.log(`Completed scraping for ${username}. Found ${gameStats.length} games with data.`);
 
             // Save to database only (file saving commented out - uncomment for debugging)
-            await this.saveUserToDatabase(steamId, userProfile, gameStats);
+            await this.saveUserToDatabase(steamId, userProfile, gameStats, gamesWithPlaytime);
 
             return {
                 steamId,
@@ -148,13 +149,7 @@ export class SteamScraper {
                         outputFile: result.outputFile
                     });
 
-                    // Output data collection (commented out - only needed for file saving/debugging)
-                    // this.outputData.push({
-                    //   steamId: result.steamId,
-                    //   username: result.username,
-                    //   timestamp: new Date().toISOString(),
-                    //   gameStats: result.gameStats
-                    // });
+                   
                 }
 
                 this.progress.completedUsers++;
@@ -174,8 +169,6 @@ export class SteamScraper {
             }
         }
 
-        // Final save (commented out - uncomment for debugging)
-        // await this.saveProgress();
         console.log(`\nScraping completed!`);
         this.printFinalStats();
 
@@ -200,57 +193,44 @@ export class SteamScraper {
         console.log(`Data saved to database`);
     }
 
-    /** File saving method (commented out - uncomment for debugging)
-    private async saveUserData(steamId: string, username: string, userProfile: SteamUser, gameStats: SteamGameStats[]): Promise<string> {
-      try {
-        const outputDir = path.join(path.dirname(this.config.outputFile), 'users');
-        if (!fs.existsSync(outputDir)) {
-          fs.mkdirSync(outputDir, { recursive: true });
-        }
-  
-        // Sanitize username for filename (remove invalid characters)
-        const safeUsername = username.replace(/[<>:"/\\|?*]/g, '_').trim() || steamId;
-        const filename = `${safeUsername}_${steamId}.json`;
-        const filepath = path.join(outputDir, filename);
-  
-        const output = {
-          steamId,
-          username,
-          scrapedAt: new Date().toISOString(),
-          summary: {
-            totalGames: gameStats.length,
-           totalAchievements: gameStats.reduce((sum, game) => sum + game.achievements.length, 0),
-            completedGames: gameStats.filter(game => 
-              game.achievements.length > 0 && 
-              game.achievements.every(ach => ach.achieved === 1)
-            ).length
-         },
-          gameStats
-        };
-  
-        fs.writeFileSync(filepath, JSON.stringify(output, null, 2));
-        console.log(`User data saved to ${filepath}`);
-        return filepath;
-      } catch (error) {
-        console.error(`Error saving user data:`, error);
-        throw error;
-      }
-    }
-  */
-
-    private async saveUserToDatabase(steamId: string, userProfile: SteamUser, gameStats: SteamGameStats[]): Promise<void> {
+    private async saveUserToDatabase(steamId: string, userProfile: SteamUser, gameStats: SteamGameStats[], games: SteamGame[]): Promise<void> {
         try {
             const dbService = await this.getDbService();
 
             // Save user to database
-            // Use steamId as string to preserve precision (Steam IDs can exceed Number.MAX_SAFE_INTEGER)
+            // Convert steamId to bigint to preserve precision (Steam IDs can exceed Number.MAX_SAFE_INTEGER)
             const userId = await dbService.upsertUser({
-                steam_id: steamId, // Keep as string to avoid precision loss
+                steam_id: BigInt(steamId),
                 username: userProfile.personaname || steamId,
                 profile_url: userProfile.profileurl,
                 avatar_url: userProfile.avatarfull || userProfile.avatar
             });
             console.log(`User saved to database with ID: ${userId}`);
+
+            // Save user's owned games with playtime
+            let gamesSaved = 0;
+            for (const game of games) {
+                if (!game.appid) {
+                    continue;
+                }
+
+                // Get game ID from database
+                const gameId = await dbService.getGameIdBySteamAppId(game.appid);
+                if (!gameId) {
+                    console.log(`Game ${game.name} (${game.appid}) not found in database, skipping`);
+                    continue;
+                }
+
+                // Save user game with playtime
+                await dbService.upsertUserGame({
+                    user_id: userId,
+                    game_id: gameId,
+                    playtime_forever: game.playtime_forever || 0,
+                    playtime_2weeks: game.playtime_2weeks || 0
+                });
+                gamesSaved++;
+            }
+            console.log(`Saved ${gamesSaved} user games with playtime to database`);
 
             // Save user achievements to database
             let achievementsSaved = 0;
@@ -270,7 +250,7 @@ export class SteamScraper {
                 // Save each unlocked achievement
                 for (const achievement of gameStat.achievements) {
                     if (achievement.achieved === 1) { // Only save unlocked achievements
-                        const achievementId = await dbService.getAchievementIdBySteamApiname(gameId, achievement.apiname);
+                        const achievementId = await dbService.getAchievementIdBySteamApiName(gameId, achievement.apiname);
                         if (achievementId) {
                             // Convert unlocktime (Unix timestamp) to Date
                             const unlockedAt = achievement.unlocktime > 0
@@ -296,30 +276,6 @@ export class SteamScraper {
             // Don't throw - allow file saving to continue even if database save fails
         }
     }
-    /** Progress file saving method (commented out - uncomment for debugging)
-     private async saveProgress(): Promise<void> {
-       try {
-         const outputDir = path.dirname(this.config.outputFile);
-         if (!fs.existsSync(outputDir)) {
-           fs.mkdirSync(outputDir, { recursive: true });
-         }
-         const output = {
-           metadata: {
-             scrapedAt: new Date().toISOString(),
-             totalUsers: this.progress.totalUsers,
-             completedUsers: this.progress.completedUsers,
-             achievementsFound: this.progress.achievementsFound,
-             errors: this.progress.errors
-             },
-             data: this.outputData
-           };
-         fs.writeFileSync(this.config.outputFile, JSON.stringify(output, null, 2));
-         console.log(`Progress saved to ${this.config.outputFile}`);
-       } catch (error) {
-         console.error(`Error saving progress:`, error);
-       }
-     }
-    */
 
     private sleep(ms: number): Promise<void> {
         return new Promise(resolve => setTimeout(resolve, ms));

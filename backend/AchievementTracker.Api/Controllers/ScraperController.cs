@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Models.Dtos;
+using AchievementTracker.Models.Dtos;
 using AchievementTracker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -28,9 +28,14 @@ public class ScraperController : ControllerBase
 
         try
         {
-            _logger.LogInformation("Scrape request received for: {SteamIdOrUsername}", request.SteamIdOrUsername);
+            // When called from API, isInvokedThroughApi=true (API handles rate limiting)
+            // If useDirectMode=true, then isInvokedThroughApi=false (direct to Steam)
+            var isInvokedThroughApi = !request.UseDirectMode;
+            
+            _logger.LogInformation("Scrape request received for: {SteamIdOrUsername}, IsInvokedThroughApi: {IsInvokedThroughApi}", 
+                request.SteamIdOrUsername, isInvokedThroughApi);
 
-            var result = await _scraperService.ScrapeUserAsync(request.SteamIdOrUsername);
+            var result = await _scraperService.ScrapeUserAsync(request.SteamIdOrUsername, isInvokedThroughApi);
 
             if (result.Success)
             {

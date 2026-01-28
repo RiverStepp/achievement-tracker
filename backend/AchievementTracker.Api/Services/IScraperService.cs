@@ -2,7 +2,7 @@ namespace AchievementTracker.Services;
 
 public interface IScraperService
 {
-    Task<ScrapeResult> ScrapeUserAsync(string steamIdOrUsername);
+    Task<ScrapeResult> ScrapeUserAsync(string steamIdOrUsername, bool isInvokedThroughApi = true);
     bool CancelScraping(string? processId = null);
     int GetRunningProcessCount();
 }

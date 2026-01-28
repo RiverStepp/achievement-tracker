@@ -9,11 +9,12 @@ export default defineConfig({
         }
     },
     server: {
+        https: true, // Enable HTTPS for frontend dev server
         proxy: {
             '/api': {
-                target: 'http://localhost:7111',
+                target: 'https://localhost:7111',
                 changeOrigin: true,
-                secure: false,
+                secure: false, // Set to false for self-signed certificates in development
             },
         },
     },

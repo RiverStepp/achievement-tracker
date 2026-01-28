@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using AchievementTracker.Data.Extensions;
 using AchievementTracker.Models.Options;
 using AchievementTracker.Services;

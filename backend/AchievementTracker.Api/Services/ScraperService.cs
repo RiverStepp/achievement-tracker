@@ -37,7 +37,7 @@ public class ScraperService : IScraperService
             ?? possiblePaths[0]; // Fallback to first pattern if none exist (will error later with better message)
     }
 
-    public async Task<ScrapeResult> ScrapeUserAsync(string steamIdOrUsername)
+    public async Task<ScrapeResult> ScrapeUserAsync(string steamIdOrUsername, bool isInvokedThroughApi = true)
     {
         try
         {
@@ -61,7 +61,8 @@ public class ScraperService : IScraperService
             }
 
             // Find npx or ts-node executable
-            var (executable, arguments) = FindTsNodeExecutable(_scriptsDirectory, nodeExe, steamIdOrUsername);
+            // When called from API, isInvokedThroughApi=true (API handles rate limiting)
+            var (executable, arguments) = FindTsNodeExecutable(_scriptsDirectory, nodeExe, steamIdOrUsername, isInvokedThroughApi);
 
             if (executable == null)
             {
@@ -101,6 +102,12 @@ public class ScraperService : IScraperService
             {
                 processStartInfo.Environment["TRACKING_API_URL"] = trackingApiUrl;
             }
+
+            // Set API URL for script to call backend (if in API mode)
+            var apiUrl = _configuration["Api:BaseUrl"] 
+                ?? Environment.GetEnvironmentVariable("API_URL")
+                ?? "http://localhost:5000";
+            processStartInfo.Environment["API_URL"] = apiUrl;
 
             var process = Process.Start(processStartInfo);
             if (process == null)
@@ -256,9 +263,11 @@ public class ScraperService : IScraperService
         return null;
     }
 
-    private (string? executable, string arguments) FindTsNodeExecutable(string scriptsDirectory, string nodeExe, string steamIdOrUsername)
+    private (string? executable, string arguments) FindTsNodeExecutable(string scriptsDirectory, string nodeExe, string steamIdOrUsername, bool isInvokedThroughApi = false)
     {
-        var scriptArgs = $@"src\testScraper.ts ""{steamIdOrUsername}""";
+        // IsInvokedThroughApi: 1 = through API (API handles rate limiting), 0 = direct to Steam
+        var apiFlag = isInvokedThroughApi ? " IsInvokedThroughApi=1" : " IsInvokedThroughApi=0";
+        var scriptArgs = $@"src\testScraper.ts ""{steamIdOrUsername}""{apiFlag}";
 
         // Try to find npx first (most reliable)
         var nodeDir = Path.GetDirectoryName(nodeExe);
