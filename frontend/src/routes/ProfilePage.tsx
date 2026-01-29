@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import type { UserProfile } from "@/types/profile";
 import { useAuth } from "@/auth/AuthProvider";
 
-import { mockUserProfile } from "@/data/mockUser";
+import { mockProfile } from "@/data/mockUser";
 
 export function ProfilePage() {
   const { handle } = useParams<{ handle: string }>();
@@ -24,9 +24,9 @@ export function ProfilePage() {
     // dev: use mock profile only when the handle matches
     if (
       USE_MOCK_PROFILE &&
-      handle.toLowerCase() === mockUserProfile.user.handle.toLowerCase()
+      handle.toLowerCase() === mockProfile.user.handle.toLowerCase()
     ) {
-      setProfile(mockUserProfile);
+      setProfile(mockProfile);
       setLoading(false);
       return;
     }

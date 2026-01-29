@@ -10,9 +10,9 @@ module.exports = {
         },
         app: {
           bg: '#232a34',
-          panel: '#454D58',
+          panel: '#2f3643',
           panel2: '#3a4452',
-          border: '#1b2028',
+          border: '#181c23',
           text: '#e2e8f0',
           muted: '#94a3b8',
         },

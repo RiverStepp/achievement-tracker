@@ -19,10 +19,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     console.log("Current user:", user);
-    
   }, []);
-
-  
 
   return (
     <>
@@ -45,29 +42,36 @@ const App: React.FC = () => {
         </Sheet>
       </div>
 
-      {/* Main Layout*/}
-      <div className="min-h-screen grid grid-rows-[auto_1fr_auto] grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)]">
-        {/* Navbar */}
-        <header className="p-4 lg:col-span-2">
+      {/* Main Layout */}
+      <div className="min-h-screen grid grid-rows-[auto_1fr_auto]">
+        {/* Navbar (full width, unchanged behavior) */}
+        <header className="p-4">
           <NavBar />
         </header>
 
-        {/* Desktop sidebar */}
-        <aside className="p-4 hidden lg:block">
-          <SideBar />
-        </aside>
+        {/* Centered content area (THIS is the fix) */}
+        <div className="w-full flex justify-center px-4 min-h-0">
+          <div className="w-full max-w-[1400px] grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 min-h-0 h-full">
+            {/* Desktop sidebar */}
+            <aside className="hidden lg:block">
+              <div className="sticky top-6">
+                <SideBar />
+              </div>
+            </aside>
 
-        {/* Main routed content (homepage, profilepage, etc.) */}
-        <main className="p-4 min-w-0">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/u/:handle" element={<ProfilePage />} />
-            <Route path="/auth/callback" element={<AuthCallbackPage />} />
-          </Routes>
-        </main>
+            {/* Main routed content */}
+            <main className="min-w-0 min-h-0 h-full">
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/u/:handle" element={<ProfilePage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
+              </Routes>
+            </main>
+          </div>
+        </div>
 
-        {/* Footer */}
-        <footer className="lg:col-span-2">
+        {/* Footer (full width, unchanged) */}
+        <footer>
           footer
         </footer>
       </div>

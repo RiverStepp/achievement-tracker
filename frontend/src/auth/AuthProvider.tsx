@@ -8,7 +8,7 @@ import {
 } from "react";
 import { api, setAuthToken, setupApiInterceptors } from "@/lib/api";
 import type { AuthUser } from "@/types/auth";
-import { DEV_MOCK_USER } from "@/data/mockUser";
+import { mockProfile } from "@/data/mockUser";
 
 const USE_MOCK_AUTH = import.meta.env.DEV;
 
@@ -50,8 +50,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (USE_MOCK_AUTH) {
       const mockLoggedIn = sessionStorage.getItem("mockAuth") === "1";
       if (mockLoggedIn) {
-        setUser(DEV_MOCK_USER);
-        console.log("Saved session for mock user:", DEV_MOCK_USER);
+        setUser(mockProfile.user);
+        console.log("Saved session for mock user:", mockProfile.user);
       }
       setIsLoading(false);
       console.log("Using mock auth.");
@@ -69,11 +69,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loginWithSteam = () => {
     if (USE_MOCK_AUTH) {
-      // DEV PATH: just pretend we're logged in as the mock user
-      setUser(DEV_MOCK_USER);
+      //just pretend we're logged in
+      setUser(mockProfile.user);
       sessionStorage.setItem("mockAuth", "1");
       setIsLoading(false);
-      console.log("Using mock auth login for user:", DEV_MOCK_USER);
+      console.log("Using mock auth login for user:", mockProfile.user);
       return;
     }
     window.location.href = `${api.defaults.baseURL}/auth/steam/login`;
@@ -82,7 +82,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const completeLoginFromCallback = async (token: string) => {
 
     if (USE_MOCK_AUTH) {
-      setUser(DEV_MOCK_USER);
+      setUser(mockProfile.user);
       sessionStorage.setItem("mockAuth", "1");
       setIsLoading(false);
       return;

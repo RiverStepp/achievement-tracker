@@ -1,13 +1,11 @@
-// src/types/models.ts
-
 export interface User {
   id: number;
-  steamId: string;        // BIGINT → string on FE
-  handle: string;         // URL handle, e.g. "SakaKishiyami"
-  username: string;       // display name
+  steamId: string;        
+  handle: string;         
+  username: string;       
   profileUrl?: string;
   avatarUrl?: string;
-  createdAt?: string;     // ISO string
+  createdAt?: string;     
 }
 
 export interface Game {

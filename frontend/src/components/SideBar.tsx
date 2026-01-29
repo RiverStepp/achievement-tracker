@@ -1,35 +1,67 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home } from "lucide-react";
+import { Home, CircleUser, Settings, LogOut } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 
 export const SideBar = () => {
-    const { user, isLoading } = useAuth();
-    const navigate = useNavigate();
+  const { user, isLoading, logout } = useAuth();
+  const navigate = useNavigate();
 
-    const handleProfileClick = () => {
-        console.log("Profile button clicked for user:", user);
-        if (!user) {
-            // not logged in yet – either block or open login
-            // e.g. show a toast or call your login handler
-            return;
-        }
-        
-        console.log("Profile button clicked for user:", user);
-        navigate(`/u/${user.handle}`);
-    }
-    return (
-        <div className="flex flex-col bg-app-panel rounded-lg p-4">
-            <Button asChild variant="ghost" size="default" className="mb-2">
-                <Link to="/">
-                <Home/>
-                 Home
-                </Link>
+  const handleProfileClick = () => {
+    if (!user) return;
+    navigate(`/u/${user.handle}`);
+  };
+
+  return (
+    <div className="lg:bg-app-panel rounded-lg p-4 lg:shadow-md lg:shadow-app-border">
+      <nav className="flex flex-col items-start space-y-2">
+        {/* Home – uses asChild + Link */}
+        <Button
+          asChild
+          variant="ghost"
+          size="lg"
+          className="h-12 w-fit justify-start gap-4 px-4 text-lg font-semibold"
+        >
+          <Link to="/" className="inline-flex items-center gap-4">
+            <Home className="h-6 w-6 shrink-0" />
+            <span>Home</span>
+          </Link>
+        </Button>
+
+        {/* Only show these when logged in */}
+        {!isLoading && user && (
+          <>
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 w-fit justify-start gap-4 px-4 text-lg font-semibold"
+              onClick={handleProfileClick}
+            >
+              <CircleUser className="h-6 w-6 shrink-0" />
+              <span>Profile</span>
             </Button>
-            <Button variant="ghost" size="default" className="mb-2" onClick={handleProfileClick}>
-                Profile
+
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 w-fit justify-start gap-4 px-4 text-lg font-semibold"
+            >
+              <Settings className="h-6 w-6 shrink-0" />
+              <span>Settings</span>
             </Button>
-            <Button variant="ghost" size="default" className="mb-2">Settings</Button>
-            <Button variant="ghost" size="default" className="mb-2">Logout</Button>
-        </div> );
+
+            <Button
+              variant="ghost"
+              size="lg"
+              className="h-12 w-fit justify-start gap-4 px-4 text-lg font-semibold"
+              onClick={logout}
+            >
+              <LogOut className="h-6 w-6 shrink-0" />
+              <span>Logout</span>
+            </Button>
+          </>
+        )}
+      </nav>
+    </div>
+  );
 };
