@@ -29,5 +29,10 @@ public sealed class AppUserConfiguration: IEntityTypeConfiguration<AppUser>
               .WithOne(x => x.AppUser)
               .HasForeignKey(x => x.AppUserId)
               .OnDelete(DeleteBehavior.Cascade);
+
+          b.HasMany(x => x.SocialPosts)
+              .WithOne(x => x.AppUser)
+              .HasForeignKey(x => x.AuthorAppUserId)
+              .OnDelete(DeleteBehavior.Restrict);
      }
 }

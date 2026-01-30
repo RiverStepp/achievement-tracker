@@ -6,11 +6,18 @@ namespace AchievementTracker.Data.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+     // Please keep these alphabetical :)
+     #region dbsets
      public DbSet<AppUser> AppUsers => Set<AppUser>();
-     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
-     public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
      public DbSet<Role> Roles => Set<Role>();
+     public DbSet<SocialPost> SocialPosts => Set<SocialPost>();
+     public DbSet<SocialPostAttachment> SocialPostAttachments => Set<SocialPostAttachment>();
+     public DbSet<SocialPostComment> SocialPostComments => Set<SocialPostComment>();
+     public DbSet<SocialPostReaction> SocialPostReactions => Set<SocialPostReaction>();
+     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
      public DbSet<UserRole> UserRoles => Set<UserRole>();
+     public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
+     #endregion
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {
