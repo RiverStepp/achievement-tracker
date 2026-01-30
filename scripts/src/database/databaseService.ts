@@ -583,31 +583,70 @@ export class DatabaseService {
     return result.recordset?.[0]?.updated_at ?? null;
   }
 
-  // Batch upsert user achievements for better performance
+  // Batch upsert user achievements using SQL Server MERGE for true batching
   // Returns number of achievements successfully upserted
   async batchUpsertUserAchievements(userAchievements: UserAchievement[]): Promise<number> {
     if (userAchievements.length === 0) {
       return 0;
     }
 
-    let count = 0;
-    const batchSize = 100;
+    // Process in batches to avoid SQL Server limits (max 2100 parameters)
+    // With 3 params per achievement, batch size of 500 = 1500 params
+    const batchSize = 500;
+    let totalCount = 0;
 
     for (let i = 0; i < userAchievements.length; i += batchSize) {
       const batch = userAchievements.slice(i, i + batchSize);
 
-      for (const ua of batch) {
-        try {
-          await this.upsertUserAchievement(ua);
-          count++;
-        } catch (error) {
-          // Log but continue with other achievements
-          console.error(`Failed to upsert user achievement ${ua.achievement_id}:`, error);
+      try {
+        // Build MERGE statement for batch upsert
+        const values = batch.map((ua, idx) => {
+          const paramPrefix = `ua${idx}`;
+          return `(@${paramPrefix}_user_id, @${paramPrefix}_achievement_id, @${paramPrefix}_unlocked_at)`;
+        }).join(',\n      ');
+
+        const mergeQuery = `
+          MERGE SteamUserAchievements AS target
+          USING (VALUES
+            ${values}
+          ) AS source (UserId, AchievementId, UnlockedAt)
+          ON target.UserId = source.UserId AND target.AchievementId = source.AchievementId
+          WHEN MATCHED THEN
+            UPDATE SET UnlockedAt = source.UnlockedAt
+          WHEN NOT MATCHED THEN
+            INSERT (UserId, AchievementId, UnlockedAt)
+            VALUES (source.UserId, source.AchievementId, source.UnlockedAt);
+        `;
+
+        const request = this.pool.request();
+
+        // Add parameters for each achievement
+        batch.forEach((ua, idx) => {
+          const paramPrefix = `ua${idx}`;
+          request.input(`${paramPrefix}_user_id`, sql.Int, ua.user_id);
+          request.input(`${paramPrefix}_achievement_id`, sql.Int, ua.achievement_id);
+          request.input(`${paramPrefix}_unlocked_at`, sql.DateTime2, ua.unlocked_at || new Date());
+        });
+
+        await request.query(mergeQuery);
+        totalCount += batch.length;
+
+      } catch (error) {
+        console.error(`Failed to batch upsert ${batch.length} achievements:`, error);
+
+        // Fall back to individual upserts for this batch
+        for (const ua of batch) {
+          try {
+            await this.upsertUserAchievement(ua);
+            totalCount++;
+          } catch (individualError) {
+            console.error(`Failed to upsert user achievement ${ua.achievement_id}:`, individualError);
+          }
         }
       }
     }
 
-    return count;
+    return totalCount;
   }
 
   // Get all achievement IDs for a game in a single query for better performance

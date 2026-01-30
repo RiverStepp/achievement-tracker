@@ -272,15 +272,25 @@ export class SteamScraper {
     let achievementsSaved = 0;
     const errors: GameProcessingError[] = [];
 
-    // For incremental updates, we could optimize by only checking recently played games
-    // For now, we'll process all games but this is where optimization could happen
+    // For incremental updates, only process games with recent playtime (optimization)
+    let gamesToProcess = games;
+    if (isIncrementalUpdate) {
+      // Filter to games played in last 2 weeks (playtime_2weeks > 0)
+      // This significantly reduces API calls for users with large libraries
+      const recentlyPlayedGames = games.filter(g => (g.playtime_2weeks ?? 0) > 0);
 
-    for (let i = 0; i < games.length; i += batchSize) {
+      if (recentlyPlayedGames.length > 0) {
+        gamesToProcess = recentlyPlayedGames;
+      }
+      // If no games played recently, still process all (might be first sync with playtime_2weeks)
+    }
+
+    for (let i = 0; i < gamesToProcess.length; i += batchSize) {
       if (this.cancellationToken.cancelled) {
         break;
       }
 
-      const batch = games.slice(i, i + batchSize);
+      const batch = gamesToProcess.slice(i, i + batchSize);
       const batchPromises = batch.map(game => this.processGameAchievement(dbProfileId, steamId, game));
 
       const batchResults = await Promise.all(batchPromises);
@@ -310,8 +320,12 @@ export class SteamScraper {
     }
 
     try {
-      // Get achievements from Steam API
-      const achievements = await this.steamApi.getUserAchievements(steamId, game.appid);
+      // Get achievements from Steam API with retry logic
+      const achievements = await this.retryApiCall(
+        () => this.steamApi.getUserAchievements(steamId, game.appid!),
+        3,
+        1000
+      );
 
       if (achievements.length === 0) {
         // Game has no achievements or user hasn't unlocked any
@@ -350,8 +364,9 @@ export class SteamScraper {
         };
       }
 
-      // Save unlocked achievements
-      let saved = 0;
+      // Collect all unlocked achievements for batch upsert
+      const userAchievements: Array<{ user_id: number; achievement_id: number; unlocked_at: Date }> = [];
+
       for (const achievement of achievements) {
         if (achievement.achieved !== 1) {
           continue; // Only save unlocked achievements
@@ -368,21 +383,15 @@ export class SteamScraper {
           ? new Date(achievement.unlocktime * 1000)
           : new Date(); // Use current time if timestamp is missing
 
-        try {
-          await dbService.upsertUserAchievement({
-            user_id: dbProfileId,
-            achievement_id: achievementId,
-            unlocked_at: unlockedAt
-          });
-          saved++;
-        } catch (error) {
-          // Log but continue with other achievements
-          console.error(
-            `Failed to save achievement ${achievement.apiname} for game ${game.appid}:`,
-            error instanceof Error ? error.message : String(error)
-          );
-        }
+        userAchievements.push({
+          user_id: dbProfileId,
+          achievement_id: achievementId,
+          unlocked_at: unlockedAt
+        });
       }
+
+      // Batch upsert all achievements for this game
+      const saved = await dbService.batchUpsertUserAchievements(userAchievements);
 
       return { success: true, achievementsSaved: saved };
 
@@ -400,7 +409,94 @@ export class SteamScraper {
     }
   }
 
+  // Retry API calls with exponential backoff for transient failures
+  private async retryApiCall<T>(
+    apiCall: () => Promise<T>,
+    maxRetries: number,
+    initialDelayMs: number
+  ): Promise<T> {
+    let lastError: Error | undefined;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      if (this.cancellationToken.cancelled) {
+        throw new Error('Operation cancelled');
+      }
+
+      try {
+        return await apiCall();
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+
+        // Don't retry on final attempt
+        if (attempt === maxRetries) {
+          break;
+        }
+
+        // Check if error is retryable (network/timeout errors, 429 rate limit, 5xx server errors)
+        const isRetryable = this.isRetryableError(error);
+        if (!isRetryable) {
+          throw lastError;
+        }
+
+        // Exponential backoff with jitter
+        const delayMs = initialDelayMs * Math.pow(2, attempt) + Math.random() * 500;
+        await this.sleep(delayMs);
+      }
+    }
+
+    throw lastError || new Error('Retry failed');
+  }
+
+  // Check if an error is retryable
+  private isRetryableError(error: any): boolean {
+    // Network errors
+    if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+      return true;
+    }
+
+    // HTTP status codes that are retryable
+    const status = error.response?.status;
+    if (status === 429 || status === 503 || status === 502 || status === 504) {
+      return true;
+    }
+
+    return false;
+  }
+
+  // Sleep utility
+  private sleep(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
   getProgress(): ScrapingProgress {
     return { ...this.progress };
+  }
+
+  // Get detailed scraping statistics
+  getDetailedStats(): {
+    progress: ScrapingProgress;
+    rateLimitInfo: ReturnType<SteamApiService['getRateLimitInfo']>;
+  } {
+    return {
+      progress: this.getProgress(),
+      rateLimitInfo: this.steamApi.getRateLimitInfo()
+    };
+  }
+
+  // Reset progress counters (useful for new batch operations)
+  resetProgress(): void {
+    this.progress = {
+      totalUsers: 0,
+      completedUsers: 0,
+      currentUser: '',
+      errors: 0,
+      achievementsFound: 0
+    };
+  }
+
+  // Cleanup resources to free memory
+  async cleanup(): Promise<void> {
+    this.dbService = null;
+    this.resetProgress();
   }
 }
