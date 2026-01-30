@@ -49,3 +49,7 @@ DEPLOYMENT.md
 steam-endpoints.md
 database-access.md
 https-setup.md
+
+.claude/
+scripts/src/utils/PointSystem/ensemble-points-report.csv
+ensemble-points-report.csv

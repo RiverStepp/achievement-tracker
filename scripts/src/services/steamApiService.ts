@@ -1,18 +1,29 @@
 import axios, { AxiosResponse } from 'axios';
 import { SteamUser, SteamGame, SteamAchievement, SteamGameStats } from '../types';
 import { RateLimiter } from '../utils/rateLimiter';
+import { isSteamId64 } from '../utils/steamHelpers';
+import {
+  ResolveVanityUrlResponse,
+  GetPlayerSummariesResponse,
+  GetOwnedGamesResponse,
+  GetPlayerAchievementsResponse,
+  GetUserStatsForGameResponse,
+  GetSchemaForGameResponse
+} from './steamApiTypes';
 
 export class SteamApiService {
   private apiKey: string;
   private rateLimiter: RateLimiter;
-  private baseUrl = 'https://api.steampowered.com';
+  private baseUrl: string;
   private trackingApiUrl: string | null = null;
   private cancellationToken: { cancelled: boolean } = { cancelled: false };
   private isInvokedThroughApi: boolean = false;
+  private readonly requestTimeout: number = 10000; // 10 second timeout for Steam API requests
 
   constructor(apiKey: string, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
     this.apiKey = apiKey;
     this.rateLimiter = new RateLimiter();
+    this.baseUrl = process.env.STEAM_API_BASE_URL || 'https://api.steampowered.com';
     this.trackingApiUrl = trackingApiUrl || process.env.TRACKING_API_URL || null;
     this.isInvokedThroughApi = isInvokedThroughApi;
     this.rateLimiter.setCancellationToken(this.cancellationToken);
@@ -23,9 +34,7 @@ export class SteamApiService {
     this.rateLimiter.setCancellationToken(token);
   }
 
-  /**
-   * List of all Steam API endpoints we call
-   */
+  // List of all Steam API endpoints we call
   static readonly STEAM_ENDPOINTS = {
     RESOLVE_VANITY_URL: '/ISteamUser/ResolveVanityURL/v0001/',
     GET_PLAYER_SUMMARIES: '/ISteamUser/GetPlayerSummaries/v0002/',
@@ -35,9 +44,7 @@ export class SteamApiService {
     GET_SCHEMA_FOR_GAME: '/ISteamUserStats/GetSchemaForGame/v0002/'
   } as const;
 
-  /**
-   * Make a tracked API call to Steam
-   */
+  // Make a tracked API call to Steam
   private async makeTrackedApiCall<T>(
     endpoint: string,
     params: Record<string, any>
@@ -54,9 +61,12 @@ export class SteamApiService {
 
     const startTime = Date.now();
     const fullUrl = `${this.baseUrl}${endpoint}`;
-    
+
     try {
-      const response = await axios.get<T>(fullUrl, { params });
+      const response = await axios.get<T>(fullUrl, {
+        params,
+        timeout: this.requestTimeout
+      });
       const responseTime = Date.now() - startTime;
 
       // Record successful call
@@ -75,9 +85,7 @@ export class SteamApiService {
     }
   }
 
-  /**
-   * Record an API call to the tracking service
-   */
+  // Record an API call to the tracking service
   private async recordApiCall(
     endpoint: string,
     method: string,
@@ -123,19 +131,16 @@ export class SteamApiService {
     }
   }
 
-  /**
-   * Resolves a Steam username/custom URL to Steam ID 64-bit
-   * @param username Steam username or custom URL (e.g., "MyUsername" or "76561198046029799")
-   * @returns Steam ID 64-bit string, or null if not found
-   */
+  // Resolves a Steam username/custom URL to Steam ID 64-bit
+  // Returns Steam ID 64-bit string, or null if not found
   async resolveUsername(username: string): Promise<string | null> {
-    // If it's already a Steam ID (numeric), return it
-    if (/^\d+$/.test(username)) {
+    // If it's already a valid Steam ID, return it
+    if (isSteamId64(username)) {
       return username;
     }
 
     try {
-      const response = await this.makeTrackedApiCall<{ response: { success: number; steamid?: string } }>(
+      const response = await this.makeTrackedApiCall<ResolveVanityUrlResponse>(
         SteamApiService.STEAM_ENDPOINTS.RESOLVE_VANITY_URL,
         {
           key: this.apiKey,
@@ -143,8 +148,15 @@ export class SteamApiService {
         }
       );
 
-      if (response.data.response.success === 1) {
-        return response.data.response.steamid || null;
+      // Validate response structure
+      if (!response.data?.response) {
+        console.error('Invalid response structure from ResolveVanityURL');
+        return null;
+      }
+
+      // success === 1 means found, success === 42 means no match
+      if (response.data.response.success === 1 && response.data.response.steamid) {
+        return response.data.response.steamid;
       }
 
       return null;
@@ -156,13 +168,19 @@ export class SteamApiService {
 
   async getUserProfile(steamId: string): Promise<SteamUser | null> {
     try {
-      const response = await this.makeTrackedApiCall<{ response: { players: SteamUser[] } }>(
+      const response = await this.makeTrackedApiCall<GetPlayerSummariesResponse>(
         SteamApiService.STEAM_ENDPOINTS.GET_PLAYER_SUMMARIES,
         {
           key: this.apiKey,
           steamids: steamId
         }
       );
+
+      // Validate response structure
+      if (!response.data?.response?.players || !Array.isArray(response.data.response.players)) {
+        console.error('Invalid response structure from GetPlayerSummaries');
+        return null;
+      }
 
       if (response.data.response.players.length === 0) {
         return null;
@@ -177,7 +195,7 @@ export class SteamApiService {
 
   async getUserGames(steamId: string): Promise<SteamGame[]> {
     try {
-      const response = await this.makeTrackedApiCall<{ response: { games?: SteamGame[] } }>(
+      const response = await this.makeTrackedApiCall<GetOwnedGamesResponse>(
         SteamApiService.STEAM_ENDPOINTS.GET_OWNED_GAMES,
         {
           key: this.apiKey,
@@ -186,6 +204,12 @@ export class SteamApiService {
           include_played_free_games: true
         }
       );
+
+      // Validate response structure
+      if (!response.data?.response) {
+        console.error('Invalid response structure from GetOwnedGames');
+        return [];
+      }
 
       return response.data.response.games || [];
     } catch (error) {
@@ -196,7 +220,7 @@ export class SteamApiService {
 
   async getUserAchievements(steamId: string, appId: number): Promise<SteamAchievement[]> {
     try {
-      const response = await this.makeTrackedApiCall<{ playerstats?: { achievements?: SteamAchievement[] } }>(
+      const response = await this.makeTrackedApiCall<GetPlayerAchievementsResponse>(
         SteamApiService.STEAM_ENDPOINTS.GET_PLAYER_ACHIEVEMENTS,
         {
           key: this.apiKey,
@@ -205,7 +229,13 @@ export class SteamApiService {
         }
       );
 
-      return response.data.playerstats?.achievements || [];
+      // Validate response structure
+      if (!response.data?.playerstats) {
+        console.error('Invalid response structure from GetPlayerAchievements');
+        return [];
+      }
+
+      return response.data.playerstats.achievements || [];
     } catch (error) {
       console.error(`Error fetching achievements for ${steamId} in game ${appId}:`, error);
       throw error;
@@ -214,7 +244,7 @@ export class SteamApiService {
 
   async getUserStatsForGame(steamId: string, appId: number): Promise<any> {
     try {
-      const response = await this.makeTrackedApiCall<{ playerstats: any }>(
+      const response = await this.makeTrackedApiCall<GetUserStatsForGameResponse>(
         SteamApiService.STEAM_ENDPOINTS.GET_USER_STATS_FOR_GAME,
         {
           key: this.apiKey,
@@ -222,6 +252,12 @@ export class SteamApiService {
           appid: appId
         }
       );
+
+      // Validate response structure
+      if (!response.data?.playerstats) {
+        console.error('Invalid response structure from GetUserStatsForGame');
+        return null;
+      }
 
       return response.data.playerstats;
     } catch (error) {
@@ -232,13 +268,19 @@ export class SteamApiService {
 
   async getGameSchema(appId: number): Promise<any> {
     try {
-      const response = await this.makeTrackedApiCall<{ game: any }>(
+      const response = await this.makeTrackedApiCall<GetSchemaForGameResponse>(
         SteamApiService.STEAM_ENDPOINTS.GET_SCHEMA_FOR_GAME,
         {
           key: this.apiKey,
           appid: appId
         }
       );
+
+      // Validate response structure
+      if (!response.data?.game) {
+        console.error('Invalid response structure from GetSchemaForGame');
+        return null;
+      }
 
       return response.data.game;
     } catch (error) {

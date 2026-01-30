@@ -1,0 +1,155 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.sql = void 0;
+exports.getConnection = getConnection;
+exports.closeConnection = closeConnection;
+const mssql_1 = __importDefault(require("mssql"));
+exports.sql = mssql_1.default;
+const dotenv_1 = __importDefault(require("dotenv"));
+const keyVaultConfig_1 = require("../config/keyVaultConfig");
+dotenv_1.default.config();
+// MSSQL configuration
+// Priority: 1) Key Vault, 2) Environment variables (system env + .env file)
+// NO hardcoded defaults - will throw error if not configured
+let config = null;
+let pool = null;
+// Load configuration with proper priority order
+async function loadConfig() {
+    // First priority: Load from Azure Key Vault if available
+    const keyVaultUri = process.env.KEY_VAULT_URI || process.env.AZURE_KEY_VAULT_URI;
+    if (keyVaultUri) {
+        try {
+            console.log('Loading database connection string from Azure Key Vault...');
+            const keyVaultConfig = await (0, keyVaultConfig_1.loadConfigFromKeyVault)();
+            if (keyVaultConfig.dbConnectionString) {
+                console.log('Successfully loaded connection string from Key Vault');
+                // Use the library's built-in parser
+                return mssql_1.default.ConnectionPool.parseConnectionString(keyVaultConfig.dbConnectionString);
+            }
+        }
+        catch (error) {
+            console.warn('Failed to load connection string from Key Vault, trying environment variables:', error);
+        }
+    }
+    // Second priority: DB_CONNECTION_STRING environment variable (from env or .env file)
+    if (process.env.DB_CONNECTION_STRING) {
+        return mssql_1.default.ConnectionPool.parseConnectionString(process.env.DB_CONNECTION_STRING);
+    }
+    // Third priority: Individual environment variables (from env or .env file)
+    // Use DB_USER consistently
+    const user = process.env.DB_USER || process.env.DB_USERNAME;
+    const password = process.env.DB_PASSWORD;
+    const server = process.env.DB_SERVER || process.env.DB_HOST;
+    const database = process.env.DB_NAME || process.env.DB_DATABASE;
+    const portStr = process.env.DB_PORT;
+    const encryptStr = process.env.DB_ENCRYPT;
+    const trustCertStr = process.env.DB_TRUST_CERT;
+    // Pool configuration from environment
+    const poolMaxStr = process.env.DB_POOL_MAX;
+    const poolMinStr = process.env.DB_POOL_MIN;
+    const poolIdleTimeoutStr = process.env.DB_POOL_IDLE_TIMEOUT;
+    // Validate required fields - throw error if missing
+    if (!user) {
+        throw new Error('DB_USER or DB_USERNAME environment variable is required');
+    }
+    if (!password) {
+        throw new Error('DB_PASSWORD environment variable is required');
+    }
+    if (!server) {
+        throw new Error('DB_SERVER or DB_HOST environment variable is required');
+    }
+    if (!database) {
+        throw new Error('DB_NAME or DB_DATABASE environment variable is required');
+    }
+    // Parse port using Number() and validate
+    let port;
+    if (portStr) {
+        port = Number(portStr);
+        if (isNaN(port) || port <= 0 || port > 65535) {
+            throw new Error(`Invalid DB_PORT value: ${portStr}. Must be a number between 1 and 65535.`);
+        }
+    }
+    // Parse encrypt (default to false if not specified)
+    const encrypt = encryptStr === 'true';
+    // Parse trustServerCertificate (default to false, must explicitly enable)
+    const trustServerCertificate = trustCertStr === 'true';
+    // Parse pool configuration
+    const poolConfig = {};
+    if (poolMaxStr) {
+        const max = Number(poolMaxStr);
+        if (isNaN(max) || max <= 0) {
+            throw new Error(`Invalid DB_POOL_MAX value: ${poolMaxStr}. Must be a positive number.`);
+        }
+        poolConfig.max = max;
+    }
+    if (poolMinStr) {
+        const min = Number(poolMinStr);
+        if (isNaN(min) || min < 0) {
+            throw new Error(`Invalid DB_POOL_MIN value: ${poolMinStr}. Must be a non-negative number.`);
+        }
+        poolConfig.min = min;
+    }
+    if (poolIdleTimeoutStr) {
+        const idleTimeout = Number(poolIdleTimeoutStr);
+        if (isNaN(idleTimeout) || idleTimeout < 0) {
+            throw new Error(`Invalid DB_POOL_IDLE_TIMEOUT value: ${poolIdleTimeoutStr}. Must be a non-negative number.`);
+        }
+        poolConfig.idleTimeoutMillis = idleTimeout;
+    }
+    const sqlConfig = {
+        user,
+        password,
+        server,
+        database,
+        port: port || 1433,
+        options: {
+            encrypt,
+            trustServerCertificate,
+            enableArithAbort: true
+        }
+    };
+    // Add pool config only if any values were provided
+    if (Object.keys(poolConfig).length > 0) {
+        sqlConfig.pool = poolConfig;
+    }
+    return sqlConfig;
+}
+async function getConnection() {
+    if (!pool) {
+        // Load config with proper priority: Key Vault -> Env vars -> .env file
+        if (!config) {
+            config = await loadConfig();
+        }
+        try {
+            const newPool = new mssql_1.default.ConnectionPool(config);
+            await newPool.connect();
+            pool = newPool; // Only assign after successful connection
+            console.log('Connected to MSSQL database');
+        }
+        catch (error) {
+            // Reset pool on failure
+            pool = null;
+            config = null;
+            console.error('Failed to connect to MSSQL:', error);
+            throw error;
+        }
+    }
+    return pool;
+}
+async function closeConnection() {
+    if (pool) {
+        try {
+            await pool.close();
+            pool = null;
+            config = null;
+            console.log('Database connection closed');
+        }
+        catch (error) {
+            console.error('Error closing database connection:', error);
+            throw error;
+        }
+    }
+}

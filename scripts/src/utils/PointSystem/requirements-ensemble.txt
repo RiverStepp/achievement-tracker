@@ -1,0 +1,25 @@
+# Core ML Libraries
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# Tree-Based Models
+xgboost>=2.0.0
+lightgbm>=4.0.0
+catboost>=1.2.0
+
+# Deep Learning
+torch>=2.0.0
+pytorch-tabnet>=4.0
+
+# NLP / BERT
+transformers>=4.30.0
+sentencepiece>=0.1.99
+
+# Database
+pyodbc>=4.0.39
+python-dotenv>=1.0.0
+
+# Utilities
+tqdm>=4.65.0
+

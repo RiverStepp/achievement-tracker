@@ -7,6 +7,8 @@
 CREATE TABLE dbo.SteamPlatforms (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(50) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -14,6 +16,8 @@ CREATE TABLE dbo.SteamPlatforms (
 CREATE TABLE dbo.SteamGenres (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -21,6 +25,8 @@ CREATE TABLE dbo.SteamGenres (
 CREATE TABLE dbo.SteamCategories (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -28,6 +34,8 @@ CREATE TABLE dbo.SteamCategories (
 CREATE TABLE dbo.SteamTags (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(100) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -36,6 +44,8 @@ CREATE TABLE dbo.SteamLanguages (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Code NVARCHAR(10) UNIQUE NOT NULL, -- ISO language code (e.g., 'en', 'fr', 'de')
     Name NVARCHAR(100) NOT NULL, -- Full language name (e.g., 'English', 'French', 'German')
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -43,6 +53,8 @@ CREATE TABLE dbo.SteamLanguages (
 CREATE TABLE dbo.SteamDevelopers (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(255) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -50,6 +62,8 @@ CREATE TABLE dbo.SteamDevelopers (
 CREATE TABLE dbo.SteamPublishers (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     Name NVARCHAR(255) UNIQUE NOT NULL,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
@@ -175,7 +189,7 @@ CREATE TABLE dbo.SteamUserAchievements (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     UserId INT NOT NULL,
     AchievementId INT NOT NULL,
-    UnlockedAt DATETIME2 NOT NULL,
+    UnlockedAt DATETIME2 NULL,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     FOREIGN KEY (UserId) REFERENCES dbo.SteamUsers(Id),
     FOREIGN KEY (AchievementId) REFERENCES dbo.SteamAchievements(Id),
@@ -217,7 +231,8 @@ CREATE TABLE dbo.SteamGamePrices (
     OriginalCurrencyCode NVARCHAR(3) NOT NULL, -- ISO currency code for original price (derived from symbol/prefix)
     RecordedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
-    CONSTRAINT CK_SteamGamePrices_Discount CHECK (DiscountPercent BETWEEN 0 AND 100)
+    CONSTRAINT CK_SteamGamePrices_Discount CHECK (DiscountPercent BETWEEN 0 AND 100),
+    CONSTRAINT UQ_SteamGamePrices_GameId_Currency_RecordedAt UNIQUE (GameId, CurrencyCode, OriginalCurrencyCode, RecordedAt)
 );
 
 -- Steam Game reviews table
@@ -261,7 +276,7 @@ CREATE INDEX idx_SteamUserGames_GameId ON dbo.SteamUserGames(GameId);
 CREATE INDEX idx_SteamUsers_IsActive ON dbo.SteamUsers(IsActive);
 
 -- Index for latest check per game queries
-        -- Index for latest price queries
+-- Index for latest price queries
 CREATE INDEX idx_SteamGamePrices_GameId_RecordedAt ON dbo.SteamGamePrices(GameId, RecordedAt DESC);
 
 CREATE INDEX idx_SteamGameReviews_GameId ON dbo.SteamGameReviews(GameId);
@@ -277,8 +292,12 @@ CREATE INDEX idx_SteamPublishers_Name ON dbo.SteamPublishers(Name);
 
 GO
 
--- Trigger to automatically update UpdateDate timestamp
-CREATE TRIGGER trg_SteamGames_UpdateDate
+/* ============================================================================
+   Triggers to keep UpdateDate current (avoids relying on every caller to set it)
+   NOTE: These triggers do NOT touch CreateDate.
+   ============================================================================ */
+
+CREATE OR ALTER TRIGGER trg_SteamGames_UpdateDate
 ON dbo.SteamGames
 AFTER UPDATE
 AS
@@ -288,5 +307,135 @@ BEGIN
     SET UpdateDate = GETUTCDATE()
     FROM dbo.SteamGames g
     INNER JOIN inserted i ON g.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamAchievements_UpdateDate
+ON dbo.SteamAchievements
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE a
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamAchievements a
+    INNER JOIN inserted i ON a.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamUsers_UpdateDate
+ON dbo.SteamUsers
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE u
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamUsers u
+    INNER JOIN inserted i ON u.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamUserGames_UpdateDate
+ON dbo.SteamUserGames
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE ug
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamUserGames ug
+    INNER JOIN inserted i ON ug.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamPlatforms_UpdateDate
+ON dbo.SteamPlatforms
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE p
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamPlatforms p
+    INNER JOIN inserted i ON p.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamGenres_UpdateDate
+ON dbo.SteamGenres
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE g
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamGenres g
+    INNER JOIN inserted i ON g.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamCategories_UpdateDate
+ON dbo.SteamCategories
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE c
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamCategories c
+    INNER JOIN inserted i ON c.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamTags_UpdateDate
+ON dbo.SteamTags
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE t
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamTags t
+    INNER JOIN inserted i ON t.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamLanguages_UpdateDate
+ON dbo.SteamLanguages
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE l
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamLanguages l
+    INNER JOIN inserted i ON l.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamDevelopers_UpdateDate
+ON dbo.SteamDevelopers
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE d
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamDevelopers d
+    INNER JOIN inserted i ON d.Id = i.Id;
+END;
+GO
+
+CREATE OR ALTER TRIGGER trg_SteamPublishers_UpdateDate
+ON dbo.SteamPublishers
+AFTER UPDATE
+AS
+BEGIN
+    SET NOCOUNT ON;
+    UPDATE p
+    SET UpdateDate = GETUTCDATE()
+    FROM dbo.SteamPublishers p
+    INNER JOIN inserted i ON p.Id = i.Id;
 END;
 GO

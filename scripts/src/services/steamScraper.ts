@@ -1,287 +1,406 @@
 import { SteamApiService } from './steamApiService';
 import { SteamUser, SteamGame, SteamGameStats, ScrapingProgress, ScrapingConfig } from '../types';
 import { getConnection } from '../database/connection';
-import { DatabaseService } from '../database/models';
+import { DatabaseService } from '../database/databaseService';
+import {
+  ScrapeProfileResult,
+  ScrapeMultipleProfilesResult,
+  ProfileScrapeSummary,
+  GameProcessingError
+} from './steamScraperTypes';
+
+interface ProfileData {
+  steamId: string;
+  displayName: string;
+  profileUrl?: string;
+  avatarUrl?: string;
+}
+
+interface GameBatchResult {
+  successCount: number;
+  achievementsSaved: number;
+  errors: GameProcessingError[];
+}
 
 export class SteamScraper {
-    private steamApi: SteamApiService;
-    private config: ScrapingConfig; 
-    private progress: ScrapingProgress;
-    private outputData: any[] = [];
-    private dbService: DatabaseService | null = null;
-    private cancellationToken: { cancelled: boolean } = { cancelled: false };
+  private steamApi: SteamApiService;
+  private config: ScrapingConfig;
+  private progress: ScrapingProgress;
+  private dbService: DatabaseService | null = null;
+  private cancellationToken: { cancelled: boolean } = { cancelled: false };
+  private isInvokedThroughApi: boolean = false;
 
-    constructor(config: ScrapingConfig, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
-        this.config = config;
-        this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl, isInvokedThroughApi);
-        this.progress = {
-            totalUsers: 0,
-            completedUsers: 0,
-            currentUser: '',
-            errors: 0,
-            achievementsFound: 0
+  constructor(config: ScrapingConfig, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
+    this.config = config;
+    this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl, isInvokedThroughApi);
+    this.isInvokedThroughApi = isInvokedThroughApi;
+    this.progress = {
+      totalUsers: 0,
+      completedUsers: 0,
+      currentUser: '',
+      errors: 0,
+      achievementsFound: 0
+    };
+    this.steamApi.setCancellationToken(this.cancellationToken);
+  }
+
+  cancel(): void {
+    this.cancellationToken.cancelled = true;
+  }
+
+  private async getDbService(): Promise<DatabaseService> {
+    if (!this.dbService) {
+      const pool = await getConnection();
+      this.dbService = new DatabaseService(pool);
+    }
+    return this.dbService;
+  }
+
+  // Scrape a single Steam profile
+  // Returns result object with status and data
+  async scrapeProfile(steamId: string): Promise<ScrapeProfileResult> {
+    if (this.cancellationToken.cancelled) {
+      return { kind: 'cancelled' };
+    }
+
+    this.progress.currentUser = steamId;
+
+    try {
+      // Get profile information
+      const userProfile = await this.steamApi.getUserProfile(steamId);
+      if (!userProfile) {
+        return { kind: 'not_found', steamId };
+      }
+
+      // Check if profile is private (personaname would still be available, but games might not)
+      const games = await this.steamApi.getUserGames(steamId);
+      if (games.length === 0 && userProfile.communityvisibilitystate !== 3) {
+        // Profile exists but is private or has no games
+        return { kind: 'private', steamId };
+      }
+
+      const profileData: ProfileData = {
+        steamId,
+        displayName: userProfile.personaname || steamId,
+        profileUrl: userProfile.profileurl,
+        avatarUrl: userProfile.avatarfull || userProfile.avatar
+      };
+
+      // Check if this is an incremental update
+      const isIncrementalUpdate = await this.isIncrementalUpdate(steamId);
+
+      // Save profile to database
+      const dbProfileId = await this.saveProfileToDatabase(profileData);
+
+      // Save owned games with playtime
+      await this.saveOwnedGames(dbProfileId, games);
+
+      // Process game achievements in batches
+      const batchResult = await this.processGameAchievements(dbProfileId, steamId, games, isIncrementalUpdate);
+
+      this.progress.achievementsFound += batchResult.achievementsSaved;
+
+      return {
+        kind: 'success',
+        steamId,
+        displayName: profileData.displayName,
+        gamesProcessed: batchResult.successCount,
+        achievementsSaved: batchResult.achievementsSaved,
+        gamesWithErrors: batchResult.errors,
+        isIncrementalUpdate
+      };
+
+    } catch (error) {
+      this.progress.errors++;
+      return {
+        kind: 'error',
+        steamId,
+        error: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : undefined,
+        stack: error instanceof Error ? error.stack : undefined
+      };
+    }
+  }
+
+  // Scrape multiple Steam profiles
+  // Returns summary of all scrape operations
+  async scrapeMultipleProfiles(steamIds: string[]): Promise<ScrapeMultipleProfilesResult> {
+    this.progress.totalUsers = steamIds.length;
+
+    const profiles: ProfileScrapeSummary[] = [];
+    let successCount = 0;
+    let failureCount = 0;
+    let cancelledCount = 0;
+    let notFoundCount = 0;
+    let privateCount = 0;
+
+    for (const steamId of steamIds) {
+      if (this.cancellationToken.cancelled) {
+        cancelledCount++;
+        profiles.push({
+          steamId,
+          result: { kind: 'cancelled' }
+        });
+        continue;
+      }
+
+      try {
+        const result = await this.scrapeProfile(steamId);
+
+        profiles.push({ steamId, result });
+
+        // Update counters
+        switch (result.kind) {
+          case 'success':
+            successCount++;
+            break;
+          case 'error':
+            failureCount++;
+            break;
+          case 'cancelled':
+            cancelledCount++;
+            break;
+          case 'not_found':
+            notFoundCount++;
+            break;
+          case 'private':
+            privateCount++;
+            break;
+        }
+
+        this.progress.completedUsers++;
+
+      } catch (error) {
+        // This shouldn't happen as scrapeProfile handles errors, but just in case
+        failureCount++;
+        this.progress.errors++;
+        profiles.push({
+          steamId,
+          result: {
+            kind: 'error',
+            steamId,
+            error: error instanceof Error ? error.message : String(error),
+            errorType: error instanceof Error ? error.name : undefined,
+            stack: error instanceof Error ? error.stack : undefined
+          }
+        });
+        this.progress.completedUsers++;
+      }
+    }
+
+    return {
+      totalProfiles: steamIds.length,
+      successCount,
+      failureCount,
+      cancelledCount,
+      notFoundCount,
+      privateCount,
+      profiles
+    };
+  }
+
+  // Determine if this is an incremental update or first-time scrape
+  // Returns true if profile has been scraped before, false otherwise
+  private async isIncrementalUpdate(steamId: string): Promise<boolean> {
+    if (this.config.saveToDatabase === false) {
+      return false;
+    }
+
+    try {
+      const dbService = await this.getDbService();
+      const lastUpdated = await dbService.getSteamProfileLastUpdated(BigInt(steamId));
+      return lastUpdated !== null;
+    } catch (error) {
+      // If we can't determine, treat as full scrape to be safe
+      return false;
+    }
+  }
+
+  // Save Steam profile to database
+  // Returns database user ID
+  private async saveProfileToDatabase(profile: ProfileData): Promise<number> {
+    const dbService = await this.getDbService();
+
+    return await dbService.upsertUser({
+      steam_id: BigInt(profile.steamId),
+      username: profile.displayName,
+      profile_url: profile.profileUrl,
+      avatar_url: profile.avatarUrl
+    });
+  }
+
+  // Save owned games to database
+  private async saveOwnedGames(dbProfileId: number, games: SteamGame[]): Promise<void> {
+    const dbService = await this.getDbService();
+
+    for (const game of games) {
+      if (!game.appid) {
+        continue;
+      }
+
+      try {
+        // Ensure game exists in database
+        const gameId = await dbService.upsertGame({
+          steam_appid: game.appid,
+          name: game.name || `Steam App ${game.appid}`
+        });
+
+        // Save user's ownership and playtime
+        await dbService.upsertUserGame({
+          user_id: dbProfileId,
+          game_id: gameId,
+          playtime_forever: game.playtime_forever ?? 0,
+          playtime_2weeks: game.playtime_2weeks ?? 0
+        });
+      } catch (error) {
+        // Log but continue with other games
+        console.error(`Failed to save game ${game.appid}:`, error instanceof Error ? error.message : String(error));
+      }
+    }
+  }
+
+  // Process game achievements in batches
+  // Returns batch processing result
+  private async processGameAchievements(
+    dbProfileId: number,
+    steamId: string,
+    games: SteamGame[],
+    isIncrementalUpdate: boolean
+  ): Promise<GameBatchResult> {
+    const batchSize = this.config.maxConcurrentRequests || 5;
+    let successCount = 0;
+    let achievementsSaved = 0;
+    const errors: GameProcessingError[] = [];
+
+    // For incremental updates, we could optimize by only checking recently played games
+    // For now, we'll process all games but this is where optimization could happen
+
+    for (let i = 0; i < games.length; i += batchSize) {
+      if (this.cancellationToken.cancelled) {
+        break;
+      }
+
+      const batch = games.slice(i, i + batchSize);
+      const batchPromises = batch.map(game => this.processGameAchievement(dbProfileId, steamId, game));
+
+      const batchResults = await Promise.all(batchPromises);
+
+      for (const result of batchResults) {
+        if (result.success) {
+          successCount++;
+          achievementsSaved += result.achievementsSaved;
+        } else if (result.error) {
+          errors.push(result.error);
+        }
+      }
+    }
+
+    return { successCount, achievementsSaved, errors };
+  }
+
+  // Process achievements for a single game
+  // Returns processing result
+  private async processGameAchievement(
+    dbProfileId: number,
+    steamId: string,
+    game: SteamGame
+  ): Promise<{ success: boolean; achievementsSaved: number; error?: GameProcessingError }> {
+    if (!game.appid) {
+      return { success: false, achievementsSaved: 0 };
+    }
+
+    try {
+      // Get achievements from Steam API
+      const achievements = await this.steamApi.getUserAchievements(steamId, game.appid);
+
+      if (achievements.length === 0) {
+        // Game has no achievements or user hasn't unlocked any
+        return { success: true, achievementsSaved: 0 };
+      }
+
+      // Get game ID from database
+      const dbService = await this.getDbService();
+      const gameId = await dbService.getGameIdBySteamAppId(game.appid);
+
+      if (!gameId) {
+        return {
+          success: false,
+          achievementsSaved: 0,
+          error: {
+            appId: game.appid,
+            gameName: game.name,
+            error: 'Game not found in database'
+          }
         };
-        this.steamApi.setCancellationToken(this.cancellationToken);
-    }
+      }
 
-    cancel(): void {
-        this.cancellationToken.cancelled = true;
-        console.log('Scraping operation cancelled');
-    }
+      // Get all achievement IDs for this game in one query
+      const achievementMap = await dbService.getAchievementMapForGame(gameId);
 
-    private async getDbService(): Promise<DatabaseService> {
-        if (!this.dbService) {
-            const pool = await getConnection();
-            this.dbService = new DatabaseService(pool);
+      if (achievementMap.size === 0) {
+        // No achievements defined in database for this game
+        return {
+          success: false,
+          achievementsSaved: 0,
+          error: {
+            appId: game.appid,
+            gameName: game.name,
+            error: 'No achievements found in database for this game'
+          }
+        };
+      }
+
+      // Save unlocked achievements
+      let saved = 0;
+      for (const achievement of achievements) {
+        if (achievement.achieved !== 1) {
+          continue; // Only save unlocked achievements
         }
-        return this.dbService;
-    }
 
-    async scrapeUser(usernameOrId: string): Promise<{ steamId: string; username: string; gameStats: SteamGameStats[]; outputFile: string } | null> {
-        if (this.cancellationToken.cancelled) {
-            throw new Error('Operation cancelled');
+        const achievementId = achievementMap.get(achievement.apiname);
+        if (!achievementId) {
+          continue; // Achievement not in database
         }
 
-        console.log(`\nScraping user: ${usernameOrId}`);
-        this.progress.currentUser = usernameOrId;
+        // Convert Unix timestamp to UTC Date
+        // Steam returns Unix timestamp in seconds, JavaScript Date expects milliseconds
+        const unlockedAt = achievement.unlocktime > 0
+          ? new Date(achievement.unlocktime * 1000)
+          : new Date(); // Use current time if timestamp is missing
 
         try {
-            // Resolve username to Steam ID if needed
-            const steamId = await this.steamApi.resolveUsername(usernameOrId);
-            if (!steamId) {
-                console.log(`User ${usernameOrId} not found`);
-                return null;
-            }
-
-            // Get user profile
-            const userProfile = await this.steamApi.getUserProfile(steamId);
-            if (!userProfile) {
-                console.log(`User ${steamId} not found or profile is private`);
-                return null;
-            }
-
-            const username = userProfile.personaname || steamId;
-            console.log(`Found user: ${username} (${steamId})`);
-
-            // Get user's games
-            const games = await this.steamApi.getUserGames(steamId);
-            console.log(`Found ${games.length} games`);
-
-            const gameStats: SteamGameStats[] = [];
-            
-            // Store games with playtime for saving to database
-            const gamesWithPlaytime = games;
-
-            // Process games in batches to avoid overwhelming the API
-            const batchSize = 5;
-            for (let i = 0; i < games.length; i += batchSize) {
-                if (this.cancellationToken.cancelled) {
-                    throw new Error('Operation cancelled');
-                }
-
-                const batch = games.slice(i, i + batchSize);
-                const batchPromises = batch.map(async (game) => {
-                    try {
-                        console.log(`Processing game: ${game.name} (${game.appid})`);
-
-                        // Get achievements for this game
-                        const achievements = await this.steamApi.getUserAchievements(steamId, game.appid);
-                        const stats = await this.steamApi.getUserStatsForGame(steamId, game.appid);
-
-                        const gameStat: SteamGameStats = {
-                            steamID: steamId,
-                            gameName: game.name,
-                            appid: game.appid,
-                            achievements: achievements,
-                            stats: stats
-                        };
-
-                        this.progress.achievementsFound += achievements.length;
-                        return gameStat;
-                    } catch (error) {
-                        console.log(`Error processing game ${game.name}: ${error instanceof Error ? error.message : String(error)}`);
-                        this.progress.errors++;
-                        return null;
-                    }
-                });
-
-                const batchResults = await Promise.all(batchPromises);
-                gameStats.push(...batchResults.filter(result => result !== null));
-
-                // Add delay between batches
-                if (i + batchSize < games.length) {
-                    await this.sleep(this.config.requestDelay);
-                }
-            }
-
-            console.log(`Completed scraping for ${username}. Found ${gameStats.length} games with data.`);
-
-            // Save to database only (file saving commented out - uncomment for debugging)
-            await this.saveUserToDatabase(steamId, userProfile, gameStats, gamesWithPlaytime);
-
-            return {
-                steamId,
-                username,
-                gameStats,
-                outputFile: '' // File saving disabled - data saved to database only
-            };
-
+          await dbService.upsertUserAchievement({
+            user_id: dbProfileId,
+            achievement_id: achievementId,
+            unlocked_at: unlockedAt
+          });
+          saved++;
         } catch (error) {
-            console.error(`Error scraping user ${usernameOrId}:`, error);
-            this.progress.errors++;
-            return null;
+          // Log but continue with other achievements
+          console.error(
+            `Failed to save achievement ${achievement.apiname} for game ${game.appid}:`,
+            error instanceof Error ? error.message : String(error)
+          );
         }
-    }
+      }
 
-    async scrapeMultipleUsers(usernameOrIds: string[]): Promise<Array<{ steamId: string; username: string; outputFile: string }>> {
-        this.progress.totalUsers = usernameOrIds.length;
-        console.log(`Starting to scrape ${usernameOrIds.length} users`);
+      return { success: true, achievementsSaved: saved };
 
-        const results: Array<{ steamId: string; username: string; outputFile: string }> = [];
-
-        for (const usernameOrId of usernameOrIds) {
-            try {
-                const result = await this.scrapeUser(usernameOrId);
-                if (result) {
-                    results.push({
-                        steamId: result.steamId,
-                        username: result.username,
-                        outputFile: result.outputFile
-                    });
-
-                   
-                }
-
-                this.progress.completedUsers++;
-                this.printProgress();
-
-                // Save progress periodically (commented out - uncomment for debugging)
-                // if (this.progress.completedUsers % 10 === 0) {
-                //   await this.saveProgress();
-                // }
-
-                // Add delay between users
-                await this.sleep(this.config.requestDelay);
-
-            } catch (error) {
-                console.error(`Failed to scrape user ${usernameOrId}:`, error);
-                this.progress.errors++;
-            }
+    } catch (error) {
+      return {
+        success: false,
+        achievementsSaved: 0,
+        error: {
+          appId: game.appid,
+          gameName: game.name,
+          error: error instanceof Error ? error.message : String(error),
+          errorType: error instanceof Error ? error.name : undefined
         }
-
-        console.log(`\nScraping completed!`);
-        this.printFinalStats();
-
-        return results;
+      };
     }
+  }
 
-    private printProgress(): void {
-        const percentage = ((this.progress.completedUsers / this.progress.totalUsers) * 100).toFixed(1);
-        const rateLimitInfo = this.steamApi.getRateLimitInfo();
-
-        console.log(`\nProgress: ${this.progress.completedUsers}/${this.progress.totalUsers} (${percentage}%)`);
-        console.log(`Achievements found: ${this.progress.achievementsFound}`);
-        console.log(`Errors: ${this.progress.errors}`);
-        console.log(`Rate limit: ${rateLimitInfo.currentRequests}/${rateLimitInfo.requestsPer10Seconds} (10s), ${rateLimitInfo.requestsPerDay}/${rateLimitInfo.requestsPerDay} (daily)`);
-    }
-
-    private printFinalStats(): void {
-        console.log(`\nFinal Statistics:`);
-        console.log(`Users processed: ${this.progress.completedUsers}/${this.progress.totalUsers}`);
-        console.log(`Total achievements found: ${this.progress.achievementsFound}`);
-        console.log(`Total errors: ${this.progress.errors}`);
-        console.log(`Data saved to database`);
-    }
-
-    private async saveUserToDatabase(steamId: string, userProfile: SteamUser, gameStats: SteamGameStats[], games: SteamGame[]): Promise<void> {
-        try {
-            const dbService = await this.getDbService();
-
-            // Save user to database
-            // Convert steamId to bigint to preserve precision (Steam IDs can exceed Number.MAX_SAFE_INTEGER)
-            const userId = await dbService.upsertUser({
-                steam_id: BigInt(steamId),
-                username: userProfile.personaname || steamId,
-                profile_url: userProfile.profileurl,
-                avatar_url: userProfile.avatarfull || userProfile.avatar
-            });
-            console.log(`User saved to database with ID: ${userId}`);
-
-            // Save user's owned games with playtime
-            let gamesSaved = 0;
-            for (const game of games) {
-                if (!game.appid) {
-                    continue;
-                }
-
-                // Get game ID from database
-                const gameId = await dbService.getGameIdBySteamAppId(game.appid);
-                if (!gameId) {
-                    console.log(`Game ${game.name} (${game.appid}) not found in database, skipping`);
-                    continue;
-                }
-
-                // Save user game with playtime
-                await dbService.upsertUserGame({
-                    user_id: userId,
-                    game_id: gameId,
-                    playtime_forever: game.playtime_forever || 0,
-                    playtime_2weeks: game.playtime_2weeks || 0
-                });
-                gamesSaved++;
-            }
-            console.log(`Saved ${gamesSaved} user games with playtime to database`);
-
-            // Save user achievements to database
-            let achievementsSaved = 0;
-            for (const gameStat of gameStats) {
-                if (!gameStat.appid) {
-                    console.log(`Skipping game ${gameStat.gameName} - no appid`);
-                    continue;
-                }
-
-                // Get game ID from database
-                const gameId = await dbService.getGameIdBySteamAppId(gameStat.appid);
-                if (!gameId) {
-                    console.log(`Game ${gameStat.gameName} (${gameStat.appid}) not found in database, skipping achievements`);
-                    continue;
-                }
-
-                // Save each unlocked achievement
-                for (const achievement of gameStat.achievements) {
-                    if (achievement.achieved === 1) { // Only save unlocked achievements
-                        const achievementId = await dbService.getAchievementIdBySteamApiName(gameId, achievement.apiname);
-                        if (achievementId) {
-                            // Convert unlocktime (Unix timestamp) to Date
-                            const unlockedAt = achievement.unlocktime > 0
-                                ? new Date(achievement.unlocktime * 1000)
-                                : undefined;
-
-                            await dbService.upsertUserAchievement({
-                                user_id: userId,
-                                achievement_id: achievementId,
-                                unlocked_at: unlockedAt
-                            });
-                            achievementsSaved++;
-                        } else {
-                            console.log(`Achievement ${achievement.apiname} not found in database for game ${gameStat.appid}`);
-                        }
-                    }
-                }
-            }
-
-            console.log(`Saved ${achievementsSaved} user achievements to database`);
-        } catch (error) {
-            console.error(`Error saving user to database:`, error);
-            // Don't throw - allow file saving to continue even if database save fails
-        }
-    }
-
-    private sleep(ms: number): Promise<void> {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-
-    getProgress(): ScrapingProgress {
-        return { ...this.progress };
-    }
+  getProgress(): ScrapingProgress {
+    return { ...this.progress };
+  }
 }

@@ -57,13 +57,33 @@ async function main() {
 
   try {
     // Start scraping
-    await scraper.scrapeMultipleUsers(userIds);
-    
+    const result = await scraper.scrapeMultipleProfiles(userIds);
+
+    // Display results summary
+    console.log('\n=== Scraping Results ===');
+    console.log(`Total profiles: ${result.totalProfiles}`);
+    console.log(`Successful: ${result.successCount}`);
+    console.log(`Failed: ${result.failureCount}`);
+    console.log(`Not found: ${result.notFoundCount}`);
+    console.log(`Private: ${result.privateCount}`);
+    console.log(`Cancelled: ${result.cancelledCount}`);
+
+    // Show failed profiles if any
+    if (result.failureCount > 0) {
+      console.log('\nFailed profiles:');
+      result.profiles
+        .filter(p => p.result.kind === 'error')
+        .forEach(p => {
+          const errorResult = p.result as Extract<typeof p.result, { kind: 'error' }>;
+          console.log(`  - ${p.steamId}: ${errorResult.error}`);
+        });
+    }
+
     // Cleanup old files
     dataStorage.cleanupOldFiles(7);
-    
-    console.log('\nScraping completed successfully!'); 
-    
+
+    console.log('\nScraping completed!');
+
   } catch (error) {
     console.error('\nScraping failed:', error);
     process.exit(1);
@@ -87,3 +107,4 @@ if (require.main === module) {
 }
 
 export { SteamScraper, DataStorage, ScraperApiService };
+export { PointsService } from './services/pointsService';

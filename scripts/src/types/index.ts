@@ -51,7 +51,20 @@ export interface ScrapingConfig {
   maxConcurrentRequests: number;
   requestDelay: number;
   maxRetries: number;
-  outputFile: string;
+  /**
+   * Optional JSON output file path. Only used when writeOutputFile is true.
+   */
+  outputFile?: string;
+  /**
+   * When true, write a JSON file to outputFile (if provided).
+   * When false/undefined, do not write files.
+   */
+  writeOutputFile?: boolean;
+  /**
+   * When true/undefined, persist results to the database.
+   * When false, scraper will not write to the database (useful for pure JSON output flows).
+   */
+  saveToDatabase?: boolean;
   resumeFrom?: string;
 }
 

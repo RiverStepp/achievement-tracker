@@ -1,5 +1,26 @@
 import { SteamScraper } from './steamScraper';
-import { ScrapingConfig } from '../types';
+import { SteamApiService } from './steamApiService';
+import type { ScrapingConfig } from '../types';
+import type { ScrapeUserInput, ScrapeUserResult, ScrapeUsersResult, SteamId64 } from './scraperApiTypes';
+
+function normalizeUsername(username: string): string {
+  if (typeof username !== 'string') throw new Error('username must be a string');
+  const u = username.trim();
+  if (!u) throw new Error('username must be non-empty');
+  return u;
+}
+
+function parseSteamId64(input: string | bigint): SteamId64 {
+  if (typeof input === 'bigint') {
+    if (input <= 0n) throw new Error('steamId must be positive');
+    return input;
+  }
+  const s = input.trim();
+  if (!/^\d{10,20}$/.test(s)) throw new Error('steamId must be a numeric 64-bit string');
+  const id = BigInt(s);
+  if (id <= 0n) throw new Error('steamId must be positive');
+  return id;
+}
 
 /**
  * API service for frontend integration
@@ -7,93 +28,101 @@ import { ScrapingConfig } from '../types';
  */
 export class ScraperApiService {
   private scraper: SteamScraper;
+  private steamApi: SteamApiService;
 
-  constructor(steamApiKey: string, trackingApiUrl?: string) {
+  constructor(
+    steamApiKey: string,
+    trackingApiUrl?: string,
+    options?: Partial<Pick<ScrapingConfig, 'maxConcurrentRequests' | 'requestDelay' | 'maxRetries' | 'outputFile' | 'writeOutputFile' | 'saveToDatabase'>>,
+  ) {
     const config: ScrapingConfig = {
       steamApiKey,
-      maxConcurrentRequests: 1,
-      requestDelay: 2000,
-      maxRetries: 3,
-      outputFile: './data/steam_achievements.json'
+      maxConcurrentRequests: options?.maxConcurrentRequests ?? 1,
+      requestDelay: options?.requestDelay ?? 2000,
+      maxRetries: options?.maxRetries ?? 3,
+      outputFile: options?.outputFile,
+      writeOutputFile: options?.writeOutputFile ?? false,
+      saveToDatabase: options?.saveToDatabase ?? true
     };
-    this.scraper = new SteamScraper(config, trackingApiUrl);
+    this.scraper = new SteamScraper(config, trackingApiUrl, true);
+    this.steamApi = new SteamApiService(steamApiKey, trackingApiUrl, true);
   }
 
   cancel(): void {
     this.scraper.cancel();
   }
 
-  /**
-   * Scrape a single user by username or Steam ID
-   * @param usernameOrId Steam username or Steam ID 64-bit
-   * @returns Scraping result with file path
-   */
-  async scrapeUser(usernameOrId: string): Promise<{
-    success: boolean;
-    steamId?: string;
-    username?: string;
-    outputFile?: string;
-    error?: string;
-  }> {
+  async scrapeUserByUsername(username: string): Promise<ScrapeUserResult> {
+    const input: ScrapeUserInput = { kind: 'username', username: normalizeUsername(username) };
+    return this.scrapeUser(input);
+  }
+
+  async scrapeUserBySteamId(steamId: string | bigint): Promise<ScrapeUserResult> {
+    const id = parseSteamId64(steamId);
+    const input: ScrapeUserInput = { kind: 'steamId', steamId: id };
+    return this.scrapeUser(input);
+  }
+
+  async scrapeUser(input: ScrapeUserInput): Promise<ScrapeUserResult> {
     try {
-      const result = await this.scraper.scrapeUser(usernameOrId);
-      
-      if (!result) {
-        return {
-          success: false,
-          error: 'User not found or profile is private'
-        };
+      // Resolve username to Steam ID if needed
+      let steamId: string;
+      if (input.kind === 'username') {
+        const resolvedId = await this.steamApi.resolveUsername(input.username);
+        if (!resolvedId) {
+          return { kind: 'not_found', input };
+        }
+        steamId = resolvedId;
+      } else {
+        steamId = input.steamId.toString();
       }
 
-      return {
-        success: true,
-        steamId: result.steamId,
-        username: result.username,
-        outputFile: result.outputFile
-      };
+      // Scrape the profile
+      const result = await this.scraper.scrapeProfile(steamId);
+
+      // Map scraper result to API result
+      switch (result.kind) {
+        case 'success':
+          return {
+            kind: 'success',
+            steamId: result.steamId,
+            username: result.displayName,
+            outputFile: undefined, // No longer writing files by default
+            gameStatsCount: result.gamesProcessed
+          };
+        case 'not_found':
+          return { kind: 'not_found', input };
+        case 'private':
+          return { kind: 'private_profile', steamId: result.steamId, input };
+        case 'cancelled':
+          return { kind: 'cancelled' };
+        case 'error':
+          return {
+            kind: 'error',
+            input,
+            message: result.error,
+            errorType: result.errorType,
+            stack: result.stack
+          };
+      }
     } catch (error) {
       return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred'
+        kind: 'error',
+        input,
+        message: error instanceof Error ? error.message : String(error),
+        errorType: error instanceof Error ? error.name : undefined,
+        stack: error instanceof Error ? error.stack : undefined
       };
     }
   }
 
-  /**
-   * Scrape multiple users
-   * @param usernameOrIds Array of Steam usernames or Steam IDs
-   * @returns Array of scraping results
-   */
-  async scrapeUsers(usernameOrIds: string[]): Promise<{
-    success: boolean;
-    results: Array<{
-      steamId: string;
-      username: string;
-      outputFile: string;
-    }>;
-    errors: Array<{
-      input: string;
-      error: string;
-    }>;
-  }> {
-    try {
-      const results = await this.scraper.scrapeMultipleUsers(usernameOrIds);
-      
-      return {
-        success: true,
-        results,
-        errors: []
-      };
-    } catch (error) {
-      return {
-        success: false,
-        results: [],
-        errors: [{
-          input: usernameOrIds.join(', '),
-          error: error instanceof Error ? error.message : 'Unknown error occurred'
-        }]
-      };
+  async scrapeUsers(inputs: ScrapeUserInput[]): Promise<ScrapeUsersResult> {
+    // Return per-item status; do NOT swallow errors.
+    const results: ScrapeUserResult[] = [];
+    for (const input of inputs) {
+      results.push(await this.scrapeUser(input));
     }
+    return { kind: 'batch_result', results };
   }
 
   /**

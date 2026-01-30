@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import { SteamScraper } from './services/steamScraper';
+import { SteamApiService } from './services/steamApiService';
 import { ScrapingConfig } from './types';
 import { loadSteamApiKey } from './config/configLoader';
 import axios from 'axios';
@@ -39,26 +40,71 @@ async function main() {
   if (!isInvokedThroughApi) {
     // Direct mode: Call Steam API directly (IsInvokedThroughApi=0)
     console.log('Running in DIRECT mode - calling Steam API directly\n');
-    
+
     const config: ScrapingConfig = {
       steamApiKey,
-      maxConcurrentRequests: 1,
+      maxConcurrentRequests: 5,
       requestDelay: 1000, // 1 second delay for rate limiting
       maxRetries: 3,
-      outputFile: './data/steam_achievements.json'
+      saveToDatabase: true
     };
 
     const scraper = new SteamScraper(config, trackingApiUrl, false);
-    
+    const steamApi = new SteamApiService(steamApiKey, trackingApiUrl, false);
+
     try {
-      const result = await scraper.scrapeUser(steamIdOrUsername);
-      
-      if (result) {
-        console.log(`\nUser: ${result.username} (${result.steamId})`);
-        console.log(`Found ${result.gameStats.length} games with data`);
+      // Resolve username to Steam ID
+      console.log(`Resolving ${steamIdOrUsername}...`);
+      const steamId = await steamApi.resolveUsername(steamIdOrUsername);
+      if (!steamId) {
+        console.log(`\nUser ${steamIdOrUsername} not found`);
+        process.exit(1);
+      }
+
+      console.log(`Found Steam ID: ${steamId}\n`);
+
+      // Scrape the profile
+      const result = await scraper.scrapeProfile(steamId);
+
+      if (result.kind === 'success') {
+        console.log(`\nUser: ${result.displayName} (${result.steamId})`);
+        console.log(`Games processed: ${result.gamesProcessed}`);
+        console.log(`Achievements saved: ${result.achievementsSaved}`);
+        console.log(`Incremental update: ${result.isIncrementalUpdate ? 'Yes' : 'No (first time)'}`);
+
+        if (result.gamesWithErrors.length > 0) {
+          console.log(`\nGames with errors (${result.gamesWithErrors.length}):`);
+          result.gamesWithErrors.slice(0, 5).forEach(err => {
+            console.log(`  - ${err.gameName} (${err.appId}): ${err.error}`);
+          });
+          if (result.gamesWithErrors.length > 5) {
+            console.log(`  ... and ${result.gamesWithErrors.length - 5} more`);
+          }
+        }
+
         process.exit(0);
-      } else {
-        console.log(`\nUser ${steamIdOrUsername} not found or profile is private`);
+      }
+
+      if (result.kind === 'private') {
+        console.log(`\nUser ${result.steamId} profile is private`);
+        process.exit(2);
+      }
+
+      if (result.kind === 'not_found') {
+        console.log(`\nUser ${result.steamId} not found`);
+        process.exit(1);
+      }
+
+      if (result.kind === 'cancelled') {
+        console.log(`\nScrape cancelled`);
+        process.exit(3);
+      }
+
+      if (result.kind === 'error') {
+        console.error(`\nError scraping user: ${result.error}`);
+        if (result.errorType) {
+          console.error(`Error type: ${result.errorType}`);
+        }
         process.exit(1);
       }
     } catch (error) {
