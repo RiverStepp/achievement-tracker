@@ -67,10 +67,10 @@ async function runMigration(scriptPath: string): Promise<void> {
                     });
                 }
 
-                console.log('✓ Batch executed successfully');
+                console.log('Batch executed successfully');
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                console.error(`\n✗ Error in batch ${i + 1}:`);
+                console.error(`\nError in batch ${i + 1}:`);
                 console.error(errorMessage);
 
                 // Preserve previous behavior: many scripts have their own TRY/CATCH; continue unless obviously fatal.
@@ -127,11 +127,11 @@ async function runMigration(scriptPath: string): Promise<void> {
                     console.table(result.recordset);
                 }
                 
-                console.log('✓ Batch executed successfully');
+                console.log('Batch executed successfully');
                 
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : String(error);
-                console.error(`\n✗ Error in batch ${i + 1}:`);
+                console.error(`\nError in batch ${i + 1}:`);
                 console.error(errorMessage);
                 
                 // Check if this is a non-fatal error

@@ -117,27 +117,27 @@ After running regression, you can update the JavaScript script with the optimize
 ## Example Output
 
 ```
-🎯 ACHIEVEMENT POINTS CALCULATION SYSTEM
+ACHIEVEMENT POINTS CALCULATION SYSTEM
 ============================================================
 
-📊 Fetched 15,234 achievements with complete data
-🔧 Preparing features...
-🤖 Training regression model...
-✅ Model trained - R²: 0.8472, MSE: 234.56
+Fetched 15,234 achievements with complete data
+Preparing features...
+Training regression model...
+Model trained - R²: 0.8472, MSE: 234.56
 
-📊 Feature Weights (from regression):
+Feature Weights (from regression):
    Popularity: 0.3245 (importance: 32.45%)
    Rarity: 0.4123 (importance: 41.23%)
    Effort: 0.2632 (importance: 26.32%)
    Intercept: 12.34
 
-💯 Calculating points for all achievements...
-💾 Updating points in database...
-✅ Updated 15,234 achievements
+Calculating points for all achievements...
+Updating points in database...
+Updated 15,234 achievements
 
-📈 POINTS SYSTEM REPORT
+POINTS SYSTEM REPORT
 ============================================================
-📊 Statistics:
+Statistics:
    Total achievements: 15,234
    Average points: 45.67
    Median points: 38

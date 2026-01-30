@@ -51,5 +51,8 @@ database-access.md
 https-setup.md
 
 .claude/
-scripts/src/utils/PointSystem/ensemble-points-report.csv
+
+**/PointSystem/*.csv
+**/PointSystem/models/
+**/PointSystem/ensemble-points-system.ipynb
 ensemble-points-report.csv
