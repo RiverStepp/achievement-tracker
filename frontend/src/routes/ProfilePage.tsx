@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { UserProfile } from "@/types/profile";
 import { useAuth } from "@/auth/AuthProvider";
-
+import { ProfileBanner } from "@/components/profile/ProfileBanner";
 import { mockProfile } from "@/data/mockUser";
 
 export function ProfilePage() {
@@ -53,7 +53,9 @@ export function ProfilePage() {
   }
   return (
     <div>
-      
+      <div className="w-full flex justify-center min-h-0 h-full">
+        <ProfileBanner profile={profile} />
+      </div>
     </div>
   );  
 }

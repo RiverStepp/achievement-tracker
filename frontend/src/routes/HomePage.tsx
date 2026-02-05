@@ -1,7 +1,7 @@
 // src/routes/HomePage.tsx
-import { Feed } from "@/components/Feed";
-import { NewsPosts } from "@/components/NewsPosts";
-import { Trending } from "@/components/Trending";
+import { Feed } from "@/components/home/Feed";
+import { NewsPosts } from "@/components/home/NewsPosts";
+import { Trending } from "@/components/home/Trending";
 
 export const HomePage = () => {
   return (

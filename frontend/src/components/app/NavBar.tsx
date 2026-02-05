@@ -1,6 +1,6 @@
 import { useAuth } from "@/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
-import { LoginOrSignup } from "./LoginOrSignup";
+import { LoginOrSignup } from "@/components/app/LoginOrSignup";
 import { Link } from "react-router-dom";
 import logo from "@/assets/logo.png"; // <- adjust name/extension if needed
 

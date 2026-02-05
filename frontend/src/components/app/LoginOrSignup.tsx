@@ -1,4 +1,4 @@
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/auth/AuthProvider";
 import {
   Dialog,

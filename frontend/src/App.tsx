@@ -8,8 +8,8 @@ import { AuthCallbackPage } from "@/routes/AuthCallbackPage";
 
 import axios from "axios";
 
-import { NavBar } from "@/components/NavBar";
-import { SideBar } from "@/components/SideBar";
+import { NavBar } from "@/components/app/NavBar";
+import { SideBar } from "@/components/app/SideBar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
