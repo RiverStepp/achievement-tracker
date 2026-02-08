@@ -11,6 +11,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<UserRole> UserRoles => Set<UserRole>();
+     public DbSet<Conversation> Conversations => Set<Conversation>();
+     public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
+     public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {
