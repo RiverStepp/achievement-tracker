@@ -52,18 +52,10 @@ export interface ProfileEditPayload {
 export interface ProfileAchievement {
   id: number;
   unlockedAt: string;
+  isPinned?: boolean;
   achievement: Achievement;
   game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl">;
   globalPercentage?: number; // rarity
-}
-export interface PinnedAchievement extends ProfileAchievement {
-  pinnedAt?: string;
-  note?: string;
-}
-export interface RecentAchievementItem {
-  id: string;
-  ts: string;
-  achievement: ProfileAchievement;
 }
 export interface ProfileSummaryStats {
   totalAchievements: number;
@@ -88,7 +80,7 @@ export interface UserProfile {
   identity: ProfileIdentity;
   connections: ProfileConnections;
   summary?: ProfileSummaryStats; 
-  recentAchievements?: RecentAchievementItem[];
+  achievements?: ProfileAchievement[];
   feed?: {
     items: Post[];
   };

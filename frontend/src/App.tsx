@@ -1,26 +1,16 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { Route, Routes } from "react-router-dom";
-import { useAuth } from "@/auth/AuthProvider";
 
 import ProfilePage from "@/routes/ProfilePage";
 import { HomePage } from "@/routes/HomePage";
 import { AuthCallbackPage } from "@/routes/AuthCallbackPage";
 
-import axios from "axios";
-
-import { NavBar } from "@/components/app/NavBar";
 import { SideBar } from "@/components/app/SideBar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 
 const App: React.FC = () => {
-  const { user, isLoading } = useAuth();
-
-  useEffect(() => {
-    console.log("Current user:", user);
-  }, []);
-
   return (
     <>
       {/*Mobile Sidebar Overlay*/}
@@ -43,24 +33,18 @@ const App: React.FC = () => {
       </div>
 
       {/* Main Layout */}
-      <div className="min-h-screen grid grid-rows-[auto_1fr_auto]">
-        {/* Navbar (full width, unchanged behavior) */}
-        <header className="p-4">
-          <NavBar />
-        </header>
-
-        {/* Centered content area (THIS is the fix) */}
-        <div className="w-full flex justify-center px-4 min-h-0">
-          <div className="w-full max-w-[1400px] grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 min-h-0 h-full">
-            {/* Desktop sidebar */}
-            <aside className="hidden lg:block">
-              <div className="sticky top-6">
+      <div className="h-screen overflow-hidden">
+        <div className="mx-auto h-full w-full max-w-[1400px] px-4">
+          <div className="grid h-full min-h-0 grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
+            {/* Desktop sidebar: fixed, never scrolls */}
+            <aside className="hidden lg:block h-full">
+              <div className="h-full">
                 <SideBar />
               </div>
             </aside>
 
-            {/* Main routed content */}
-            <main className="min-w-0 min-h-0 h-full">
+            {/* Routed content: ONLY scroll area */}
+            <main className="min-w-0 h-full min-h-0 overflow-y-auto py-4 app-scrollbar">
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/u/:handle" element={<ProfilePage />} />
@@ -69,11 +53,6 @@ const App: React.FC = () => {
             </main>
           </div>
         </div>
-
-        {/* Footer (full width, unchanged) */}
-        <footer>
-          footer
-        </footer>
       </div>
     </>
   );

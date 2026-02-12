@@ -8,13 +8,13 @@ export const NavBar = () => {
   const { user, isLoading, loginWithSteam, logout } = useAuth();
 
   return (
-    <div className="flex items-center justify-between px-4 py-1">
+    <div className="flex items-center justify-between">
       {/* Left: logo + brand name */}
       <Link to="/" className="flex items-center gap-3">
           <img
             src={logo}
             alt="OpenAchievements logo"
-            className="h-32"
+            className="h-24 w-auto"
           />
       </Link>
 

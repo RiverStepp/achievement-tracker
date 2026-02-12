@@ -5,6 +5,9 @@ import type { UserProfile } from "@/types/profile";
 import { useAuth } from "@/auth/AuthProvider";
 import { ProfileBanner } from "@/components/profile/ProfileBanner";
 import { mockProfile } from "@/data/mockUser";
+import { AboutPanel } from "@/components/profile/AboutPanel";
+import { LatestAcheivements } from "@/components/profile/LatestAcheivements";
+import { ProfileTabs } from "@/components/profile/ProfileTabs";
 
 export function ProfilePage() {
   const { handle } = useParams<{ handle: string }>();
@@ -40,24 +43,34 @@ export function ProfilePage() {
       .finally(() => setLoading(false));
   }, [handle, USE_MOCK_PROFILE]);
 
-  if (loading) return <div>Loading…</div>;
+  if (loading) return <div>Loading...</div>;
   if (!profile) return <div>Profile not found.</div>;
 
-  // 🔹 isMe = logged-in user's handle matches the route handle
-  const isMe =
+  // isMe = logged-in user handle matches the route handle
+  let isMe =
     !!authUser &&
     !!handle &&
     authUser.handle.toLowerCase() === handle.toLowerCase();
   if (isMe) {
     console.log("Viewing own profile:", authUser);
+    isMe = true;
   }
   return (
-    <div>
-      <div className="w-full flex justify-center min-h-0 h-full">
-        <ProfileBanner profile={profile} />
+    <div className="w-full flex justify-center min-h-0">
+      <div className="w-full max-w-[1100px] relative grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+        <div className="lg:col-span-3">
+          <ProfileBanner profile={profile} isMe={isMe} />
+        </div>
+        <div className="lg:col-span-2 min-w-0 min-h-0">
+          <ProfileTabs profile={profile} />
+        </div>
+        <div className="hidden lg:block lg:col-span-1 min-w-0 min-h-0 space-y-4">
+          <AboutPanel profile={profile} />
+          <LatestAcheivements profile={profile} />
+        </div>
       </div>
     </div>
-  );  
+  );
 }
 
 export default ProfilePage;
