@@ -7,11 +7,17 @@ using System.Text.Json;
 
 namespace AchievementTracker.Api.Services.BusinessLogic;
 
-public sealed class SteamClient(HttpClient http, IConfiguration configuration, ILogger<SteamClient> logger): ISteamClient
+public sealed class SteamClient(
+     HttpClient http, 
+     IConfiguration configuration, 
+     ILogger<SteamClient> logger,
+     ISteamRequestQueue steamRequestQueue
+): ISteamClient
 {
      private readonly HttpClient _http = http;
      private readonly IConfiguration _configuration = configuration;
      private readonly ILogger<SteamClient> _logger = logger;
+     private readonly ISteamRequestQueue _steamRequestQueue = steamRequestQueue;
 
      // Note: logins are allowed to continue even in cases where we fail to retrieve profile data because the user
      // is authenticated
@@ -34,7 +40,11 @@ public sealed class SteamClient(HttpClient http, IConfiguration configuration, I
 
           try
           {
-               using HttpResponseMessage response = await _http.GetAsync(url, ct);
+               using HttpResponseMessage response = await _steamRequestQueue.EnqueueAsync(
+                    async queueCt => await _http.GetAsync(url, queueCt),
+                    eSteamRequestPriority.High,
+                    ct
+               );
 
                if (!response.IsSuccessStatusCode)
                {
