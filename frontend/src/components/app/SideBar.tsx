@@ -1,6 +1,6 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Home, CircleUser, Settings, LogOut, Search } from "lucide-react";
+import { Home, CircleUser, Settings, LogOut, Search, Mail } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 import logo from "@/assets/logo.png";
 import { LoginOrSignup } from "./LoginOrSignup";
@@ -59,6 +59,17 @@ export const SideBar = () => {
               >
                 <CircleUser className="h-6 w-6 shrink-0" />
                 <span>Profile</span>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="lg"
+                className="h-12 w-fit justify-start gap-4 px-4 app-heading"
+              >
+                <Link to="/messages" className="inline-flex items-center gap-4">
+                  <Mail className="h-6 w-6 shrink-0" />
+                  <span>Messages</span>
+                </Link>
               </Button>
 
               <Button
