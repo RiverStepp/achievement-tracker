@@ -21,6 +21,11 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 string keyVaultUri = builder.Configuration["KeyVault:VaultUri"]!;
 builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
 
+string? steamApiKey = builder.Configuration["Authentication:Steam:ApiKey"];
+
+if (string.IsNullOrWhiteSpace(steamApiKey))
+     throw new InvalidOperationException("Steam API key is missing (Authentication:Steam:ApiKey)");
+
 JwtSettings jwtSettings = new JwtSettings();
 builder.Configuration.GetSection("Jwt").Bind(jwtSettings);
 
@@ -79,7 +84,6 @@ builder.Services.AddAuthentication(options =>
 })
 .AddSteam(options =>
 {
-     string steamApiKey = builder.Configuration["Authentication:Steam:ApiKey"]!;
      options.ApplicationKey = steamApiKey;
      options.SignInScheme = authSettings.ExternalScheme;
 });
