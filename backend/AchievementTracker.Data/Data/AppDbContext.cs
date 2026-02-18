@@ -14,6 +14,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      public DbSet<Conversation> Conversations => Set<Conversation>();
      public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
      public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
+     public DbSet<MessageEmbed> MessageEmbeds => Set<MessageEmbed>();
+     public DbSet<Notification> Notifications => Set<Notification>();
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {
