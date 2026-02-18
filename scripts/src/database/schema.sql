@@ -2,20 +2,10 @@
 -- MSSQL Server Schema
 -- Refactored to remove JSON columns and use proper relational tables
 
--- Steam Platform lookup table (limited set of values)
--- Note: Consider using CHECK constraint instead of separate table for very small sets
-CREATE TABLE dbo.SteamPlatforms (
-    Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(50) UNIQUE NOT NULL,
-    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    IsActive BIT NOT NULL DEFAULT 1
-);
-
 -- Steam Genre lookup table
 CREATE TABLE dbo.SteamGenres (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(100) UNIQUE NOT NULL,
+    [Name] NVARCHAR(100) UNIQUE NOT NULL,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
@@ -24,7 +14,7 @@ CREATE TABLE dbo.SteamGenres (
 -- Steam Category lookup table
 CREATE TABLE dbo.SteamCategories (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(100) UNIQUE NOT NULL,
+    [Name] NVARCHAR(100) UNIQUE NOT NULL,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
@@ -33,7 +23,7 @@ CREATE TABLE dbo.SteamCategories (
 -- Steam Tag lookup table
 CREATE TABLE dbo.SteamTags (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(100) UNIQUE NOT NULL,
+    [Name] NVARCHAR(100) UNIQUE NOT NULL,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
@@ -42,8 +32,8 @@ CREATE TABLE dbo.SteamTags (
 -- Steam Language lookup table
 CREATE TABLE dbo.SteamLanguages (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Code NVARCHAR(10) UNIQUE NOT NULL, -- ISO language code (e.g., 'en', 'fr', 'de')
-    Name NVARCHAR(100) NOT NULL, -- Full language name (e.g., 'English', 'French', 'German')
+    Code NVARCHAR(3) UNIQUE NOT NULL, -- ISO language code (e.g., 'en', 'fr', 'de')
+    [Name] NVARCHAR(100) NOT NULL, -- Full language name (e.g., 'English', 'French', 'German')
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
@@ -52,7 +42,8 @@ CREATE TABLE dbo.SteamLanguages (
 -- Steam Developer lookup table
 CREATE TABLE dbo.SteamDevelopers (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(255) UNIQUE NOT NULL,
+    [Name] NVARCHAR(255) UNIQUE NOT NULL,
+    PageUrl NVARCHAR(500),
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
@@ -61,31 +52,26 @@ CREATE TABLE dbo.SteamDevelopers (
 -- Steam Publisher lookup table
 CREATE TABLE dbo.SteamPublishers (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    Name NVARCHAR(255) UNIQUE NOT NULL,
+    [Name] NVARCHAR(255) UNIQUE NOT NULL,
+    PageUrl NVARCHAR(500), 
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1
 );
 
 -- Steam Games table
+-- Note: Using Id as primary key instead of SteamAppId to allow for better foreign key relationships
+-- SteamAppId is unique and indexed for lookups
 CREATE TABLE dbo.SteamGames (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     SteamAppId INT NOT NULL,
-    Name NVARCHAR(255) NOT NULL,
+    [Name] NVARCHAR(255) NOT NULL,
     ReleaseDate DATE,
     HeaderImageUrl NVARCHAR(500),
     ShortDescription NVARCHAR(2000),
     IsUnlisted BIT NOT NULL DEFAULT 0,
     IsRemoved BIT NOT NULL DEFAULT 0,
-    MainStoryHours DECIMAL(10,2),
-    MainSidesHours DECIMAL(10,2),
-    CompletionistHours DECIMAL(10,2),
-    AllStylesHours DECIMAL(10,2),
     Alias NVARCHAR(255),
-    ScoreRank INT,
-    MinOwners INT, -- Minimum owner count
-    MaxOwners INT, -- Maximum owner count (NULL if exact number, otherwise represents range)
-    PeakCcu INT,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     IsActive BIT NOT NULL DEFAULT 1,
@@ -93,36 +79,37 @@ CREATE TABLE dbo.SteamGames (
 );
 
 -- Junction tables for many-to-many relationships (composite primary keys, no id column)
+-- Platform enum: 1=Windows, 2=Mac, 3=Linux
 CREATE TABLE dbo.SteamGamePlatforms (
     GameId INT NOT NULL,
-    PlatformId INT NOT NULL,
-    PRIMARY KEY (GameId, PlatformId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (PlatformId) REFERENCES dbo.SteamPlatforms(Id) ON DELETE CASCADE
+    [Platform] TINYINT NOT NULL, -- 1=Windows, 2=Mac, 3=Linux
+    PRIMARY KEY (GameId, [Platform]),
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    CONSTRAINT CK_SteamGamePlatforms_Platform CHECK ([Platform] IN (1, 2, 3))
 );
 
 CREATE TABLE dbo.SteamGameGenres (
     GameId INT NOT NULL,
     GenreId INT NOT NULL,
     PRIMARY KEY (GameId, GenreId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (GenreId) REFERENCES dbo.SteamGenres(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (GenreId) REFERENCES dbo.SteamGenres(Id)
 );
 
 CREATE TABLE dbo.SteamGameCategories (
     GameId INT NOT NULL,
     CategoryId INT NOT NULL,
     PRIMARY KEY (GameId, CategoryId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (CategoryId) REFERENCES dbo.SteamCategories(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (CategoryId) REFERENCES dbo.SteamCategories(Id)
 );
 
 CREATE TABLE dbo.SteamGameTags (
     GameId INT NOT NULL,
     TagId INT NOT NULL,
     PRIMARY KEY (GameId, TagId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (TagId) REFERENCES dbo.SteamTags(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (TagId) REFERENCES dbo.SteamTags(Id)
 );
 
 CREATE TABLE dbo.SteamGameLanguages (
@@ -132,24 +119,24 @@ CREATE TABLE dbo.SteamGameLanguages (
     HasFullAudio BIT NOT NULL DEFAULT 0, -- Full audio supported
     HasSubtitles BIT NOT NULL DEFAULT 0, -- Subtitles supported
     PRIMARY KEY (GameId, LanguageId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (LanguageId) REFERENCES dbo.SteamLanguages(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (LanguageId) REFERENCES dbo.SteamLanguages(Id)
 );
 
 CREATE TABLE dbo.SteamGameDevelopers (
     GameId INT NOT NULL,
     DeveloperId INT NOT NULL,
     PRIMARY KEY (GameId, DeveloperId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (DeveloperId) REFERENCES dbo.SteamDevelopers(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (DeveloperId) REFERENCES dbo.SteamDevelopers(Id)
 );
 
 CREATE TABLE dbo.SteamGamePublishers (
     GameId INT NOT NULL,
     PublisherId INT NOT NULL,
     PRIMARY KEY (GameId, PublisherId),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
-    FOREIGN KEY (PublisherId) REFERENCES dbo.SteamPublishers(Id) ON DELETE CASCADE
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (PublisherId) REFERENCES dbo.SteamPublishers(Id)
 );
 
 -- Steam Achievements table
@@ -157,10 +144,10 @@ CREATE TABLE dbo.SteamAchievements (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     GameId INT NOT NULL,
     SteamApiName NVARCHAR(255) NOT NULL,
-    Name NVARCHAR(255) NOT NULL,
-    Description NVARCHAR(2000),
+    [Name] NVARCHAR(255) NOT NULL,
+    [Description] NVARCHAR(2000),
     IconUrl NVARCHAR(500),
-    Points INT,
+    Points INT NOT NULL DEFAULT 0,
     IsHidden BIT NOT NULL DEFAULT 0,
     DescriptionSource NVARCHAR(50),
     LastUpdated DATETIME2,
@@ -171,27 +158,34 @@ CREATE TABLE dbo.SteamAchievements (
     CONSTRAINT UQ_SteamAchievements_GameId_SteamApiName UNIQUE (GameId, SteamApiName)
 );
 
--- Steam Users table (matches SteamProfiles in backend)
-CREATE TABLE dbo.SteamUsers (
-    Id INT IDENTITY(1,1) PRIMARY KEY,
-    SteamId BIGINT NOT NULL,
-    Username NVARCHAR(255) NOT NULL,
-    ProfileUrl NVARCHAR(500),
-    AvatarUrl NVARCHAR(500),
-    IsActive BIT NOT NULL DEFAULT 1, -- Soft delete flag
+-- Steam Profiles table (matches backend structure)
+CREATE TABLE dbo.SteamProfiles (
+    SteamId BIGINT PRIMARY KEY,
+    UserExternalLoginId INT, -- Links to UserExternalLogins table
+    PersonaName NVARCHAR(64),
+    ProfileUrl NVARCHAR(256),
+    AvatarSmallUrl NVARCHAR(256),
+    AvatarMediumUrl NVARCHAR(256),
+    AvatarFullUrl NVARCHAR(256),
+    IsPrivate BIT NOT NULL DEFAULT 0,
+    LastCheckedDate DATETIME2,
+    LastSyncedDate DATETIME2,
+    IsActive BIT NOT NULL DEFAULT 1,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    CONSTRAINT UQ_SteamUsers_SteamId UNIQUE (SteamId)
+    FOREIGN KEY (UserExternalLoginId) REFERENCES dbo.UserExternalLogins(UserExternalLoginId)
 );
 
 -- Steam User achievements junction table
 CREATE TABLE dbo.SteamUserAchievements (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    UserId INT NOT NULL,
+    UserId BIGINT NOT NULL, -- References SteamProfiles.SteamId
     AchievementId INT NOT NULL,
-    UnlockedAt DATETIME2 NULL,
+    UnlockedAt DATETIME2 NOT NULL, -- Timestamp required for cheat detection
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (UserId) REFERENCES dbo.SteamUsers(Id),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    IsActive BIT NOT NULL DEFAULT 1,
+    FOREIGN KEY (UserId) REFERENCES dbo.SteamProfiles(SteamId),
     FOREIGN KEY (AchievementId) REFERENCES dbo.SteamAchievements(Id),
     CONSTRAINT UQ_SteamUserAchievements_UserId_AchievementId UNIQUE (UserId, AchievementId)
 );
@@ -199,15 +193,15 @@ CREATE TABLE dbo.SteamUserAchievements (
 -- Steam User games table (tracks owned games and playtime)
 CREATE TABLE dbo.SteamUserGames (
     Id INT IDENTITY(1,1) PRIMARY KEY,
-    UserId INT NOT NULL,
+    UserId BIGINT NOT NULL, -- References SteamProfiles.SteamId
     GameId INT NOT NULL,
     PlaytimeForever INT NOT NULL DEFAULT 0, -- Total playtime in minutes
-    Playtime2Weeks INT NOT NULL DEFAULT 0, -- Playtime in last 2 weeks in minutes
     LastPlayedAt DATETIME2,
     CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (UserId) REFERENCES dbo.SteamUsers(Id) ON DELETE CASCADE,
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id) ON DELETE CASCADE,
+    IsActive BIT NOT NULL DEFAULT 1,
+    FOREIGN KEY (UserId) REFERENCES dbo.SteamProfiles(SteamId),
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
     CONSTRAINT UQ_SteamUserGames_UserId_GameId UNIQUE (UserId, GameId)
 );
 
@@ -220,222 +214,261 @@ CREATE TABLE dbo.SteamAchievementStats (
     CONSTRAINT CK_SteamAchievementStats_Percentage CHECK (GlobalPercentage BETWEEN 0 AND 100)
 );
 
+-- FRONTEND / APPLICATION TABLES
+-- These tables support the web application frontend features.
+-- Core application user table (authentication layer)
+CREATE TABLE dbo.AppUsers (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    Email NVARCHAR(255) NOT NULL,
+    PasswordHash NVARCHAR(255), -- NULL if using OAuth only
+    EmailVerified BIT NOT NULL DEFAULT 0,
+    LastLoginAt DATETIME2,
+    FailedLoginAttempts INT NOT NULL DEFAULT 0,
+    LockedUntil DATETIME2,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    IsActive BIT NOT NULL DEFAULT 1,
+    CONSTRAINT UQ_AppUsers_Email UNIQUE (Email)
+);
+
+-- UserExternalLogins table (matches backend structure)
+-- Links AppUsers to external authentication providers (Steam, etc.)
+CREATE TABLE dbo.UserExternalLogins (
+    UserExternalLoginId INT IDENTITY(1,1) PRIMARY KEY,
+    AppUserId INT NOT NULL,
+    AuthProvider SMALLINT NOT NULL, -- Enum: 1=Steam, etc.
+    ProviderUserId NVARCHAR(64) NOT NULL,
+    IsActive BIT NOT NULL DEFAULT 1,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (AppUserId) REFERENCES dbo.AppUsers(Id),
+    CONSTRAINT UQ_UserExternalLogins_AppUserId_AuthProvider UNIQUE (AppUserId, AuthProvider),
+    CONSTRAINT UQ_UserExternalLogins_AuthProvider_ProviderUserId UNIQUE (AuthProvider, ProviderUserId)
+);
+
+-- User profile for display and customization
+CREATE TABLE dbo.UserProfiles (
+    UserId INT PRIMARY KEY,
+    Handle NVARCHAR(50) NOT NULL,
+    DisplayName NVARCHAR(100),
+    AvatarUrl NVARCHAR(500),
+    BannerUrl NVARCHAR(500),
+    Bio NVARCHAR(1000),
+    Location NVARCHAR(100),
+    Timezone NVARCHAR(50),
+    Pronouns NVARCHAR(50),
+    OnboardingCompleted BIT NOT NULL DEFAULT 0,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES dbo.AppUsers(Id),
+    CONSTRAINT UQ_UserProfiles_Handle UNIQUE (Handle)
+);
+
+-- Privacy settings for user profile
+CREATE TABLE dbo.UserProfilePrivacy (
+    UserId INT PRIMARY KEY,
+    ShowStats BIT NOT NULL DEFAULT 1,
+    ShowActivity BIT NOT NULL DEFAULT 1,
+    ShowConnections BIT NOT NULL DEFAULT 1,
+    ShowSocialLinks BIT NOT NULL DEFAULT 1,
+    ShowFeed BIT NOT NULL DEFAULT 1,
+    ShowGameLibrary BIT NOT NULL DEFAULT 1,
+    ShowAchievements BIT NOT NULL DEFAULT 1,
+    AllowFollowers BIT NOT NULL DEFAULT 1,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId)
+);
+
+-- Social links on user profile (Twitter, YouTube, Twitch, etc.)
+CREATE TABLE dbo.UserSocialLinks (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    UserId INT NOT NULL,
+    Kind NVARCHAR(50) NOT NULL, -- 'twitter', 'youtube', 'twitch', 'discord', 'website', etc.
+    Url NVARCHAR(500) NOT NULL,
+    Position INT NOT NULL DEFAULT 0,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId),
+    CONSTRAINT UQ_UserSocialLinks_UserId_Kind UNIQUE (UserId, Kind)
+);
+
+-- User's favorite games (showcased on profile)
+CREATE TABLE dbo.UserFavoriteGames (
+    UserId INT NOT NULL,
+    GameId INT NOT NULL,
+    Position INT NOT NULL DEFAULT 0,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    PRIMARY KEY (UserId, GameId),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId),
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id)
+);
+
+-- User's pinned achievements (showcased on profile)
+CREATE TABLE dbo.UserPinnedAchievements (
+    UserId INT NOT NULL,
+    UserAchievementId INT NOT NULL,
+    Position INT NOT NULL,
+    PinnedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    PRIMARY KEY (UserId, UserAchievementId),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId),
+    FOREIGN KEY (UserAchievementId) REFERENCES dbo.SteamUserAchievements(Id), 
+    CONSTRAINT UQ_UserPinnedAchievements_UserId_Position UNIQUE (UserId, Position)
+);
+
+-- Social follows (user A follows user B)
+CREATE TABLE dbo.UserFollows (
+    FollowerId INT NOT NULL,
+    FollowingId INT NOT NULL,
+    FollowedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    PRIMARY KEY (FollowerId, FollowingId),
+    FOREIGN KEY (FollowerId) REFERENCES dbo.UserProfiles(UserId),
+    FOREIGN KEY (FollowingId) REFERENCES dbo.UserProfiles(UserId),
+    CONSTRAINT CK_UserFollows_NoSelfFollow CHECK (FollowerId <> FollowingId)
+);
+
+-- Activity feed entries (normalized)
+CREATE TABLE dbo.UserActivities (
+    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    UserId INT NOT NULL,
+    ActivityType NVARCHAR(50) NOT NULL, -- 'achievement_unlocked', 'game_started', 'game_completed', 'milestone_reached', 'profile_updated'
+    GameId INT, -- Optional, if activity relates to a game
+    AchievementId INT, -- Optional, if activity relates to an achievement
+    MilestoneId INT, -- Optional, if activity relates to a milestone
+    RelatedUserId INT, -- Optional, if activity involves another user
+    IsPublic BIT NOT NULL DEFAULT 1,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES dbo.AppUsers(Id),
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
+    FOREIGN KEY (AchievementId) REFERENCES dbo.SteamAchievements(Id),
+    FOREIGN KEY (MilestoneId) REFERENCES dbo.Milestones(Id),
+    FOREIGN KEY (RelatedUserId) REFERENCES dbo.AppUsers(Id)
+);
+
+-- User notifications (template - will be changed)
+CREATE TABLE dbo.UserNotifications (
+    Id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    UserId INT NOT NULL,
+    NotificationType NVARCHAR(50) NOT NULL, -- 'new_follower', 'achievement_milestone', 'friend_activity', 'system'
+    Title NVARCHAR(255) NOT NULL,
+    Body NVARCHAR(1000),
+    ActionUrl NVARCHAR(500), -- Optional link
+    RelatedUserId INT, -- Optional, if notification involves another user
+    IsRead BIT NOT NULL DEFAULT 0,
+    ReadAt DATETIME2,
+    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    ExpiresAt DATETIME2, -- Optional expiration
+    FOREIGN KEY (UserId) REFERENCES dbo.AppUsers(Id),
+    FOREIGN KEY (RelatedUserId) REFERENCES dbo.AppUsers(Id)
+);
+
+-- User application settings (non-privacy settings)
+CREATE TABLE dbo.UserSettings (
+    UserId INT PRIMARY KEY,
+    Theme NVARCHAR(20) NOT NULL DEFAULT 'system', -- 'light', 'dark', 'system'
+    Language NVARCHAR(10) NOT NULL DEFAULT 'en',
+    EmailNotifications BIT NOT NULL DEFAULT 1,
+    PushNotifications BIT NOT NULL DEFAULT 1,
+    WeeklyDigest BIT NOT NULL DEFAULT 0,
+    AutoSyncEnabled BIT NOT NULL DEFAULT 1,
+    SyncIntervalMinutes INT NOT NULL DEFAULT 60,
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId)
+);
+
+-- User milestones and badges
+CREATE TABLE dbo.Milestones (
+    Id INT IDENTITY(1,1) PRIMARY KEY,
+    [Name] NVARCHAR(100) NOT NULL,
+    [Description] NVARCHAR(500),
+    IconUrl NVARCHAR(500),
+    Category SMALLINT NOT NULL, -- Short int representing category type
+    RequirementType SMALLINT NOT NULL, -- Short int representing requirement type
+    RequirementValue INT NOT NULL,
+    Points INT NOT NULL DEFAULT 0,
+    IsHidden BIT NOT NULL DEFAULT 0, -- Secret milestones
+    CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    IsActive BIT NOT NULL DEFAULT 1,
+    CONSTRAINT UQ_Milestones_Name UNIQUE ([Name])
+);
+
+-- User earned milestones
+CREATE TABLE dbo.UserMilestones (
+    UserId INT NOT NULL,
+    MilestoneId INT NOT NULL,
+    EarnedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
+    PRIMARY KEY (UserId, MilestoneId),
+    FOREIGN KEY (UserId) REFERENCES dbo.UserProfiles(UserId),
+    FOREIGN KEY (MilestoneId) REFERENCES dbo.Milestones(Id)
+);
+
 -- Steam Game prices table
+-- No uniqueness constraint to allow price history tracking over time
+-- Using DECIMAL(18,3) to support most currencies
 CREATE TABLE dbo.SteamGamePrices (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     GameId INT NOT NULL,
-    Price DECIMAL(18,2), -- Stored as decimal (consider storing as minor units/cents)
-    OriginalPrice DECIMAL(18,2),
-    DiscountPercent INT,
-    CurrencyCode NVARCHAR(3) NOT NULL, -- ISO currency code (3 characters) for current (discounted) price
-    OriginalCurrencyCode NVARCHAR(3) NOT NULL, -- ISO currency code for original price (derived from symbol/prefix)
+    Price DECIMAL(18,3) NOT NULL,
+    OriginalPrice DECIMAL(18,3) NOT NULL,
+    CurrencyCode NVARCHAR(3) NOT NULL, -- ISO currency code for current (discounted) price
+    OriginalCurrencyCode NVARCHAR(3) NOT NULL, -- ISO currency code for original price
     RecordedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
-    CONSTRAINT CK_SteamGamePrices_Discount CHECK (DiscountPercent BETWEEN 0 AND 100),
-    CONSTRAINT UQ_SteamGamePrices_GameId_Currency_RecordedAt UNIQUE (GameId, CurrencyCode, OriginalCurrencyCode, RecordedAt)
+    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id)
 );
 
 -- Steam Game reviews table
 CREATE TABLE dbo.SteamGameReviews (
     Id INT IDENTITY(1,1) PRIMARY KEY,
     GameId INT NOT NULL,
-    SteamRating INT,
+    SteamRating INT NOT NULL,
     MetacriticScore INT,
     Recommendations INT,
     RecordedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
     FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id),
-    CONSTRAINT CK_SteamGameReviews_Metacritic CHECK (MetacriticScore BETWEEN 0 AND 100)
-);
-
--- Steam Game aggregated playtime statistics table
-CREATE TABLE dbo.SteamGamePlaytimeStats (
-    Id INT IDENTITY(1,1) PRIMARY KEY,
-    GameId INT NOT NULL UNIQUE,
-    AverageForever INT,
-    Average2Weeks INT,
-    MedianForever INT,
-    Median2Weeks INT,
-    UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (GameId) REFERENCES dbo.SteamGames(Id)
+    CONSTRAINT CK_SteamGameReviews_Metacritic CHECK (MetacriticScore IS NULL OR MetacriticScore BETWEEN 0 AND 100)
 );
 
 -- Indexes for better performance
--- Note: Indexes on junction tables may be redundant due to PRIMARY KEY constraints, but kept for explicit query optimization
-
 CREATE INDEX idx_SteamAchievements_GameId ON dbo.SteamAchievements(GameId);
 CREATE INDEX idx_SteamAchievements_IsHidden ON dbo.SteamAchievements(IsHidden);
 
 -- Index for user achievements by time (for latest achievements queries)
-CREATE INDEX idx_SteamUserAchievements_UnlockedAt ON dbo.SteamUserAchievements(UnlockedAt DESC);
-
+-- Composite index for efficient queries filtering by user and sorting by unlock time
+CREATE INDEX idx_SteamUserAchievements_UserId_UnlockedAt ON dbo.SteamUserAchievements(UserId, UnlockedAt DESC);
 CREATE INDEX idx_SteamUserAchievements_AchievementId ON dbo.SteamUserAchievements(AchievementId);
 
 CREATE INDEX idx_SteamUserGames_UserId ON dbo.SteamUserGames(UserId);
 CREATE INDEX idx_SteamUserGames_GameId ON dbo.SteamUserGames(GameId);
 
-CREATE INDEX idx_SteamUsers_IsActive ON dbo.SteamUsers(IsActive);
+CREATE INDEX idx_SteamProfiles_IsActive ON dbo.SteamProfiles(IsActive);
+CREATE INDEX idx_SteamProfiles_UserExternalLoginId ON dbo.SteamProfiles(UserExternalLoginId);
 
--- Index for latest check per game queries
 -- Index for latest price queries
 CREATE INDEX idx_SteamGamePrices_GameId_RecordedAt ON dbo.SteamGamePrices(GameId, RecordedAt DESC);
 
 CREATE INDEX idx_SteamGameReviews_GameId ON dbo.SteamGameReviews(GameId);
 
--- Lookup table indexes (may be redundant due to UNIQUE constraints, but kept for explicit query optimization)
-CREATE INDEX idx_SteamPlatforms_Name ON dbo.SteamPlatforms(Name);
-CREATE INDEX idx_SteamGenres_Name ON dbo.SteamGenres(Name);
-CREATE INDEX idx_SteamCategories_Name ON dbo.SteamCategories(Name);
-CREATE INDEX idx_SteamTags_Name ON dbo.SteamTags(Name);
-CREATE INDEX idx_SteamLanguages_Code ON dbo.SteamLanguages(Code);
-CREATE INDEX idx_SteamDevelopers_Name ON dbo.SteamDevelopers(Name);
-CREATE INDEX idx_SteamPublishers_Name ON dbo.SteamPublishers(Name);
+-- Frontend / Application table indexes
+CREATE INDEX idx_AppUsers_Email ON dbo.AppUsers(Email);
+CREATE INDEX idx_AppUsers_IsActive ON dbo.AppUsers(IsActive);
+CREATE INDEX idx_AppUsers_LastLoginAt ON dbo.AppUsers(LastLoginAt DESC);
 
-GO
+CREATE INDEX idx_UserProfiles_Handle ON dbo.UserProfiles(Handle);
 
-/* ============================================================================
-   Triggers to keep UpdateDate current (avoids relying on every caller to set it)
-   NOTE: These triggers do NOT touch CreateDate.
-   ============================================================================ */
+CREATE INDEX idx_UserExternalLogins_AppUserId ON dbo.UserExternalLogins(AppUserId);
+CREATE INDEX idx_UserExternalLogins_AuthProvider_ProviderUserId ON dbo.UserExternalLogins(AuthProvider, ProviderUserId);
 
-CREATE OR ALTER TRIGGER trg_SteamGames_UpdateDate
-ON dbo.SteamGames
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE g
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamGames g
-    INNER JOIN inserted i ON g.Id = i.Id;
-END;
-GO
+CREATE INDEX idx_UserSocialLinks_UserId ON dbo.UserSocialLinks(UserId);
 
-CREATE OR ALTER TRIGGER trg_SteamAchievements_UpdateDate
-ON dbo.SteamAchievements
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE a
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamAchievements a
-    INNER JOIN inserted i ON a.Id = i.Id;
-END;
-GO
+CREATE INDEX idx_UserFollows_FollowerId ON dbo.UserFollows(FollowerId);
+CREATE INDEX idx_UserFollows_FollowingId ON dbo.UserFollows(FollowingId);
 
-CREATE OR ALTER TRIGGER trg_SteamUsers_UpdateDate
-ON dbo.SteamUsers
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE u
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamUsers u
-    INNER JOIN inserted i ON u.Id = i.Id;
-END;
-GO
+CREATE INDEX idx_UserActivities_UserId_CreatedAt ON dbo.UserActivities(UserId, CreatedAt DESC);
+CREATE INDEX idx_UserActivities_ActivityType ON dbo.UserActivities(ActivityType);
+CREATE INDEX idx_UserActivities_IsPublic ON dbo.UserActivities(IsPublic);
 
-CREATE OR ALTER TRIGGER trg_SteamUserGames_UpdateDate
-ON dbo.SteamUserGames
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE ug
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamUserGames ug
-    INNER JOIN inserted i ON ug.Id = i.Id;
-END;
-GO
+CREATE INDEX idx_UserNotifications_UserId_IsRead ON dbo.UserNotifications(UserId, IsRead);
+CREATE INDEX idx_UserNotifications_UserId_CreatedAt ON dbo.UserNotifications(UserId, CreatedAt DESC);
 
-CREATE OR ALTER TRIGGER trg_SteamPlatforms_UpdateDate
-ON dbo.SteamPlatforms
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE p
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamPlatforms p
-    INNER JOIN inserted i ON p.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamGenres_UpdateDate
-ON dbo.SteamGenres
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE g
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamGenres g
-    INNER JOIN inserted i ON g.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamCategories_UpdateDate
-ON dbo.SteamCategories
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE c
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamCategories c
-    INNER JOIN inserted i ON c.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamTags_UpdateDate
-ON dbo.SteamTags
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE t
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamTags t
-    INNER JOIN inserted i ON t.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamLanguages_UpdateDate
-ON dbo.SteamLanguages
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE l
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamLanguages l
-    INNER JOIN inserted i ON l.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamDevelopers_UpdateDate
-ON dbo.SteamDevelopers
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE d
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamDevelopers d
-    INNER JOIN inserted i ON d.Id = i.Id;
-END;
-GO
-
-CREATE OR ALTER TRIGGER trg_SteamPublishers_UpdateDate
-ON dbo.SteamPublishers
-AFTER UPDATE
-AS
-BEGIN
-    SET NOCOUNT ON;
-    UPDATE p
-    SET UpdateDate = GETUTCDATE()
-    FROM dbo.SteamPublishers p
-    INNER JOIN inserted i ON p.Id = i.Id;
-END;
-GO
+CREATE INDEX idx_Milestones_Category ON dbo.Milestones(Category);
+CREATE INDEX idx_Milestones_IsActive ON dbo.Milestones(IsActive);
