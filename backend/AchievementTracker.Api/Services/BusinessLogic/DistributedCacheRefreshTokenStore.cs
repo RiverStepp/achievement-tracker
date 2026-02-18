@@ -1,10 +1,10 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
+using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Models.Options;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Distributed;
 
-namespace AchievementTracker.Services;
+namespace AchievementTracker.Api.Services.BusinessLogic;
 
 public class DistributedCacheRefreshTokenStore : IRefreshTokenStore
 {

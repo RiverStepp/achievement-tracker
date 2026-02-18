@@ -1,5 +1,4 @@
-﻿using AchievementTracker.Services;
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using AchievementTracker.Models.Auth;
 

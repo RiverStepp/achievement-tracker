@@ -6,7 +6,7 @@ import logo from "@/assets/logo.png";
 import { LoginOrSignup } from "./LoginOrSignup";
 
 export const SideBar = () => {
-  const { user, isLoading, logout } = useAuth();
+  const { user, isLoading, logout, userProfile } = useAuth();
   const navigate = useNavigate();
 
   const handleProfileClick = () => {

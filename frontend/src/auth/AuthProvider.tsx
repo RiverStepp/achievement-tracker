@@ -9,6 +9,7 @@ import {
 import { api, setAuthToken, setupApiInterceptors } from "@/lib/api";
 import type { AuthUser } from "@/types/auth";
 import { mockProfile } from "@/data/mockUser";
+import { UserProfile } from "@/types/profile";
 
 const USE_MOCK_AUTH = import.meta.env.DEV;
 
@@ -24,6 +25,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadMe = async () => {
@@ -83,6 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (USE_MOCK_AUTH) {
       setUser(mockProfile.user);
+      setUserProfile(mockProfile);
       sessionStorage.setItem("mockAuth", "1");
       setIsLoading(false);
       return;
@@ -116,11 +119,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       isLoading,
+      userProfile,
       loginWithSteam,
       logout,
       completeLoginFromCallback,
     }),
-    [user, isLoading]
+    [user, isLoading, userProfile]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
