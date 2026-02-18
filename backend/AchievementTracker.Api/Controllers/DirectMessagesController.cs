@@ -1,5 +1,6 @@
 using AchievementTracker.Api.Models.DTOs.DirectMessages;
 using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Data.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -8,9 +9,13 @@ namespace AchievementTracker.Api.Controllers;
 [ApiController]
 [Route("dm")]
 [Authorize]
-public class DirectMessagesController(IDirectMessageService dmService, ICurrentUser currentUser) : ControllerBase
+public class DirectMessagesController(
+     IDirectMessageService dmService,
+     INotificationService notificationService,
+     ICurrentUser currentUser) : ControllerBase
 {
      private readonly IDirectMessageService _dmService = dmService;
+     private readonly INotificationService _notificationService = notificationService;
      private readonly ICurrentUser _currentUser = currentUser;
 
      // Get all conversations for the current user.
@@ -45,6 +50,15 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
      {
           int userId = RequireUserId();
           var message = await _dmService.SendMessageAsync(userId, request, ct);
+
+          // Dispatch a notification to the recipient 
+          await _notificationService.CreateAndDispatchAsync(
+               request.RecipientUserId,
+               userId,
+               eNotificationType.DirectMessage,
+               message.ConversationId.ToString(),
+               ct);
+          
           return Ok(message);
      }
 
