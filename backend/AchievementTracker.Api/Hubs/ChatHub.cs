@@ -1,5 +1,6 @@
 using AchievementTracker.Api.Models.DTOs.DirectMessages;
 using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Data.Enums;
 using AchievementTracker.Models.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -7,9 +8,10 @@ using Microsoft.AspNetCore.SignalR;
 namespace AchievementTracker.Api.Hubs;
 
 [Authorize]
-public sealed class ChatHub(IDirectMessageService dmService) : Hub
+public sealed class ChatHub(IDirectMessageService dmService, INotificationService notificationService) : Hub
 {
      private readonly IDirectMessageService _dmService = dmService;
+     private readonly INotificationService _notificationService = notificationService;
 
      private int GetAppUserId()
      {
@@ -53,6 +55,13 @@ public sealed class ChatHub(IDirectMessageService dmService) : Hub
 
           // Echo back to sender so all their clients stay in sync
           await Clients.Group($"user-{senderUserId}").SendAsync("ReceiveDirectMessage", message);
+
+          // Create a notification for the recipient
+          await _notificationService.CreateAndDispatchAsync(
+               recipientUserId,
+               senderUserId,
+               eNotificationType.DirectMessage,
+               message.ConversationId.ToString());
      }
 
      // Client invokes this to mark all messages in a conversation as read
