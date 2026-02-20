@@ -1,8 +1,6 @@
-using AchievementTracker.Data.Entities.Common;
-
 namespace AchievementTracker.Data.Entities;
 
-public class ConversationParticipant : AuditableEntity
+public sealed class ConversationParticipant
 {
      public int ConversationParticipantId { get; set; }
      public int ConversationId { get; set; }
