@@ -3,7 +3,7 @@
 -- Refactored to remove JSON columns and use proper relational tables
 
 -- Steam Genre lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGenres' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGenres' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGenres] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -16,7 +16,7 @@ END;
 GO
 
 -- Steam Category lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamCategories' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamCategories' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamCategories] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -29,7 +29,7 @@ END;
 GO
 
 -- Steam Tag lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamTags' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamTags' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamTags] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -42,7 +42,7 @@ END;
 GO
 
 -- Steam Language lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamLanguages' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamLanguages' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamLanguages] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -56,7 +56,7 @@ END;
 GO
 
 -- Steam Developer lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamDevelopers' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamDevelopers' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamDevelopers] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -70,7 +70,7 @@ END;
 GO
 
 -- Steam Publisher lookup table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamPublishers' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamPublishers' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamPublishers] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -86,7 +86,7 @@ GO
 -- Steam Games table
 -- Note: Using Id as primary key instead of SteamAppId to allow for better foreign key relationships
 -- SteamAppId is unique and indexed for lookups
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGames' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGames' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGames] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -108,7 +108,7 @@ GO
 
 -- Junction tables for many-to-many relationships (composite primary keys, no id column)
 -- Platform enum: 1=Windows, 2=Mac, 3=Linux
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGamePlatforms' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGamePlatforms' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGamePlatforms] (
         GameId INT NOT NULL,
@@ -120,7 +120,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameGenres' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameGenres' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameGenres] (
         GameId INT NOT NULL,
@@ -132,7 +132,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameCategories' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameCategories' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameCategories] (
         GameId INT NOT NULL,
@@ -144,7 +144,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameTags' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameTags' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameTags] (
         GameId INT NOT NULL,
@@ -156,7 +156,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameLanguages' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameLanguages' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameLanguages] (
         GameId INT NOT NULL,
@@ -171,7 +171,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameDevelopers' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameDevelopers' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameDevelopers] (
         GameId INT NOT NULL,
@@ -183,7 +183,7 @@ BEGIN
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGamePublishers' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGamePublishers' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGamePublishers] (
         GameId INT NOT NULL,
@@ -196,7 +196,7 @@ END;
 GO
 
 -- Steam Achievements table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamAchievements' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamAchievements' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamAchievements] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -229,11 +229,10 @@ END;
 GO
 
 -- Steam Profiles table (matches backend structure)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserSteamProfiles' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'UserSteamProfiles' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[UserSteamProfiles] (
         SteamId BIGINT PRIMARY KEY,
-        UserExternalLoginId INT, -- Links to UserExternalLogins table
         PersonaName NVARCHAR(64),
         ProfileUrl NVARCHAR(256),
         AvatarSmallUrl NVARCHAR(256),
@@ -244,52 +243,50 @@ BEGIN
         LastSyncedDate DATETIME2,
         IsActive BIT NOT NULL DEFAULT 1,
         CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        FOREIGN KEY (UserExternalLoginId) REFERENCES [dbo].[UserExternalLogins](UserExternalLoginId),
-        CONSTRAINT UQ_UserSteamProfiles_UserExternalLoginId UNIQUE (UserExternalLoginId)
+        UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE()
     );
 END;
 GO
 
 -- Steam User achievements junction table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamUserAchievements' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamUserAchievements' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamUserAchievements] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
-        AppUserId INT NOT NULL, -- References AppUsers.Id
+        SteamId BIGINT NOT NULL, -- References UserSteamProfiles.SteamId
         AchievementId INT NOT NULL,
         UnlockedAt DATETIME2 NOT NULL, -- Timestamp required for cheat detection
         CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         IsActive BIT NOT NULL DEFAULT 1,
-        FOREIGN KEY (AppUserId) REFERENCES [dbo].[AppUsers](Id),
+        FOREIGN KEY (SteamId) REFERENCES [dbo].[UserSteamProfiles](SteamId),
         FOREIGN KEY (AchievementId) REFERENCES [dbo].[SteamAchievements](Id),
-        CONSTRAINT UQ_SteamUserAchievements_AppUserId_AchievementId UNIQUE (AppUserId, AchievementId)
+        CONSTRAINT UQ_SteamUserAchievements_SteamId_AchievementId UNIQUE (SteamId, AchievementId)
     );
 END;
 GO
 
 -- Steam User games table (tracks owned games and playtime)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamUserGames' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamUserGames' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamUserGames] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
-        AppUserId INT NOT NULL, -- References AppUsers.Id
+        SteamId BIGINT NOT NULL, -- References UserSteamProfiles.SteamId
         GameId INT NOT NULL,
         PlaytimeForever INT NOT NULL DEFAULT 0, -- Total playtime in minutes
         LastPlayedAt DATETIME2,
         CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         IsActive BIT NOT NULL DEFAULT 1,
-        FOREIGN KEY (AppUserId) REFERENCES [dbo].[AppUsers](Id),
+        FOREIGN KEY (SteamId) REFERENCES [dbo].[UserSteamProfiles](SteamId),
         FOREIGN KEY (GameId) REFERENCES [dbo].[SteamGames](Id),
-        CONSTRAINT UQ_SteamUserGames_AppUserId_GameId UNIQUE (AppUserId, GameId)
+        CONSTRAINT UQ_SteamUserGames_SteamId_GameId UNIQUE (SteamId, GameId)
     );
 END;
 GO
 
 -- Global Steam achievement statistics
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamAchievementStats' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamAchievementStats' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamAchievementStats] (
         AchievementId INT PRIMARY KEY,
@@ -301,48 +298,10 @@ BEGIN
 END;
 GO
 
--- Core application user table (authentication layer)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'AppUsers' AND schema_id = SCHEMA_ID('dbo'))
-BEGIN
-    CREATE TABLE [dbo].[AppUsers] (
-        Id INT IDENTITY(1,1) PRIMARY KEY,
-        Email NVARCHAR(255) NOT NULL,
-        PasswordHash NVARCHAR(255), -- NULL if using OAuth only
-        EmailVerified BIT NOT NULL DEFAULT 0,
-        LastLoginAt DATETIME2,
-        FailedLoginAttempts INT NOT NULL DEFAULT 0,
-        LockedUntil DATETIME2,
-        CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        IsActive BIT NOT NULL DEFAULT 1,
-        CONSTRAINT UQ_AppUsers_Email UNIQUE (Email)
-    );
-END;
-GO
-
--- UserExternalLogins table (matches backend structure)
--- Links AppUsers to external authentication providers (Steam, etc.)
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'UserExternalLogins' AND schema_id = SCHEMA_ID('dbo'))
-BEGIN
-    CREATE TABLE [dbo].[UserExternalLogins] (
-        UserExternalLoginId INT IDENTITY(1,1) PRIMARY KEY,
-        AppUserId INT NOT NULL,
-        AuthProvider SMALLINT NOT NULL, -- Enum: 1=Steam, etc.
-        ProviderUserId NVARCHAR(64) NOT NULL,
-        IsActive BIT NOT NULL DEFAULT 1,
-        CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-        FOREIGN KEY (AppUserId) REFERENCES [dbo].[AppUsers](Id),
-        CONSTRAINT UQ_UserExternalLogins_AppUserId_AuthProvider UNIQUE (AppUserId, AuthProvider),
-        CONSTRAINT UQ_UserExternalLogins_AuthProvider_ProviderUserId UNIQUE (AuthProvider, ProviderUserId)
-    );
-END;
-GO
-
 -- Steam Game prices table
 -- No uniqueness constraint to allow price history tracking over time
 -- Using DECIMAL(18,3) to support most currencies
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGamePrices' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGamePrices' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGamePrices] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -358,7 +317,7 @@ END;
 GO
 
 -- Steam Game reviews table
-IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'SteamGameReviews' AND schema_id = SCHEMA_ID('dbo'))
+IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamGameReviews' AND schema_id = SCHEMA_ID('dbo'))
 BEGIN
     CREATE TABLE [dbo].[SteamGameReviews] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
@@ -374,19 +333,19 @@ END;
 GO
 
 -- Indexes for better performance
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGames_Name' AND object_id = OBJECT_ID('[dbo].[SteamGames]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGames_Name' AND object_id = OBJECT_ID('[dbo].[SteamGames]'))
 BEGIN
     CREATE INDEX idx_SteamGames_Name ON [dbo].[SteamGames]([Name]);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamAchievements_GameId' AND object_id = OBJECT_ID('[dbo].[SteamAchievements]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamAchievements_GameId' AND object_id = OBJECT_ID('[dbo].[SteamAchievements]'))
 BEGIN
     CREATE INDEX idx_SteamAchievements_GameId ON [dbo].[SteamAchievements](GameId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamAchievements_IsHidden' AND object_id = OBJECT_ID('[dbo].[SteamAchievements]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamAchievements_IsHidden' AND object_id = OBJECT_ID('[dbo].[SteamAchievements]'))
 BEGIN
     CREATE INDEX idx_SteamAchievements_IsHidden ON [dbo].[SteamAchievements](IsHidden);
 END;
@@ -394,87 +353,81 @@ GO
 
 -- Index for user achievements by time (for latest achievements queries)
 -- Composite index for efficient queries filtering by user and sorting by unlock time
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamUserAchievements_AppUserId_UnlockedAt' AND object_id = OBJECT_ID('[dbo].[SteamUserAchievements]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamUserAchievements_SteamId_UnlockedAt' AND object_id = OBJECT_ID('[dbo].[SteamUserAchievements]'))
 BEGIN
-    CREATE INDEX idx_SteamUserAchievements_AppUserId_UnlockedAt ON [dbo].[SteamUserAchievements](AppUserId, UnlockedAt DESC);
+    CREATE INDEX idx_SteamUserAchievements_SteamId_UnlockedAt ON [dbo].[SteamUserAchievements](SteamId, UnlockedAt DESC);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamUserAchievements_AchievementId' AND object_id = OBJECT_ID('[dbo].[SteamUserAchievements]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamUserAchievements_AchievementId' AND object_id = OBJECT_ID('[dbo].[SteamUserAchievements]'))
 BEGIN
     CREATE INDEX idx_SteamUserAchievements_AchievementId ON [dbo].[SteamUserAchievements](AchievementId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamUserGames_AppUserId' AND object_id = OBJECT_ID('[dbo].[SteamUserGames]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamUserGames_SteamId' AND object_id = OBJECT_ID('[dbo].[SteamUserGames]'))
 BEGIN
-    CREATE INDEX idx_SteamUserGames_AppUserId ON [dbo].[SteamUserGames](AppUserId);
+    CREATE INDEX idx_SteamUserGames_SteamId ON [dbo].[SteamUserGames](SteamId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamUserGames_GameId' AND object_id = OBJECT_ID('[dbo].[SteamUserGames]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamUserGames_GameId' AND object_id = OBJECT_ID('[dbo].[SteamUserGames]'))
 BEGIN
     CREATE INDEX idx_SteamUserGames_GameId ON [dbo].[SteamUserGames](GameId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_UserSteamProfiles_IsActive' AND object_id = OBJECT_ID('[dbo].[UserSteamProfiles]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_UserSteamProfiles_IsActive' AND object_id = OBJECT_ID('[dbo].[UserSteamProfiles]'))
 BEGIN
     CREATE INDEX idx_UserSteamProfiles_IsActive ON [dbo].[UserSteamProfiles](IsActive);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_UserSteamProfiles_UserExternalLoginId' AND object_id = OBJECT_ID('[dbo].[UserSteamProfiles]'))
-BEGIN
-    CREATE INDEX idx_UserSteamProfiles_UserExternalLoginId ON [dbo].[UserSteamProfiles](UserExternalLoginId);
-END;
-GO
-
 -- Index for latest price queries
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGamePrices_GameId_RecordedAt' AND object_id = OBJECT_ID('[dbo].[SteamGamePrices]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGamePrices_GameId_RecordedAt' AND object_id = OBJECT_ID('[dbo].[SteamGamePrices]'))
 BEGIN
     CREATE INDEX idx_SteamGamePrices_GameId_RecordedAt ON [dbo].[SteamGamePrices](GameId, RecordedAt DESC);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameReviews_GameId' AND object_id = OBJECT_ID('[dbo].[SteamGameReviews]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameReviews_GameId' AND object_id = OBJECT_ID('[dbo].[SteamGameReviews]'))
 BEGIN
     CREATE INDEX idx_SteamGameReviews_GameId ON [dbo].[SteamGameReviews](GameId);
 END;
 GO
 
 -- Indexes in junction tables for common queries
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameGenres_GenreId' AND object_id = OBJECT_ID('[dbo].[SteamGameGenres]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameGenres_GenreId' AND object_id = OBJECT_ID('[dbo].[SteamGameGenres]'))
 BEGIN
     CREATE INDEX idx_SteamGameGenres_GenreId ON [dbo].[SteamGameGenres](GenreId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameCategories_CategoryId' AND object_id = OBJECT_ID('[dbo].[SteamGameCategories]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameCategories_CategoryId' AND object_id = OBJECT_ID('[dbo].[SteamGameCategories]'))
 BEGIN
     CREATE INDEX idx_SteamGameCategories_CategoryId ON [dbo].[SteamGameCategories](CategoryId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameTags_TagId' AND object_id = OBJECT_ID('[dbo].[SteamGameTags]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameTags_TagId' AND object_id = OBJECT_ID('[dbo].[SteamGameTags]'))
 BEGIN
     CREATE INDEX idx_SteamGameTags_TagId ON [dbo].[SteamGameTags](TagId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameLanguages_LanguageId' AND object_id = OBJECT_ID('[dbo].[SteamGameLanguages]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameLanguages_LanguageId' AND object_id = OBJECT_ID('[dbo].[SteamGameLanguages]'))
 BEGIN
     CREATE INDEX idx_SteamGameLanguages_LanguageId ON [dbo].[SteamGameLanguages](LanguageId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGameDevelopers_DeveloperId' AND object_id = OBJECT_ID('[dbo].[SteamGameDevelopers]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGameDevelopers_DeveloperId' AND object_id = OBJECT_ID('[dbo].[SteamGameDevelopers]'))
 BEGIN
     CREATE INDEX idx_SteamGameDevelopers_DeveloperId ON [dbo].[SteamGameDevelopers](DeveloperId);
 END;
 GO
 
-IF NOT EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_SteamGamePublishers_PublisherId' AND object_id = OBJECT_ID('[dbo].[SteamGamePublishers]'))
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = 'idx_SteamGamePublishers_PublisherId' AND object_id = OBJECT_ID('[dbo].[SteamGamePublishers]'))
 BEGIN
     CREATE INDEX idx_SteamGamePublishers_PublisherId ON [dbo].[SteamGamePublishers](PublisherId);
 END;
