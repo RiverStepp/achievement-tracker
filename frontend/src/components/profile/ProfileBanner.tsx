@@ -12,8 +12,17 @@ type ProfileBannerProps = {
 
 export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
   const summary = profile.summary;
-  const bannerUrl = profile.identity.bannerUrl;
+  const bannerUrl = profile.bannerUrl;
   const connections = profile.connections.linkedAccounts || [];
+  const displayName =
+    profile.displayName ||
+    profile.steam?.personaName ||
+    profile.handle;
+  const avatarUrl =
+    profile.avatarUrl ||
+    profile.steam?.avatarMediumUrl ||
+    profile.steam?.avatarFullUrl ||
+    "https://placehold.co/128x128?text=User";
   
   return (
     <div className="w-full h-fit bg-app-panel rounded-lg shadow-md shadow-app-border overflow-visible">
@@ -34,17 +43,17 @@ export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
       </div>
       <div className="relative p-3 pt-0">
         <Avatar className="h-24 w-24 border-4 border-app-bg -mt-32 ml-2 mb-10">
-          <AvatarImage src={profile.user.avatarUrl} alt={`${profile.identity.displayName}'s avatar`} />
-          <AvatarFallback>{profile.identity.displayName.charAt(0)}</AvatarFallback>
+          <AvatarImage src={avatarUrl} alt={`${displayName}'s avatar`} />
+          <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
         </Avatar>
         <div className="pt-2 grid w-full grid-cols-[1fr_auto_1fr] items-center gap-6">
           <div className="order-1">
-            <h1 className="app-heading">{profile.identity.displayName}</h1>
-            <p className="text-app-muted">@{profile.identity.handle}</p>
+            <h1 className="app-heading">{displayName}</h1>
+            <p className="text-app-muted">@{profile.handle}</p>
             <div className="mt-2 flex items-center gap-2 text-sm text-app-muted">
               <CalendarDays className="h-4 w-4 text-app-muted" aria-hidden="true" />
               <span>Joined</span>
-              <p>{formatDate(profile.identity.joinedAt)}</p>
+              <p>{formatDate(profile.joinedAt)}</p>
             </div>
             <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto app-scrollbar">
               {connections.map((conn) => (

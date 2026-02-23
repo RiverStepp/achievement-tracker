@@ -10,10 +10,10 @@ import {
 } from "@/components/ui/dialog";
 
 export const LoginOrSignup = () => {
-    const { user, isLoading, loginWithSteam, logout } = useAuth();
+    const { isAuthenticated, isLoading, loginWithSteam, logout } = useAuth();
     return (
         <div className="ml-auto flex items-center gap-3">
-            {isLoading ? null : user ? (
+            {isLoading ? null : isAuthenticated ? (
             <>
                 <Button variant="outline" size="sm" onClick={logout}>
                 Logout

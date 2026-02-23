@@ -11,9 +11,9 @@ export const Feed = ({ variant, userProfile }: FeedProps) => {
   const isProfileFeed = resolvedVariant === "profile" && !!userProfile;
   const profileFeedItems = userProfile?.feed?.items ?? [];
 
-  const title = isProfileFeed ? `${userProfile.identity.displayName}'s Feed` : "Feed";
+  const title = isProfileFeed ? `${userProfile.displayName}'s Feed` : "Feed";
   const subtitle = isProfileFeed
-    ? `Posts from @${userProfile.identity.handle}`
+    ? `Posts from @${userProfile.handle}`
     : "Latest posts from people you follow";
 
   return (

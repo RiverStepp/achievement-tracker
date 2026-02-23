@@ -1,17 +1,30 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Home, CircleUser, Settings, LogOut, Search, Mail } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 import logo from "@/assets/logo.png";
 import { LoginOrSignup } from "./LoginOrSignup";
 
 export const SideBar = () => {
-  const { user, isLoading, logout, userProfile } = useAuth();
+  const { isAuthenticated, isLoading, logout, steamUser, userProfile } = useAuth();
   const navigate = useNavigate();
+  const handle = userProfile?.handle ?? null;
+  const displayName =
+    userProfile?.displayName ||
+    userProfile?.steam?.personaName ||
+    steamUser?.personaName ||
+    "Account";
+  const avatarUrl =
+    userProfile?.avatarUrl ||
+    userProfile?.steam?.avatarMediumUrl ||
+    userProfile?.steam?.avatarFullUrl ||
+    steamUser?.avatarMediumUrl ||
+    "https://placehold.co/64x64?text=U";
 
   const handleProfileClick = () => {
-    if (!user) return;
-    navigate(`/u/${user.handle}`);
+    if (!handle) return;
+    navigate(`/u/${handle}`);
   };
 
   return (
@@ -49,7 +62,7 @@ export const SideBar = () => {
           </Button>
 
           {/* Only show these when logged in */}
-          {!isLoading && user && (
+          {!isLoading && isAuthenticated && (
             <>
               <Button
                 variant="ghost"
@@ -95,9 +108,15 @@ export const SideBar = () => {
         </nav>
       </div>
       <div className="mt-4 flex items-center gap-3">
-        {isLoading ? null : user ? (
+        {isLoading ? null : isAuthenticated ? (
           <>
-            {/* <span className="text-sm text-app-muted">{user.username}</span> */}
+            <div className="flex items-center gap-2">
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={avatarUrl} alt={`${displayName} avatar`} />
+                <AvatarFallback>{displayName.charAt(0).toUpperCase()}</AvatarFallback>
+              </Avatar>
+              <span className="text-sm text-app-muted">{displayName}</span>
+            </div>
             <Button variant="outline" size="sm" onClick={logout}>
               Logout
             </Button>

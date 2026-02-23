@@ -1,5 +1,6 @@
 // src/types/profile.ts
-import type { Achievement, Game, User } from "./models";
+import type { Achievement, AppUser, Game } from "./models";
+import type { SteamUser } from "./auth";
 import type { Post} from "./post";
 
 export type Platform = "steam" | "xbox" | "psn" | "switch" | "pc";
@@ -47,7 +48,7 @@ export interface ProfileEditPayload {
   socials?: SocialLink[];
 
   pinnedGenreTags?: string[];
-  pinnedAchievementIds?: number[]; // store IDs, server can hydrate to UI objects
+  pinnedAchievementIds?: number[];
 }
 export interface ProfileAchievement {
   id: number;
@@ -55,7 +56,6 @@ export interface ProfileAchievement {
   isPinned?: boolean;
   achievement: Achievement;
   game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl">;
-  globalPercentage?: number; // rarity
 }
 export interface ProfileSummaryStats {
   totalAchievements: number;
@@ -73,11 +73,11 @@ export interface ProfilePrivacy {
   showRecentAchievements: boolean;
   showLinkedAccounts: boolean;
   showSocialLinks: boolean;
-  showFeed: boolean; // if you ever allow private profiles
+  showFeed: boolean;
 }
-export interface UserProfile {
-  user: User
-  identity: ProfileIdentity;
+export interface UserProfile extends ProfileIdentity {
+  user: AppUser;
+  steam?: SteamUser | null;
   connections: ProfileConnections;
   summary?: ProfileSummaryStats; 
   achievements?: ProfileAchievement[];

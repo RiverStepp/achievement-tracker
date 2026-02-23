@@ -1,12 +1,14 @@
-export interface User {
+export interface AppUser {
   id: number;
-  steamId: string;        
-  handle: string;         
-  username: string;       
-  profileUrl?: string;
-  avatarUrl?: string;
-  createdAt?: string;     
+  publicId?: string;
+  roles?: AppUserRole[];
+  isListedOnLeaderboards?: boolean;
+  lastLoginDate?: string;
 }
+
+export type AppUserRole = "User" | "Admin" | "Moderator";
+
+export type User = AppUser;
 
 export interface Game {
   id: number;
@@ -41,14 +43,7 @@ export interface Achievement {
   createdAt?: string;
   descriptionSource?: string;
   lastUpdated?: string;
-}
-
-export interface UserAchievement {
-  id: number;
-  userId: number;
-  achievementId: number;
-  unlockedAt?: string;
-  createdAt?: string;
+  globalPercentage?: number;
 }
 
 export interface AchievementStats {

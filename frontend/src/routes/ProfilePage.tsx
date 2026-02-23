@@ -4,14 +4,14 @@ import { api } from "@/lib/api";
 import type { UserProfile } from "@/types/profile";
 import { useAuth } from "@/auth/AuthProvider";
 import { ProfileBanner } from "@/components/profile/ProfileBanner";
-import { mockProfile } from "@/data/mockUser";
+import { mockUserProfile } from "@/data/mockUser";
 import { AboutPanel } from "@/components/profile/AboutPanel";
 import { LatestAcheivements } from "@/components/profile/LatestAcheivements";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 
 export function ProfilePage() {
   const { handle } = useParams<{ handle: string }>();
-  const { user: authUser } = useAuth();
+  const { userProfile: currentUserProfile } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -27,9 +27,9 @@ export function ProfilePage() {
     // dev: use mock profile only when the handle matches
     if (
       USE_MOCK_PROFILE &&
-      handle.toLowerCase() === mockProfile.user.handle.toLowerCase()
+      handle.toLowerCase() === mockUserProfile.handle.toLowerCase()
     ) {
-      setProfile(mockProfile);
+      setProfile(mockUserProfile);
       setLoading(false);
       return;
     }
@@ -48,11 +48,11 @@ export function ProfilePage() {
 
   // isMe = logged-in user handle matches the route handle
   let isMe =
-    !!authUser &&
+    !!currentUserProfile &&
     !!handle &&
-    authUser.handle.toLowerCase() === handle.toLowerCase();
+    currentUserProfile.handle.toLowerCase() === handle.toLowerCase();
   if (isMe) {
-    console.log("Viewing own profile:", authUser);
+    console.log("Viewing own profile:", currentUserProfile);
     isMe = true;
   }
   return (
