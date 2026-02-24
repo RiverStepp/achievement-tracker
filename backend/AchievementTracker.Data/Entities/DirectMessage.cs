@@ -1,6 +1,8 @@
+using AchievementTracker.Data.Entities.Common;
+
 namespace AchievementTracker.Data.Entities;
 
-public sealed class DirectMessage
+public class DirectMessage : AuditableEntity
 {
      public long DirectMessageId { get; set; }
      public int ConversationId { get; set; }
