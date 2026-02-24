@@ -10,6 +10,9 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
      {
           b.HasKey(x => x.ConversationId);
 
+          b.Property(x => x.ConversationType).IsRequired();
+          b.Property(x => x.ConversationTitle).HasMaxLength(200);
+
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
           b.Property(x => x.UpdateDate).HasDefaultValueSql("SYSUTCDATETIME()");
