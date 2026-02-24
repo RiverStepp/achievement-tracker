@@ -29,11 +29,11 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
           b.HasMany(x => x.Participants)
                .WithOne(x => x.Conversation)
                .HasForeignKey(x => x.ConversationId)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.NoAction);
 
           b.HasMany(x => x.Messages)
                .WithOne(x => x.Conversation)
                .HasForeignKey(x => x.ConversationId)
-               .OnDelete(DeleteBehavior.Cascade);
+               .OnDelete(DeleteBehavior.NoAction);
      }
 }
