@@ -12,5 +12,6 @@ public sealed class DirectMessage
      #region navigation
      public Conversation Conversation { get; set; } = null!;
      public AppUser Sender { get; set; } = null!;
+     public ICollection<MessageEmbed> Embeds { get; set; } = [];
      #endregion
 }
