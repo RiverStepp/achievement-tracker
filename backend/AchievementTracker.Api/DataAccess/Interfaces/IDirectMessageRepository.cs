@@ -13,6 +13,7 @@ public interface IDirectMessageRepository
      Task<List<DirectMessage>> GetMessagesAsync(int conversationId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default);
      Task<List<Conversation>> GetUserConversationsAsync(int userId, CancellationToken ct = default);
      Task<bool> IsUserInConversationAsync(int conversationId, int userId, CancellationToken ct = default);
-     Task MarkMessagesAsReadAsync(int conversationId, int readerUserId, CancellationToken ct = default);
+     Task MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default);
      Task<int> GetUnreadCountAsync(int conversationId, int userId, CancellationToken ct = default);
+     Task<long?> GetLastReadMessageIdAsync(int conversationId, int userId, CancellationToken ct = default);
 }
