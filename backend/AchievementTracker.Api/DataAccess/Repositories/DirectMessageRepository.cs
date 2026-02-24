@@ -1,6 +1,7 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace AchievementTracker.Api.DataAccess.Repositories;
@@ -24,6 +25,8 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
      {
           var conversation = new Conversation
           {
+               ConversationType = eConversationType.Direct,
+               CreatedByAppUserId = userId1,
                Participants =
                [
                     new ConversationParticipant { AppUserId = userId1, JoinedDate = DateTime.UtcNow },
@@ -88,21 +91,42 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
      }
 
      // Marks all unread messages in a conversation as read for the specified user
-     public async Task MarkMessagesAsReadAsync(int conversationId, int readerUserId, CancellationToken ct = default)
+     public async Task MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
      {
-          await _db.DirectMessages
-               .Where(m => m.ConversationId == conversationId
-                    && m.SenderAppUserId != readerUserId
-                    && m.ReadDate == null)
-               .ExecuteUpdateAsync(s => s.SetProperty(m => m.ReadDate, DateTime.UtcNow), ct);
+          long? latestMessageId = await _db.DirectMessages
+               .Where(m => m.ConversationId == conversationId)
+               .OrderByDescending(m => m.DirectMessageId)
+               .Select(m => (long?)m.DirectMessageId)
+               .FirstOrDefaultAsync(ct);
+
+          if (latestMessageId is null)
+               return;
+
+          await _db.ConversationParticipants
+               .Where(p => p.ConversationId == conversationId && p.AppUserId == userId)
+               .ExecuteUpdateAsync(s => s.SetProperty(p => p.LastReadMessageId, latestMessageId), ct);
      }
 
      // Counts how many unread messages exist in a conversation for the specified user
      public async Task<int> GetUnreadCountAsync(int conversationId, int userId, CancellationToken ct = default)
      {
-          return await _db.DirectMessages
-               .CountAsync(m => m.ConversationId == conversationId
-                    && m.SenderAppUserId != userId
-                    && m.ReadDate == null, ct);
+         long? lastReadId = await GetLastReadMessageIdAsync(conversationId, userId, ct);
+
+          var query = _db.DirectMessages
+               .Where(m => m.ConversationId == conversationId
+                    && m.SenderAppUserId != userId);
+
+          if (lastReadId.HasValue)
+               query = query.Where(m => m.DirectMessageId > lastReadId.Value);
+
+          return await query.CountAsync(ct);
+     }
+
+     public async Task<long?> GetLastReadMessageIdAsync(int conversationId, int userId, CancellationToken ct = default)
+     {
+          return await _db.ConversationParticipants
+               .Where(p => p.ConversationId == conversationId && p.AppUserId == userId)
+               .Select(p => p.LastReadMessageId)
+               .FirstOrDefaultAsync(ct);
      }
 }
