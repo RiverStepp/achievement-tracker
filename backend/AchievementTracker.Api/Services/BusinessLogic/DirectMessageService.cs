@@ -26,8 +26,7 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
                ConversationId = message.ConversationId,
                SenderAppUserId = message.SenderAppUserId,
                Content = message.Content,
-               SentDate = message.SentDate,
-               ReadDate = message.ReadDate
+               SentDate = message.SentDate
           };
      }
 
@@ -46,8 +45,7 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
                ConversationId = m.ConversationId,
                SenderAppUserId = m.SenderAppUserId,
                Content = m.Content,
-               SentDate = m.SentDate,
-               ReadDate = m.ReadDate
+               SentDate = m.SentDate
           }).ToList();
      }
 
@@ -74,8 +72,7 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
                          ConversationId = lastMsg.ConversationId,
                          SenderAppUserId = lastMsg.SenderAppUserId,
                          Content = lastMsg.Content,
-                         SentDate = lastMsg.SentDate,
-                         ReadDate = lastMsg.ReadDate
+                         SentDate = lastMsg.SentDate
                     } : null
                });
           }
@@ -90,6 +87,6 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
           if (!isParticipant)
                throw new UnauthorizedAccessException("You are not a participant in this conversation.");
 
-          await _dmRepo.MarkMessagesAsReadAsync(conversationId, userId, ct);
+          await _dmRepo.MarkConversationAsReadAsync(conversationId, userId, ct);
      }
 }
