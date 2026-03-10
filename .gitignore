@@ -17,8 +17,7 @@ backend/**/*.dll
 backend/**/*.pdb
 backend/**/*.exe
 
-backend/**/Logs/
-backend/**/*.log
+/backend/AchievementTracker.Api/Logs/**
 
 backend/**/appsettings.json
 backend/**/appsettings.*.json

@@ -10,6 +10,7 @@
 * Microsoft SQL Server
 * Microsoft SQL Server Management Studio 2019
 * Azure CLI (restart all terminal and PowerShell instances after installing)
+* Docker
 
 ## Step 1: Clone the Repository
 
@@ -73,14 +74,15 @@
   dotnet ef database update
   ```
 
-## Step 7: Setup HTTPS (One-time)
+## Step 7: Create and run the Docker container for Redis
 
-Run this command to trust the .NET development certificate:
-```powershell
-dotnet dev-certs https --trust
-```
+* Run the following command to create and run the Docker container for Redis:
 
-## Step 8: Run the API from Visual Studio. The API will run on https://localhost:7111.
+  ```
+  docker run -d --name redis -p 6379:6379 redis:7
+  ```
+
+## Step 8: Run the API from Visual Studio. The API will run on port 7111.
 
 ## Step 9: Restore dependencies & run the frontend
 
