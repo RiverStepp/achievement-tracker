@@ -6,11 +6,34 @@ namespace AchievementTracker.Data.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
+     #region DbSet 
+     // Please keep these alphabetical :)
      public DbSet<AppUser> AppUsers => Set<AppUser>();
      public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
      public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<UserRole> UserRoles => Set<UserRole>();
+     public DbSet<SteamGenre> SteamGenres => Set<SteamGenre>();
+     public DbSet<SteamCategory> SteamCategories => Set<SteamCategory>();
+     public DbSet<SteamTag> SteamTags => Set<SteamTag>();
+     public DbSet<SteamLanguage> SteamLanguages => Set<SteamLanguage>();
+     public DbSet<SteamDeveloper> SteamDevelopers => Set<SteamDeveloper>();
+     public DbSet<SteamPublisher> SteamPublishers => Set<SteamPublisher>();
+     public DbSet<SteamGame> SteamGames => Set<SteamGame>();
+     public DbSet<SteamGamePlatform> SteamGamePlatforms => Set<SteamGamePlatform>();
+     public DbSet<SteamGameGenre> SteamGameGenres => Set<SteamGameGenre>();
+     public DbSet<SteamGameCategory> SteamGameCategories => Set<SteamGameCategory>();
+     public DbSet<SteamGameTag> SteamGameTags => Set<SteamGameTag>();
+     public DbSet<SteamGameLanguage> SteamGameLanguages => Set<SteamGameLanguage>();
+     public DbSet<SteamGameDeveloper> SteamGameDevelopers => Set<SteamGameDeveloper>();
+     public DbSet<SteamGamePublisher> SteamGamePublishers => Set<SteamGamePublisher>();
+     public DbSet<SteamAchievement> SteamAchievements => Set<SteamAchievement>();
+     public DbSet<SteamUserAchievement> SteamUserAchievements => Set<SteamUserAchievement>();
+     public DbSet<SteamUserGame> SteamUserGames => Set<SteamUserGame>();
+     public DbSet<SteamAchievementStat> SteamAchievementStats => Set<SteamAchievementStat>();
+     public DbSet<SteamGamePrice> SteamGamePrices => Set<SteamGamePrice>();
+     public DbSet<SteamGameReview> SteamGameReviews => Set<SteamGameReview>();
+     #endregion
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {
