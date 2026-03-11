@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,7 +8,7 @@ public sealed class UserSteamProfileConfiguration : IEntityTypeConfiguration<Use
 {
      public void Configure(EntityTypeBuilder<UserSteamProfile> b)
      {
-          b.ToTable("SteamProfiles");
+          b.ToTable("UserSteamProfiles");
 
           b.HasKey(x => x.SteamId);
           b.Property(x => x.SteamId).ValueGeneratedNever();
@@ -22,6 +22,8 @@ public sealed class UserSteamProfileConfiguration : IEntityTypeConfiguration<Use
           b.Property(x => x.AvatarSmallUrl).HasMaxLength(256);
           b.Property(x => x.AvatarMediumUrl).HasMaxLength(256);
           b.Property(x => x.AvatarFullUrl).HasMaxLength(256);
+
+          b.HasIndex(x => x.IsActive);
 
           b.HasIndex(x => x.UserExternalLoginId)
               .IsUnique()
