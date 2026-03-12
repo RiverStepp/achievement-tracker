@@ -1,7 +1,7 @@
 // src/types/profile.ts
 import type { Achievement, AppUser, Game } from "./models";
 import type { SteamUser } from "./auth";
-import type { Post} from "./post";
+import type { Comment, Post } from "./post";
 
 export type Platform = "steam" | "xbox" | "psn" | "switch" | "pc";
 
@@ -55,7 +55,7 @@ export interface ProfileAchievement {
   unlockedAt: string;
   isPinned?: boolean;
   achievement: Achievement;
-  game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl">;
+  game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl" | "iconUrl">;
 }
 export interface ProfileSummaryStats {
   totalAchievements: number;
@@ -83,6 +83,7 @@ export interface UserProfile extends ProfileIdentity {
   achievements?: ProfileAchievement[];
   feed?: {
     items: Post[];
+    comments?: Comment[];
   };
   privacy: ProfilePrivacy;
   viewer: ViewerContext;

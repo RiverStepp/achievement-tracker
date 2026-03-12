@@ -14,6 +14,7 @@ export interface Game {
   id: number;
   steamAppId: number;
   name: string;
+  iconUrl?: string;
   headerImageUrl?: string;
   shortDescription?: string;
   metacriticScore?: number;

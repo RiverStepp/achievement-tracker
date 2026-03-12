@@ -7,7 +7,8 @@ import {
 import { Feed } from "../home/Feed";
 import { UserProfile } from "@/types/profile";
 import { AboutPanel } from "./AboutPanel";
-import { LatestAcheivements } from "./LatestAcheivements";
+import { LatestActivities } from "./LatestActivities";
+import { AchievementPanel } from "../achievments/AchievementPanel";
 
 type ProfileTabsProps = {
     profile: UserProfile;
@@ -28,9 +29,7 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({ profile }) => {
             </TabsTrigger>
         </TabsList>
         <TabsContent value="achievements">
-            <div className="bg-app-panel h-full min-h-full overflow-hidden p-4 rounded-lg shadow-md shadow-app-border">
-                This is the Achievements tab content.
-            </div>
+            <AchievementPanel profile={profile} />
         </TabsContent>
         <TabsContent value="Feed">
             <Feed variant="profile" userProfile={profile} />    
@@ -38,7 +37,7 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({ profile }) => {
         <TabsContent value="about" className="lg:hidden">
             <div className="space-y-4">
                 <AboutPanel profile={profile} />
-                <LatestAcheivements profile={profile} />
+                <LatestActivities profile={profile} />
             </div>
         </TabsContent>
     </Tabs>

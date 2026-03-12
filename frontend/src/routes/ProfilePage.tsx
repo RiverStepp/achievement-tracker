@@ -6,7 +6,7 @@ import { useAuth } from "@/auth/AuthProvider";
 import { ProfileBanner } from "@/components/profile/ProfileBanner";
 import { mockUserProfile } from "@/data/mockUser";
 import { AboutPanel } from "@/components/profile/AboutPanel";
-import { LatestAcheivements } from "@/components/profile/LatestAcheivements";
+import { LatestActivities } from "@/components/profile/LatestActivities";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
 
 export function ProfilePage() {
@@ -66,7 +66,7 @@ export function ProfilePage() {
         </div>
         <div className="hidden lg:block lg:col-span-1 min-w-0 min-h-0 space-y-4">
           <AboutPanel profile={profile} />
-          <LatestAcheivements profile={profile} />
+          <LatestActivities profile={profile} />
         </div>
       </div>
     </div>

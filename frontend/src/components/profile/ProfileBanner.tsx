@@ -1,9 +1,9 @@
 import type { UserProfile } from "@/types/profile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Gamepad2, Clock, CalendarDays } from "lucide-react";
-import { formatDate } from "@/lib/format";
+import { Trophy, Gamepad2, Clock } from "lucide-react";
 import { EditProfile } from "@/components/profile/EditProfile";
 import { ConnectionBadge } from "./ConnectionBadge";
+import { RoleBadge } from "./RoleBadge";
 
 type ProfileBannerProps = {
   profile: UserProfile;
@@ -48,13 +48,12 @@ export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
         </Avatar>
         <div className="pt-2 grid w-full grid-cols-[1fr_auto_1fr] items-center gap-6">
           <div className="order-1">
-            <h1 className="app-heading">{displayName}</h1>
-            <p className="text-app-muted">@{profile.handle}</p>
-            <div className="mt-2 flex items-center gap-2 text-sm text-app-muted">
-              <CalendarDays className="h-4 w-4 text-app-muted" aria-hidden="true" />
-              <span>Joined</span>
-              <p>{formatDate(profile.joinedAt)}</p>
+            <div className="flex items-center justify-items-centergap-2">
+              {profile.user.roles?.[0] ? <RoleBadge role={profile.user.roles[0]} /> : null}
+              <h1 className="app-heading">{displayName}</h1>
             </div>
+            
+            <p className="text-app-muted">@{profile.handle}</p>
             <div className="mt-3 flex flex-nowrap items-center gap-2 overflow-x-auto app-scrollbar">
               {connections.map((conn) => (
                 <ConnectionBadge
