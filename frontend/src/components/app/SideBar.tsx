@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, CircleUser, Settings, LogOut, Search, Mail } from "lucide-react";
+import { Home, CircleUser, Settings, LogOut, Search, Mail, Medal } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 import logo from "@/assets/logo.png";
 import { LoginOrSignup } from "./LoginOrSignup";
@@ -55,9 +55,9 @@ export const SideBar = () => {
             size="lg"
             className="h-12 w-fit justify-start gap-4 px-4 app-heading"
           >
-            <Link to="/explore" className="inline-flex items-center gap-4">
-              <Search className="h-6 w-6 shrink-0" />
-              <span>Explore</span>
+            <Link to="/leaderboard" className="inline-flex items-center gap-4">
+              <Medal className="h-6 w-6 shrink-0" />
+              <span>Leaderboard</span>
             </Link>
           </Button>
 
@@ -90,8 +90,10 @@ export const SideBar = () => {
                 size="lg"
                 className="h-12 w-fit justify-start gap-4 px-4 app-heading"
               >
-                <Settings className="h-6 w-6 shrink-0" />
-                <span>Settings</span>
+                <Link to="/settings" className="inline-flex items-center gap-4">
+                  <Settings className="h-6 w-6 shrink-0" />
+                  <span>Settings</span>
+                </Link>
               </Button>
 
               <Button
