@@ -1,15 +1,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
-import { fileURLToPath } from 'node:url';
 import type { config as MssqlPoolConfig, ConnectionPool } from 'mssql';
-import type { DataTransferConfig, ParsedSchema } from './types.js';
+import type { DataTransferConfig, ParsedSchema, InformationSchemaColumnRow } from './types';
 import {
   connectionStringUsesIntegratedAuth,
   loadMssqlModule,
   type MssqlDriverVariant,
   type MssqlModule,
-} from './sql-module.js';
+} from './sql-module';
 
 function log(message: string): void {
   console.error(`[data-transfer] ${message}`);
@@ -107,11 +106,10 @@ function topologicalCopyOrder(
 }
 
 function printHelp(): void {
-  log('Usage: node --import tsx data-transfer.ts [options]');
+  log('Usage: npm run transfer -- [options]');
   log('Required: --schema <path> | SCHEMA_SQL_PATH');
   log('Required: --source <connectionString> | SOURCE_MSSQL_CONNECTION_STRING');
   log('Required: --target <connectionString> | TARGET_MSSQL_CONNECTION_STRING');
-  log('Optional: --replace  (truncate all schema tables on target first; also DATA_TRANSFER_REPLACE=true)');
   log('Optional: --batch-size <n>  (default 1000, max 5000)');
   log('Optional: --timeout-ms <n>  (default 300000 per request)');
   log('Optional env: DATA_TRANSFER_SQL_DRIVER=auto|tedious|msnodesqlv8 (default auto)');
@@ -124,9 +122,7 @@ function loadConfig(argv: string[]): DataTransferConfig {
     process.env.SOURCE_MSSQL_CONNECTION_STRING?.trim() ?? process.env.MSSQL_SOURCE?.trim() ?? '';
   let targetConnectionString =
     process.env.TARGET_MSSQL_CONNECTION_STRING?.trim() ?? process.env.MSSQL_TARGET?.trim() ?? '';
-  let replaceTargetData =
-    process.env.DATA_TRANSFER_REPLACE === '1' || process.env.DATA_TRANSFER_REPLACE?.toLowerCase() === 'true';
-  let batchSize = Number.parseInt(process.env.DATA_TRANSFER_BATCH_SIZE ?? '1000', 10);
+  let batchSize = Number.parseInt(process.env.DATA_TRANSFER_BATCH_SIZE ?? String(DEFAULT_BATCH_SIZE), 10);
   let requestTimeoutMs = Number.parseInt(process.env.DATA_TRANSFER_TIMEOUT_MS ?? '300000', 10);
 
   for (let i = 2; i < argv.length; i++) {
@@ -147,10 +143,6 @@ function loadConfig(argv: string[]): DataTransferConfig {
       const v = argv[++i];
       if (!v) throw new Error('--target requires a connection string.');
       targetConnectionString = v;
-      continue;
-    }
-    if (arg === '--replace') {
-      replaceTargetData = true;
       continue;
     }
     if (arg === '--batch-size') {
@@ -188,7 +180,6 @@ function loadConfig(argv: string[]): DataTransferConfig {
     schemaSqlPath: path.resolve(schemaSqlPath),
     sourceConnectionString,
     targetConnectionString,
-    replaceTargetData,
     batchSize,
     requestTimeoutMs,
   };
@@ -253,17 +244,6 @@ async function assertTablesExist(
   if (missing.length > 0) {
     throw new Error(`${label} is missing required tables: ${missing.join(', ')}`);
   }
-}
-
-interface InformationSchemaColumnRow {
-  COLUMN_NAME: string;
-  ORDINAL_POSITION: number;
-  DATA_TYPE: string;
-  IS_NULLABLE: string;
-  CHARACTER_MAXIMUM_LENGTH: number | null;
-  NUMERIC_PRECISION: number | null;
-  NUMERIC_SCALE: number | null;
-  DATETIME_PRECISION: number | null;
 }
 
 async function loadInformationSchemaColumns(
@@ -359,8 +339,7 @@ function assertCompatibleColumnsByName(
   return ordered;
 }
 
-/** SQL Server RPC parameter limit is 2100; need to stay below for multi-row INSERT batches. */
-const MAX_PARAMS_PER_BATCH = 2000;
+const DEFAULT_BATCH_SIZE = 1000;
 
 function toSqlType(row: InformationSchemaColumnRow, sqlMod: MssqlModule) {
   const dataType = row.DATA_TYPE.toLowerCase();
@@ -489,27 +468,57 @@ async function insertBatchOnTarget(
 ): Promise<void> {
   if (rows.length === 0) return;
   const tableSql = `${bracketIdent('dbo')}.${bracketIdent(tableName)}`;
-  const columnList = columnNames.map((c) => bracketIdent(c)).join(', ');
-  const valueTuples = rows.map((row, rowIndex) => {
-    const cells = row.map((_, columnIndex) => `@p${rowIndex}x${columnIndex}`);
-    return `(${cells.join(', ')})`;
-  });
-  const request = targetPool.request();
-  for (let rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-    const row = rows[rowIndex];
-    for (let columnIndex = 0; columnIndex < row.length; columnIndex++) {
-      const value = row[columnIndex];
-      request.input(`p${rowIndex}x${columnIndex}`, sqlTypes[columnIndex], value === undefined ? null : value);
-    }
-  }
-  const identityPrologue = hasIdentity ? `SET IDENTITY_INSERT ${tableSql} ON;` : '';
-  const identityEpilogue = hasIdentity ? `SET IDENTITY_INSERT ${tableSql} OFF;` : '';
-  const statement = `${identityPrologue}
+  if (hasIdentity) {
+    const tempName = `#dt_${tableName.replace(/[^a-zA-Z0-9_]/g, '_')}_${Date.now()}_${Math.floor(Math.random() * 1_000_000)}`;
+    const transaction = new targetSqlMod.Transaction(targetPool);
+    await transaction.begin();
+    try {
+      const stage = new targetSqlMod.Table(tempName);
+      stage.create = true;
+      for (let i = 0; i < columnNames.length; i++) {
+        stage.columns.add(columnNames[i], sqlTypes[i], { nullable: true });
+      }
+      for (const row of rows) {
+        stage.rows.add(
+          ...(row.map((value) => (value === undefined ? null : value)) as Array<
+            string | number | boolean | Date | Buffer | null | undefined
+          >),
+        );
+      }
+      await new targetSqlMod.Request(transaction).bulk(stage, { keepNulls: true } as never);
+      const columnList = columnNames.map((c) => bracketIdent(c)).join(', ');
+      await new targetSqlMod.Request(transaction).query(
+        `SET IDENTITY_INSERT ${tableSql} ON;
 INSERT INTO ${tableSql} (${columnList})
-VALUES
-${valueTuples.join(',\n')};
-${identityEpilogue}`;
-  await request.query(statement);
+SELECT ${columnList}
+FROM ${bracketIdent(tempName)};
+SET IDENTITY_INSERT ${tableSql} OFF;`,
+      );
+      await transaction.commit();
+    } catch (error) {
+      try {
+        await new targetSqlMod.Request(transaction).query(`SET IDENTITY_INSERT ${tableSql} OFF`);
+      } catch {
+        // ignore best-effort cleanup
+      }
+      await transaction.rollback();
+      throw error;
+    }
+    return;
+  }
+  const table = new targetSqlMod.Table(tableSql);
+  table.create = false;
+  for (let i = 0; i < columnNames.length; i++) {
+    table.columns.add(columnNames[i], sqlTypes[i], { nullable: true });
+  }
+  for (const row of rows) {
+    table.rows.add(
+      ...(row.map((value) => (value === undefined ? null : value)) as Array<
+        string | number | boolean | Date | Buffer | null | undefined
+      >),
+    );
+  }
+  await targetPool.request().bulk(table, { keepNulls: true } as never);
 }
 
 async function copySingleTable(
@@ -525,15 +534,8 @@ async function copySingleTable(
   const columnNames = assertCompatibleColumnsByName(tableName, sourceColRows, targetColRows);
   const targetByName = columnsByName(targetColRows);
   const sqlTypes = columnNames.map((name) => toSqlType(targetByName.get(name)!, targetSqlMod));
-  const columnsPerRow = Math.max(1, columnNames.length);
-  const maxRowsByParams = Math.max(1, Math.floor(MAX_PARAMS_PER_BATCH / columnsPerRow));
-  const effectiveBatchSize = Math.min(batchSize, maxRowsByParams);
-  if (effectiveBatchSize < batchSize) {
-    log(
-      `Table ${tableName}: limiting batch size to ${effectiveBatchSize} row(s) (${columnsPerRow} columns) to stay under SQL Server parameter limits.`,
-    );
-  }
   const hasIdentity = await tableHasIdentityColumn(targetPool, targetSqlMod, tableName);
+  const effectiveBatchSize = batchSize;
   const pkColumns = await getPrimaryKeyColumnNames(sourcePool, sourceSqlMod, tableName);
   const targetPk = await getPrimaryKeyColumnNames(targetPool, targetSqlMod, tableName);
   const pkSig = (cols: string[]) => [...cols].sort((a, b) => a.localeCompare(b)).join('|');
@@ -557,54 +559,105 @@ async function copySingleTable(
   const selectList = columnNames.map((c) => bracketIdent(c)).join(', ');
   const orderBy = pkColumns.map((c) => bracketIdent(c)).join(', ');
   const fromClause = `${bracketIdent('dbo')}.${bracketIdent(tableName)}`;
-
-  let offset = 0;
   let inserted = 0;
-  while (offset < totalRows) {
-    const page = await sourcePool.request().query(
-      `
+  const sourceRequest = sourcePool.request();
+  sourceRequest.stream = true;
+  let batch: unknown[][] = [];
+  await new Promise<void>((resolve, reject) => {
+    let settled = false;
+    let flushing = false;
+    let doneReceived = false;
+
+    const safeResolve = () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    };
+
+    const safeReject = (error: unknown) => {
+      if (!settled) {
+        settled = true;
+        reject(error);
+      }
+    };
+
+    const flushBatch = async () => {
+      if (flushing || batch.length === 0) {
+        if (doneReceived && !flushing && batch.length === 0) safeResolve();
+        return;
+      }
+      flushing = true;
+      const toInsert = batch;
+      batch = [];
+      try {
+        await insertBatchOnTarget(
+          targetPool,
+          targetSqlMod,
+          tableName,
+          columnNames,
+          sqlTypes,
+          toInsert,
+          hasIdentity,
+        );
+        inserted += toInsert.length;
+        log(`Table ${tableName}: inserted ${inserted}/${totalRows}`);
+      } catch (error) {
+        try {
+          sourceRequest.cancel();
+        } catch {
+          // ignore cancellation races
+        }
+        safeReject(error);
+        return;
+      } finally {
+        flushing = false;
+      }
+      if (doneReceived) {
+        if (batch.length > 0) {
+          void flushBatch();
+          return;
+        }
+        safeResolve();
+        return;
+      }
+      sourceRequest.resume();
+    };
+
+    sourceRequest.on('row', (record: Record<string, unknown>) => {
+      batch.push(columnNames.map((name) => record[name]));
+      if (batch.length >= effectiveBatchSize) {
+        sourceRequest.pause();
+        void flushBatch();
+      }
+    });
+
+    sourceRequest.once('error', (error) => {
+      safeReject(error);
+    });
+
+    sourceRequest.once('done', () => {
+      doneReceived = true;
+      if (batch.length > 0) {
+        sourceRequest.pause();
+        void flushBatch();
+      } else if (!flushing) {
+        safeResolve();
+      }
+    });
+
+    void sourceRequest
+      .query(
+        `
       SELECT ${selectList}
       FROM ${fromClause}
       ORDER BY ${orderBy}
-      OFFSET ${offset} ROWS FETCH NEXT ${effectiveBatchSize} ROWS ONLY
     `,
-    );
-    const batch = (page.recordset as Record<string, unknown>[]).map((record) =>
-      columnNames.map((name) => record[name]),
-    );
-    if (batch.length === 0) break;
-    await insertBatchOnTarget(targetPool, targetSqlMod, tableName, columnNames, sqlTypes, batch, hasIdentity);
-    inserted += batch.length;
-    offset += batch.length;
-    log(`Table ${tableName}: inserted ${inserted}/${totalRows}`);
-  }
-}
-
-async function replaceTargetData(
-  targetPool: ConnectionPool,
-  targetSqlMod: MssqlModule,
-  tableNamesDeterministic: readonly string[],
-): Promise<void> {
-  const transaction = new targetSqlMod.Transaction(targetPool);
-  await transaction.begin();
-  try {
-    const request = new targetSqlMod.Request(transaction);
-    for (const tableName of tableNamesDeterministic) {
-      await request.query(`ALTER TABLE ${bracketIdent('dbo')}.${bracketIdent(tableName)} NOCHECK CONSTRAINT ALL`);
-    }
-    for (const tableName of tableNamesDeterministic) {
-      await request.query(`TRUNCATE TABLE ${bracketIdent('dbo')}.${bracketIdent(tableName)}`);
-    }
-    for (const tableName of tableNamesDeterministic) {
-      await request.query(
-        `ALTER TABLE ${bracketIdent('dbo')}.${bracketIdent(tableName)} WITH CHECK CHECK CONSTRAINT ALL`,
-      );
-    }
-    await transaction.commit();
-  } catch (err) {
-    await transaction.rollback();
-    throw err;
-  }
+      )
+      .catch((error) => {
+        safeReject(error);
+      });
+  });
 }
 
 async function run(): Promise<void> {
@@ -612,7 +665,6 @@ async function run(): Promise<void> {
   log(`Schema file: ${config.schemaSqlPath}`);
   log(`Source: ${redactConnectionString(config.sourceConnectionString)}`);
   log(`Target: ${redactConnectionString(config.targetConnectionString)}`);
-  log(`Replace target: ${config.replaceTargetData ? 'yes' : 'no'}`);
   log(`Batch size: ${config.batchSize}`);
 
   const schemaText = await fs.readFile(config.schemaSqlPath, 'utf8');
@@ -654,11 +706,6 @@ async function run(): Promise<void> {
       assertCompatibleColumnsByName(tableName, sourceCols, targetCols);
     }
 
-    if (config.replaceTargetData) {
-      log('Truncating all schema tables on target (constraints relaxed, then revalidated)...');
-      await replaceTargetData(targetPool, targetLoad.sql, deterministicAllTables);
-    }
-
     log(`Copy order (${copyOrder.length} tables): ${copyOrder.join(' → ')}`);
     for (const tableName of copyOrder) {
       await copySingleTable(
@@ -678,13 +725,7 @@ async function run(): Promise<void> {
   }
 }
 
-function launchedAsMainScript(): boolean {
-  const entry = process.argv[1];
-  if (!entry) return false;
-  return fileURLToPath(import.meta.url) === path.resolve(entry);
-}
-
-if (launchedAsMainScript()) {
+if (require.main === module) {
   run().catch((err) => {
     const message = err instanceof Error ? err.message : String(err);
     log(`FATAL: ${message}`);
