@@ -1,5 +1,5 @@
 import React from "react";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useLocation } from "react-router-dom";
 
 import ProfilePage from "@/routes/ProfilePage";
 import { HomePage } from "@/routes/HomePage";
@@ -14,6 +14,9 @@ import { SettingsPage } from "./routes/SettingsPage";
 import { LeaderboardPage } from "./routes/LeaderboardPage";
 
 const App: React.FC = () => {
+  const location = useLocation();
+  const isHomeRoute = location.pathname === "/";
+
   return (
     <>
       {/*Mobile Sidebar Overlay*/}
@@ -47,7 +50,11 @@ const App: React.FC = () => {
             </aside>
 
             {/* Routed content: ONLY scroll area */}
-            <main className="min-w-0 h-full min-h-0 overflow-y-auto py-4 app-scrollbar">
+            <main
+              className={`min-w-0 h-full min-h-0 py-4 ${
+                isHomeRoute ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
+              }`}
+            >
               <Routes>
                 <Route path="/" element={<HomePage />} />
                 <Route path="/u/:handle" element={<ProfilePage />} />

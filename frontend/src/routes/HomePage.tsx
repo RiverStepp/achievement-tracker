@@ -20,7 +20,7 @@ export const HomePage = () => {
       >
         {/* Center feed column */}
         <div className="min-w-0 min-h-0 h-full">
-          <Feed/>
+          <Feed />
         </div>
 
         {/* Right sidebar */}
