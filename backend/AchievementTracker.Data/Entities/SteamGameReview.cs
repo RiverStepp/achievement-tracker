@@ -6,7 +6,7 @@ public sealed class SteamGameReview
     public int GameId { get; set; }
     public int SteamRating { get; set; }
     public int? MetacriticScore { get; set; }
-    public int Recommendations { get; set; }
+    public int? Recommendations { get; set; }
     public DateTime RecordedAt { get; set; }
 
     #region navigation

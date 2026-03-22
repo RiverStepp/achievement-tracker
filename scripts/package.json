@@ -1,0 +1,24 @@
+{
+  "name": "@achievement-tracker/scripts",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "transfer": "tsx src/data-transfer/data-transfer.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "mssql": "^12.2.1",
+    "pg": "^8.16.3"
+  },
+  "optionalDependencies": {
+    "msnodesqlv8": "^5.1.5"
+  },
+  "devDependencies": {
+    "@types/mssql": "^9.1.8",
+    "@types/node": "^22.10.0",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}

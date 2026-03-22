@@ -13,7 +13,7 @@ public sealed class SteamLanguageConfiguration : IEntityTypeConfiguration<SteamL
         b.HasKey(x => x.Id);
 
         b.Property(x => x.Code)
-            .HasMaxLength(3)
+            .HasMaxLength(10)
             .IsRequired();
 
         b.Property(x => x.Name)

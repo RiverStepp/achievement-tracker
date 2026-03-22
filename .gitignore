@@ -13,6 +13,8 @@ backend/**/bin/
 backend/**/obj/
 backend/**/[Pp]ublish/
 
+scripts/node_modules
+
 backend/**/*.dll
 backend/**/*.pdb
 backend/**/*.exe
