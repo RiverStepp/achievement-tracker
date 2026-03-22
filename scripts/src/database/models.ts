@@ -109,7 +109,7 @@ export interface User {
 
 export interface UserAchievement {
     id?: number;
-    user_id: number;
+    steam_id: bigint;
     achievement_id: number;
     unlocked_at?: Date;
     created_at?: Date;
@@ -117,10 +117,9 @@ export interface UserAchievement {
 
 export interface UserGame {
     id?: number;
-    user_id: number;
+    steam_id: bigint;
     game_id: number;
     playtime_forever: number; // in minutes
-    playtime_2weeks: number; // in minutes
     last_played_at?: Date;
 }
 

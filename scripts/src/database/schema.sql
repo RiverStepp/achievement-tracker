@@ -46,7 +46,7 @@ IF NOT EXISTS (SELECT 1 FROM sys.tables WHERE name = 'SteamLanguages' AND schema
 BEGIN
     CREATE TABLE [dbo].[SteamLanguages] (
         Id INT IDENTITY(1,1) PRIMARY KEY,
-        Code NVARCHAR(3) UNIQUE NOT NULL, -- ISO language code (e.g., 'en', 'fr', 'de')
+        Code NVARCHAR(10) UNIQUE NOT NULL, -- ISO language code (e.g., 'en', 'fr', 'de', 'zh-CN')
         [Name] NVARCHAR(100) NOT NULL, -- Full language name (e.g., 'English', 'French', 'German')
         CreateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
         UpdateDate DATETIME2 NOT NULL DEFAULT GETUTCDATE(),

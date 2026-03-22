@@ -1,82 +1,129 @@
 import { RateLimitInfo } from '../types';
 
+const DEFAULT_MAX_PER_SECOND = 4;
+const DEFAULT_MAX_PER_MINUTE = 300;
+const DEFAULT_MAX_PER_DAY = 100_000;
+
 export class RateLimiter {
-  private requests: number[] = [];
-  private dailyRequests: number = 0;
-  private lastReset: number = Date.now();
-  private readonly maxRequestsPerSecond = 1; // 1 request per second
-  private readonly maxRequestsPerDay = 100000;
-  private readonly resetInterval = 24 * 60 * 60 * 1000; // 24 hours
+  private readonly maxPerSecond: number;
+  private readonly maxPerMinute: number;
+  private readonly dailyCap: number;
+
+  private secondWindow: number[] = [];
+  private minuteWindow: number[] = [];
+  private dailyCount: number = 0;
+  private dailyResetAt: number;
+  private cooldownUntilMs: number = 0;
   private cancellationToken: { cancelled: boolean } = { cancelled: false };
 
   constructor() {
-    // Reset daily counter if it's been more than 24 hours
-    this.resetIfNeeded();
+    this.maxPerSecond = parseInt(process.env.STEAM_API_MAX_PER_SECOND ?? '') || DEFAULT_MAX_PER_SECOND;
+    this.maxPerMinute = parseInt(process.env.STEAM_API_MAX_PER_MINUTE ?? '') || DEFAULT_MAX_PER_MINUTE;
+    this.dailyCap = parseInt(process.env.STEAM_API_MAX_PER_DAY ?? '') || DEFAULT_MAX_PER_DAY;
+    this.dailyResetAt = Date.now() + 24 * 60 * 60 * 1000;
   }
 
   setCancellationToken(token: { cancelled: boolean }): void {
     this.cancellationToken = token;
   }
 
-  private resetIfNeeded(): void {
-    const now = Date.now();
-    if (now - this.lastReset > this.resetInterval) {
-      this.dailyRequests = 0;
-      this.lastReset = now;
+  noteHttp429(headers: unknown): void {
+    let retryAfterSec = 60;
+    if (headers != null && typeof headers === 'object') {
+      const h = headers as Record<string, unknown>;
+      const ra = h['retry-after'] ?? h['Retry-After'];
+      if (ra != null) {
+        const parsed = parseInt(String(ra), 10);
+        if (!isNaN(parsed) && parsed > 0) retryAfterSec = parsed;
+      }
     }
+    const until = Date.now() + retryAfterSec * 1000;
+    if (until > this.cooldownUntilMs) {
+      this.cooldownUntilMs = until;
+    }
+    console.warn(`Steam API 429: backing off ${retryAfterSec}s (until ${new Date(this.cooldownUntilMs).toISOString()})`);
   }
 
   async waitIfNeeded(): Promise<void> {
-    // Check for cancellation
+    this.checkCancelled();
+
+    // 429 cooldown
+    const cooldownWait = this.cooldownUntilMs - Date.now();
+    if (cooldownWait > 0) {
+      console.warn(`Rate limiter: 429 cooldown, waiting ${Math.ceil(cooldownWait / 1000)}s...`);
+      await this.sleep(cooldownWait);
+      this.checkCancelled();
+    }
+
+    // Daily reset
+    if (Date.now() >= this.dailyResetAt) {
+      this.dailyCount = 0;
+      this.dailyResetAt = Date.now() + 24 * 60 * 60 * 1000;
+    }
+
+    // Daily cap
+    if (this.dailyCount >= this.dailyCap) {
+      const wait = this.dailyResetAt - Date.now();
+      console.log(`Daily cap (${this.dailyCap}) reached. Waiting ${Math.ceil(wait / 1000 / 60)} min until reset.`);
+      await this.sleep(wait);
+      this.checkCancelled();
+      this.dailyCount = 0;
+      this.dailyResetAt = Date.now() + 24 * 60 * 60 * 1000;
+    }
+
+    await this.throttle(this.minuteWindow, this.maxPerMinute, 60_000, 'minute');
+    await this.throttle(this.secondWindow, this.maxPerSecond, 1_000, 'second');
+
+    const ts = Date.now();
+    this.secondWindow.push(ts);
+    this.minuteWindow.push(ts);
+    this.dailyCount++;
+  }
+
+  private async throttle(
+    window: number[],
+    max: number,
+    windowMs: number,
+    label: string,
+  ): Promise<void> {
+    this.pruneWindow(window, windowMs);
+
+    if (window.length >= max) {
+      const waitMs = windowMs - (Date.now() - window[0]) + 1;
+      if (waitMs > 0) {
+        console.log(`Rate limit (per-${label}): waiting ${Math.ceil(waitMs)}ms...`);
+        await this.sleep(waitMs);
+        this.checkCancelled();
+        this.pruneWindow(window, windowMs);
+      }
+    }
+  }
+
+  private pruneWindow(window: number[], windowMs: number): void {
+    const cutoff = Date.now() - windowMs;
+    let i = 0;
+    while (i < window.length && window[i] <= cutoff) i++;
+    if (i > 0) window.splice(0, i);
+  }
+
+  private checkCancelled(): void {
     if (this.cancellationToken.cancelled) {
       throw new Error('Operation cancelled');
     }
-
-    this.resetIfNeeded();
-    
-    const now = Date.now();
-    
-    // Remove requests older than 1 second (for 1 req/sec limit)
-    this.requests = this.requests.filter(time => now - time < 1000);
-    
-    // Check if we've hit the daily limit
-    if (this.dailyRequests >= this.maxRequestsPerDay) {
-      const timeUntilReset = this.resetInterval - (now - this.lastReset);
-      console.log(`Daily rate limit reached. Waiting ${Math.ceil(timeUntilReset / 1000 / 60)} minutes until reset.`);
-      await this.sleep(timeUntilReset);
-      this.resetIfNeeded();
-    }
-    
-    // Check if we've hit the 1-second limit (1 request per second)
-    if (this.requests.length >= this.maxRequestsPerSecond) {
-      const oldestRequest = Math.min(...this.requests);
-      const waitTime = 1000 - (now - oldestRequest);
-      if (waitTime > 0) {
-        console.log(`Rate limit: Waiting ${Math.ceil(waitTime)}ms before next request...`);
-        await this.sleep(waitTime);
-        
-        // Check for cancellation after waiting
-        if (this.cancellationToken.cancelled) {
-          throw new Error('Operation cancelled');
-        }
-      }
-    }
-    
-    // Record this request
-    this.requests.push(now);
-    this.dailyRequests++;
   }
 
   getRateLimitInfo(): RateLimitInfo {
-    this.resetIfNeeded();
     const now = Date.now();
-    const requestsInLastSecond = this.requests.filter(time => now - time < 1000).length;
-    
     return {
-      requestsPer10Seconds: requestsInLastSecond, // Keep for compatibility, but represents per-second now
-      requestsPerDay: this.dailyRequests,
-      currentRequests: requestsInLastSecond,
-      resetTime: this.lastReset + this.resetInterval
+      requestsPer10Seconds: this.secondWindow.filter(t => now - t < 10_000).length,
+      requestsPerDay: this.dailyCount,
+      currentRequests: this.secondWindow.filter(t => now - t < 1_000).length,
+      resetTime: this.dailyResetAt,
+      maxPerSecond: this.maxPerSecond,
+      maxPerMinute: this.maxPerMinute,
+      requestsInLastMinute: this.minuteWindow.filter(t => now - t < 60_000).length,
+      dailyCap: this.dailyCap,
+      cooldownUntilMs: this.cooldownUntilMs,
     };
   }
 

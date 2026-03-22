@@ -1,5 +1,5 @@
-import { DatabaseService } from '../database/databaseService';
 import { ConnectionPool } from 'mssql';
+import sql from 'mssql';
 
 // Points statistics for an achievement
 export interface AchievementPoints {
@@ -13,7 +13,6 @@ export interface AchievementPoints {
 
 // User points summary
 export interface UserPointsSummary {
-  userId: number;
   steamId: string;
   username: string;
   totalPoints: number;
@@ -35,50 +34,46 @@ export interface GamePointsBreakdown {
 
 export class PointsService {
   private pool: ConnectionPool;
-  private dbService: DatabaseService;
 
   constructor(pool: ConnectionPool) {
     this.pool = pool;
-    this.dbService = new DatabaseService(pool);
   }
 
-  // Get total points for a user
-  async getUserTotalPoints(userId: number): Promise<number> {
+  // Get total points for a user (SteamId = UserSteamProfiles.SteamId)
+  async getUserTotalPoints(steamId: bigint): Promise<number> {
     const result = await this.pool
       .request()
-      .input('UserId', userId)
+      .input('SteamId', sql.BigInt, steamId)
       .query<{ total_points: number }>(`
         SELECT ISNULL(SUM(a.Points), 0) as total_points
         FROM SteamUserAchievements ua
         INNER JOIN SteamAchievements a ON ua.AchievementId = a.Id
-        WHERE ua.UserId = @UserId
+        WHERE ua.SteamId = @SteamId
       `);
 
     return result.recordset[0]?.total_points || 0;
   }
 
   // Get detailed points summary for a user
-  async getUserPointsSummary(userId: number, topN: number = 10): Promise<UserPointsSummary> {
-    // Get basic info
+  async getUserPointsSummary(steamId: bigint, topN: number = 10): Promise<UserPointsSummary> {
     const userResult = await this.pool
       .request()
-      .input('UserId', userId)
+      .input('SteamId', sql.BigInt, steamId)
       .query<{ steam_id: string; username: string }>(`
-        SELECT SteamId as steam_id, Username as username
-        FROM SteamUsers
-        WHERE Id = @UserId
+        SELECT CAST(SteamId AS VARCHAR(50)) as steam_id, PersonaName as username
+        FROM UserSteamProfiles
+        WHERE SteamId = @SteamId
       `);
 
     if (!userResult.recordset || userResult.recordset.length === 0) {
-      throw new Error(`User ${userId} not found`);
+      throw new Error(`User ${String(steamId)} not found`);
     }
 
     const user = userResult.recordset[0];
 
-    // Get points stats
     const statsResult = await this.pool
       .request()
-      .input('UserId', userId)
+      .input('SteamId', sql.BigInt, steamId)
       .query<{ total_points: number; achievement_count: number; average_points: number }>(`
         SELECT
           ISNULL(SUM(a.Points), 0) as total_points,
@@ -86,15 +81,14 @@ export class PointsService {
           ISNULL(AVG(CAST(a.Points as FLOAT)), 0) as average_points
         FROM SteamUserAchievements ua
         INNER JOIN SteamAchievements a ON ua.AchievementId = a.Id
-        WHERE ua.UserId = @UserId
+        WHERE ua.SteamId = @SteamId
       `);
 
     const stats = statsResult.recordset[0];
 
-    // Get top achievements
     const topResult = await this.pool
       .request()
-      .input('UserId', userId)
+      .input('SteamId', sql.BigInt, steamId)
       .input('TopN', topN)
       .query<{
         achievement_id: number;
@@ -115,7 +109,7 @@ export class PointsService {
         INNER JOIN SteamAchievements a ON ua.AchievementId = a.Id
         INNER JOIN SteamGames g ON a.GameId = g.Id
         LEFT JOIN SteamAchievementStats ast ON a.Id = ast.AchievementId
-        WHERE ua.UserId = @UserId
+        WHERE ua.SteamId = @SteamId
         ORDER BY a.Points DESC
       `);
 
@@ -129,9 +123,8 @@ export class PointsService {
     }));
 
     return {
-      userId,
       steamId: user.steam_id,
-      username: user.username,
+      username: user.username ?? '',
       totalPoints: stats.total_points,
       achievementCount: stats.achievement_count,
       averagePoints: stats.average_points,
@@ -140,10 +133,10 @@ export class PointsService {
   }
 
   // Get points breakdown by game for a user
-  async getUserGamePointsBreakdown(userId: number): Promise<GamePointsBreakdown[]> {
+  async getUserGamePointsBreakdown(steamId: bigint): Promise<GamePointsBreakdown[]> {
     const result = await this.pool
       .request()
-      .input('UserId', userId)
+      .input('SteamId', sql.BigInt, steamId)
       .query<{
         game_id: number;
         game_name: string;
@@ -161,8 +154,8 @@ export class PointsService {
           ISNULL(SUM(CASE WHEN ua.Id IS NOT NULL THEN a.Points ELSE 0 END), 0) as unlocked_points
         FROM SteamGames g
         INNER JOIN SteamAchievements a ON g.Id = a.GameId
-        INNER JOIN SteamUserGames ug ON g.Id = ug.GameId AND ug.UserId = @UserId
-        LEFT JOIN SteamUserAchievements ua ON a.Id = ua.AchievementId AND ua.UserId = @UserId
+        INNER JOIN SteamUserGames ug ON g.Id = ug.GameId AND ug.SteamId = @SteamId
+        LEFT JOIN SteamUserAchievements ua ON a.Id = ua.AchievementId AND ua.SteamId = @SteamId
         GROUP BY g.Id, g.Name
         HAVING COUNT(a.Id) > 0
         ORDER BY unlocked_points DESC
@@ -184,7 +177,6 @@ export class PointsService {
   // Get leaderboard of users by points
   async getLeaderboard(limit: number = 100, offset: number = 0): Promise<Array<{
     rank: number;
-    userId: number;
     steamId: string;
     username: string;
     totalPoints: number;
@@ -196,7 +188,6 @@ export class PointsService {
       .input('Offset', offset)
       .query<{
         row_num: number;
-        user_id: number;
         steam_id: string;
         username: string;
         total_points: number;
@@ -204,17 +195,16 @@ export class PointsService {
       }>(`
         WITH RankedUsers AS (
           SELECT
-            u.Id as user_id,
             CAST(u.SteamId AS VARCHAR(50)) as steam_id,
-            u.Username as username,
+            u.PersonaName as username,
             ISNULL(SUM(a.Points), 0) as total_points,
             COUNT(ua.Id) as achievement_count,
             ROW_NUMBER() OVER (ORDER BY ISNULL(SUM(a.Points), 0) DESC) as row_num
-          FROM SteamUsers u
-          LEFT JOIN SteamUserAchievements ua ON u.Id = ua.UserId
+          FROM UserSteamProfiles u
+          LEFT JOIN SteamUserAchievements ua ON u.SteamId = ua.SteamId
           LEFT JOIN SteamAchievements a ON ua.AchievementId = a.Id
           WHERE u.IsActive = 1
-          GROUP BY u.Id, u.SteamId, u.Username
+          GROUP BY u.SteamId, u.PersonaName
         )
         SELECT *
         FROM RankedUsers
@@ -224,9 +214,8 @@ export class PointsService {
 
     return result.recordset.map(row => ({
       rank: row.row_num,
-      userId: row.user_id,
       steamId: row.steam_id,
-      username: row.username,
+      username: row.username ?? '',
       totalPoints: row.total_points,
       achievementCount: row.achievement_count
     }));

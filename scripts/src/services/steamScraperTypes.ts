@@ -19,6 +19,8 @@ export interface ScrapeProfileSuccessResult {
   achievementsSaved: number;
   gamesWithErrors: GameProcessingError[];
   isIncrementalUpdate: boolean;
+  totalOwnedGames: number;
+  gamesQueuedForAchievements: number;
 }
 
 // Result indicating the Steam profile was not found

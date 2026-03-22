@@ -20,12 +20,12 @@ async function main() {
 
     switch (command) {
       case 'user':
-        // Get user points summary
+        // Get user points summary (SteamId as 64-bit integer string)
         if (!arg1) {
-          console.error('Usage: ts-node testPoints.ts user <userId>');
+          console.error('Usage: ts-node testPoints.ts user <steamId>');
           process.exit(1);
         }
-        await showUserPoints(pointsService, parseInt(arg1));
+        await showUserPoints(pointsService, arg1);
         break;
 
       case 'leaderboard':
@@ -47,18 +47,18 @@ async function main() {
       case 'breakdown':
         // Get user game points breakdown
         if (!arg1) {
-          console.error('Usage: ts-node testPoints.ts breakdown <userId>');
+          console.error('Usage: ts-node testPoints.ts breakdown <steamId>');
           process.exit(1);
         }
-        await showUserGameBreakdown(pointsService, parseInt(arg1));
+        await showUserGameBreakdown(pointsService, arg1);
         break;
 
       default:
         console.log('Usage:');
-        console.log('  ts-node testPoints.ts user <userId>           - Show user points summary');
+        console.log('  ts-node testPoints.ts user <steamId>           - Show user points summary');
         console.log('  ts-node testPoints.ts leaderboard [limit]     - Show points leaderboard');
         console.log('  ts-node testPoints.ts game <gameId> [limit]   - Show rarest achievements for game');
-        console.log('  ts-node testPoints.ts breakdown <userId>      - Show user points breakdown by game');
+        console.log('  ts-node testPoints.ts breakdown <steamId>     - Show user points breakdown by game');
         process.exit(1);
     }
 
@@ -69,10 +69,11 @@ async function main() {
   }
 }
 
-async function showUserPoints(pointsService: PointsService, userId: number) {
-  console.log(`Getting points summary for user ${userId}...\n`);
+async function showUserPoints(pointsService: PointsService, steamIdStr: string) {
+  const steamId = BigInt(steamIdStr);
+  console.log(`Getting points summary for SteamId ${steamIdStr}...\n`);
 
-  const summary = await pointsService.getUserPointsSummary(userId);
+  const summary = await pointsService.getUserPointsSummary(steamId);
 
   console.log('=== User Points Summary ===');
   console.log(`User: ${summary.username} (${summary.steamId})`);
@@ -101,7 +102,7 @@ async function showLeaderboard(pointsService: PointsService, limit: number) {
 
   console.log('=== Points Leaderboard ===');
   leaderboard.forEach(entry => {
-    console.log(`${entry.rank}. ${entry.username}`);
+    console.log(`${entry.rank}. ${entry.username} (${entry.steamId})`);
     console.log(`   Points: ${entry.totalPoints} | Achievements: ${entry.achievementCount}`);
   });
 }
@@ -131,10 +132,11 @@ async function showGameRarestAchievements(
   });
 }
 
-async function showUserGameBreakdown(pointsService: PointsService, userId: number) {
-  console.log(`Getting game points breakdown for user ${userId}...\n`);
+async function showUserGameBreakdown(pointsService: PointsService, steamIdStr: string) {
+  const steamId = BigInt(steamIdStr);
+  console.log(`Getting game points breakdown for SteamId ${steamIdStr}...\n`);
 
-  const breakdown = await pointsService.getUserGamePointsBreakdown(userId);
+  const breakdown = await pointsService.getUserGamePointsBreakdown(steamId);
 
   if (breakdown.length === 0) {
     console.log('No games found for this user.');

@@ -22,10 +22,8 @@ function parseSteamId64(input: string | bigint): SteamId64 {
   return id;
 }
 
-/**
- * API service for frontend integration
- * Handles scraping requests from frontend with username or Steam ID
- */
+ // API service for frontend integration
+ // Handles scraping requests from frontend with username or Steam ID
 export class ScraperApiService {
   private scraper: SteamScraper;
   private steamApi: SteamApiService;
@@ -33,11 +31,27 @@ export class ScraperApiService {
   constructor(
     steamApiKey: string,
     trackingApiUrl?: string,
-    options?: Partial<Pick<ScrapingConfig, 'maxConcurrentRequests' | 'requestDelay' | 'maxRetries' | 'outputFile' | 'writeOutputFile' | 'saveToDatabase'>>,
+    options?: Partial<
+      Pick<
+        ScrapingConfig,
+        | 'maxConcurrentRequests'
+        | 'achievementConcurrency'
+        | 'forceFullAchievementSync'
+        | 'scrapeProgressLog'
+        | 'requestDelay'
+        | 'maxRetries'
+        | 'outputFile'
+        | 'writeOutputFile'
+        | 'saveToDatabase'
+      >
+    >,
   ) {
     const config: ScrapingConfig = {
       steamApiKey,
       maxConcurrentRequests: options?.maxConcurrentRequests ?? 1,
+      achievementConcurrency: options?.achievementConcurrency ?? 1,
+      forceFullAchievementSync: options?.forceFullAchievementSync ?? false,
+      scrapeProgressLog: options?.scrapeProgressLog ?? false,
       requestDelay: options?.requestDelay ?? 2000,
       maxRetries: options?.maxRetries ?? 3,
       outputFile: options?.outputFile,

@@ -16,7 +16,7 @@ export interface SteamGame {
   appid: number;
   name: string;
   playtime_forever: number;
-  playtime_2weeks: number;
+  playtime_2weeks?: number;
   img_icon_url: string;
   img_logo_url: string;
   has_community_visible_stats: boolean;
@@ -51,19 +51,15 @@ export interface ScrapingConfig {
   maxConcurrentRequests: number;
   requestDelay: number;
   maxRetries: number;
-  /**
-   * Optional JSON output file path. Only used when writeOutputFile is true.
-   */
+  // for GetPlayerAchievements only. Steam often 403s parallel calls; default 1.
+  achievementConcurrency?: number;
+  // If true, scan every owned game for achievements even when the profile is an incremental update
+  // (otherwise only scans games with playtime in the last 2 weeks).
+  forceFullAchievementSync?: boolean;
+  // Per-game console progress between rate-limit waits. Default on; set false for API-spawned runs.
+  scrapeProgressLog?: boolean;
   outputFile?: string;
-  /**
-   * When true, write a JSON file to outputFile (if provided).
-   * When false/undefined, do not write files.
-   */
   writeOutputFile?: boolean;
-  /**
-   * When true/undefined, persist results to the database.
-   * When false, scraper will not write to the database (useful for pure JSON output flows).
-   */
   saveToDatabase?: boolean;
   resumeFrom?: string;
 }
@@ -73,4 +69,10 @@ export interface RateLimitInfo {
   requestsPerDay: number;
   currentRequests: number;
   resetTime: number;
+  maxPerSecond: number;
+  maxPerMinute: number;
+  requestsInLastMinute: number;
+  dailyCap: number;
+  /** UTC ms; if > Date.now(), client is in a 429 cooldown */
+  cooldownUntilMs: number;
 }

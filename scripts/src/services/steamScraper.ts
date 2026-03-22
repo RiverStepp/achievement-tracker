@@ -2,6 +2,7 @@ import { SteamApiService } from './steamApiService';
 import { SteamUser, SteamGame, SteamGameStats, ScrapingProgress, ScrapingConfig } from '../types';
 import { getConnection } from '../database/connection';
 import { DatabaseService } from '../database/databaseService';
+
 import {
   ScrapeProfileResult,
   ScrapeMultipleProfilesResult,
@@ -20,6 +21,7 @@ interface GameBatchResult {
   successCount: number;
   achievementsSaved: number;
   errors: GameProcessingError[];
+  gamesQueuedForAchievements: number;
 }
 
 export class SteamScraper {
@@ -29,7 +31,6 @@ export class SteamScraper {
   private dbService: DatabaseService | null = null;
   private cancellationToken: { cancelled: boolean } = { cancelled: false };
   private isInvokedThroughApi: boolean = false;
-
   constructor(config: ScrapingConfig, trackingApiUrl?: string, isInvokedThroughApi: boolean = false) {
     this.config = config;
     this.steamApi = new SteamApiService(config.steamApiKey, trackingApiUrl, isInvokedThroughApi);
@@ -46,6 +47,13 @@ export class SteamScraper {
 
   cancel(): void {
     this.cancellationToken.cancelled = true;
+  }
+
+  private progressLog(...parts: unknown[]): void {
+    if (this.config.scrapeProgressLog === false) {
+      return;
+    }
+    console.log(...parts);
   }
 
   private async getDbService(): Promise<DatabaseService> {
@@ -66,14 +74,14 @@ export class SteamScraper {
     this.progress.currentUser = steamId;
 
     try {
-      // Get profile information
-      const userProfile = await this.steamApi.getUserProfile(steamId);
+      const { user: userProfile } = await this.steamApi.getUserProfile(steamId);
       if (!userProfile) {
         return { kind: 'not_found', steamId };
       }
 
       // Check if profile is private (personaname would still be available, but games might not)
-      const games = await this.steamApi.getUserGames(steamId);
+      const ownedResult = await this.steamApi.getUserGames(steamId);
+      const games = ownedResult.games;
       if (games.length === 0 && userProfile.communityvisibilitystate !== 3) {
         // Profile exists but is private or has no games
         return { kind: 'private', steamId };
@@ -90,13 +98,18 @@ export class SteamScraper {
       const isIncrementalUpdate = await this.isIncrementalUpdate(steamId);
 
       // Save profile to database
-      const dbProfileId = await this.saveProfileToDatabase(profileData);
+      const profileSteamId = await this.saveProfileToDatabase(profileData);
 
       // Save owned games with playtime
-      await this.saveOwnedGames(dbProfileId, games);
+      await this.saveOwnedGames(profileSteamId, games);
 
       // Process game achievements in batches
-      const batchResult = await this.processGameAchievements(dbProfileId, steamId, games, isIncrementalUpdate);
+      const batchResult = await this.processGameAchievements(
+        profileSteamId,
+        steamId,
+        games,
+        isIncrementalUpdate,
+      );
 
       this.progress.achievementsFound += batchResult.achievementsSaved;
 
@@ -107,7 +120,9 @@ export class SteamScraper {
         gamesProcessed: batchResult.successCount,
         achievementsSaved: batchResult.achievementsSaved,
         gamesWithErrors: batchResult.errors,
-        isIncrementalUpdate
+        isIncrementalUpdate,
+        totalOwnedGames: games.length,
+        gamesQueuedForAchievements: batchResult.gamesQueuedForAchievements,
       };
 
     } catch (error) {
@@ -216,9 +231,8 @@ export class SteamScraper {
     }
   }
 
-  // Save Steam profile to database
-  // Returns database user ID
-  private async saveProfileToDatabase(profile: ProfileData): Promise<number> {
+  // Save Steam profile to database (UserSteamProfiles.SteamId)
+  private async saveProfileToDatabase(profile: ProfileData): Promise<bigint> {
     const dbService = await this.getDbService();
 
     return await dbService.upsertUser({
@@ -230,8 +244,9 @@ export class SteamScraper {
   }
 
   // Save owned games to database
-  private async saveOwnedGames(dbProfileId: number, games: SteamGame[]): Promise<void> {
+  private async saveOwnedGames(profileSteamId: bigint, games: SteamGame[]): Promise<void> {
     const dbService = await this.getDbService();
+    this.progressLog(`Saving ${games.length} owned game row(s) to database (playtime / ownership)...`);
 
     for (const game of games) {
       if (!game.appid) {
@@ -247,10 +262,9 @@ export class SteamScraper {
 
         // Save user's ownership and playtime
         await dbService.upsertUserGame({
-          user_id: dbProfileId,
+          steam_id: profileSteamId,
           game_id: gameId,
-          playtime_forever: game.playtime_forever ?? 0,
-          playtime_2weeks: game.playtime_2weeks ?? 0
+          playtime_forever: game.playtime_forever ?? 0
         });
       } catch (error) {
         // Log but continue with other games
@@ -262,56 +276,81 @@ export class SteamScraper {
   // Process game achievements in batches
   // Returns batch processing result
   private async processGameAchievements(
-    dbProfileId: number,
+    profileSteamId: bigint,
     steamId: string,
     games: SteamGame[],
-    isIncrementalUpdate: boolean
+    isIncrementalUpdate: boolean,
   ): Promise<GameBatchResult> {
-    const batchSize = this.config.maxConcurrentRequests || 5;
+    // Serial by default: parallel batches defeat the 1 req/s limiter and trigger Steam 403s.
+    const batchSize = Math.max(1, this.config.achievementConcurrency ?? 1);
     let successCount = 0;
     let achievementsSaved = 0;
     const errors: GameProcessingError[] = [];
 
-    // For incremental updates, only process games with recent playtime (optimization)
     let gamesToProcess = games;
-    if (isIncrementalUpdate) {
-      // Filter to games played in last 2 weeks (playtime_2weeks > 0)
-      // This significantly reduces API calls for users with large libraries
-      const recentlyPlayedGames = games.filter(g => (g.playtime_2weeks ?? 0) > 0);
-
-      if (recentlyPlayedGames.length > 0) {
-        gamesToProcess = recentlyPlayedGames;
+    if (isIncrementalUpdate && !this.config.forceFullAchievementSync) {
+      const recent = games.filter((g) => (g.playtime_2weeks ?? 0) > 0);
+      if (recent.length > 0) {
+        gamesToProcess = recent;
       }
-      // If no games played recently, still process all (might be first sync with playtime_2weeks)
     }
 
-    for (let i = 0; i < gamesToProcess.length; i += batchSize) {
-      if (this.cancellationToken.cancelled) {
-        break;
-      }
+    this.progressLog(
+      `Achievement sync: ${gamesToProcess.length} game(s) queued (of ${games.length} owned).`,
+    );
 
-      const batch = gamesToProcess.slice(i, i + batchSize);
-      const batchPromises = batch.map(game => this.processGameAchievement(dbProfileId, steamId, game));
-
-      const batchResults = await Promise.all(batchPromises);
-
-      for (const result of batchResults) {
+    if (batchSize === 1) {
+      for (let i = 0; i < gamesToProcess.length; i++) {
+        if (this.cancellationToken.cancelled) {
+          break;
+        }
+        const game = gamesToProcess[i];
+        const title = game.name || (game.appid != null ? `App ${game.appid}` : 'Unknown game');
+        this.progressLog(`[${i + 1}/${gamesToProcess.length}] ${title} (appid ${game.appid ?? '—'})`);
+        const result = await this.processGameAchievement(profileSteamId, steamId, game);
         if (result.success) {
           successCount++;
           achievementsSaved += result.achievementsSaved;
+          if (result.achievementsSaved > 0) {
+            this.progressLog(`  → saved ${result.achievementsSaved} achievement(s)`);
+          }
         } else if (result.error) {
           errors.push(result.error);
+          this.progressLog(`  → error: ${result.error.error}`);
+        }
+      }
+    } else {
+      for (let i = 0; i < gamesToProcess.length; i += batchSize) {
+        if (this.cancellationToken.cancelled) {
+          break;
+        }
+
+        const batch = gamesToProcess.slice(i, i + batchSize);
+        this.progressLog(
+          `[Batch] apps ${batch.map((g) => g.appid).join(', ')} (${i + 1}–${Math.min(i + batchSize, gamesToProcess.length)} of ${gamesToProcess.length})`,
+        );
+        const batchPromises = batch.map((game) => this.processGameAchievement(profileSteamId, steamId, game));
+
+        const batchResults = await Promise.all(batchPromises);
+
+        for (const result of batchResults) {
+          if (result.success) {
+            successCount++;
+            achievementsSaved += result.achievementsSaved;
+          } else if (result.error) {
+            errors.push(result.error);
+          }
         }
       }
     }
 
-    return { successCount, achievementsSaved, errors };
+    return { successCount, achievementsSaved, errors, gamesQueuedForAchievements: gamesToProcess.length };
   }
 
   // Process achievements for a single game
   // Returns processing result
   private async processGameAchievement(
-    dbProfileId: number,
+    profileSteamId: bigint,
     steamId: string,
     game: SteamGame
   ): Promise<{ success: boolean; achievementsSaved: number; error?: GameProcessingError }> {
@@ -320,12 +359,13 @@ export class SteamScraper {
     }
 
     try {
-      // Get achievements from Steam API with retry logic
-      const achievements = await this.retryApiCall(
+      const apiResult = await this.retryApiCall(
         () => this.steamApi.getUserAchievements(steamId, game.appid!),
         3,
-        1000
+        1000,
       );
+
+      const achievements = apiResult.achievements;
 
       if (achievements.length === 0) {
         // Game has no achievements or user hasn't unlocked any
@@ -365,7 +405,7 @@ export class SteamScraper {
       }
 
       // Collect all unlocked achievements for batch upsert
-      const userAchievements: Array<{ user_id: number; achievement_id: number; unlocked_at: Date }> = [];
+      const userAchievements: Array<{ steam_id: bigint; achievement_id: number; unlocked_at: Date }> = [];
 
       for (const achievement of achievements) {
         if (achievement.achieved !== 1) {
@@ -384,7 +424,7 @@ export class SteamScraper {
           : new Date(); // Use current time if timestamp is missing
 
         userAchievements.push({
-          user_id: dbProfileId,
+          steam_id: profileSteamId,
           achievement_id: achievementId,
           unlocked_at: unlockedAt
         });
@@ -444,19 +484,26 @@ export class SteamScraper {
       }
     }
 
-    throw lastError || new Error('Retry failed');
+    throw lastError!;
   }
 
   // Check if an error is retryable
-  private isRetryableError(error: any): boolean {
+  private isRetryableError(error: unknown): boolean {
+    if (typeof error !== 'object' || error === null) return false;
+    const err = error as Record<string, unknown>;
+
     // Network errors
-    if (error.code === 'ECONNRESET' || error.code === 'ETIMEDOUT' || error.code === 'ENOTFOUND') {
+    const code = err['code'];
+    if (code === 'ECONNRESET' || code === 'ETIMEDOUT' || code === 'ENOTFOUND') {
       return true;
     }
 
-    // HTTP status codes that are retryable
-    const status = error.response?.status;
-    if (status === 429 || status === 503 || status === 502 || status === 504) {
+    // HTTP status codes that are retryable (403 sometimes clears after backoff on Steam)
+    const response = err['response'];
+    const status = typeof response === 'object' && response !== null
+      ? (response as Record<string, unknown>)['status']
+      : undefined;
+    if (status === 403 || status === 429 || status === 503 || status === 502 || status === 504) {
       return true;
     }
 
