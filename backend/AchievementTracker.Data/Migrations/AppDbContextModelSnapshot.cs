@@ -101,6 +101,43 @@ namespace AchievementTracker.Data.Migrations
                     b.ToTable("Roles");
                 });
 
+            modelBuilder.Entity("AchievementTracker.Data.Entities.UserAchievementSummary", b =>
+                {
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("int");
+ 
+                    b.Property<DateTime>("CreateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+ 
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+ 
+                    b.Property<DateTime?>("LastSyncedDate")
+                        .HasColumnType("datetime2");
+ 
+                    b.Property<int>("PerfectGamesCount")
+                        .HasColumnType("int");
+ 
+                    b.Property<int>("TotalAchievementsUnlocked")
+                        .HasColumnType("int");
+ 
+                    b.Property<int>("TotalGamesTracked")
+                        .HasColumnType("int");
+ 
+                    b.Property<DateTime>("UpdateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+ 
+                    b.HasKey("AppUserId");
+ 
+                    b.ToTable("UserAchievementSummaries");
+                });
+            
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
                 {
                     b.Property<int>("UserExternalLoginId")
@@ -225,6 +262,17 @@ namespace AchievementTracker.Data.Migrations
                     b.ToTable("SteamProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("AchievementTracker.Data.Entities.UserAchievementSummary", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithOne()
+                        .HasForeignKey("AchievementTracker.Data.Entities.UserAchievementSummary", "AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+ 
+                    b.Navigation("AppUser");
+                });
+            
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
                 {
                     b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
