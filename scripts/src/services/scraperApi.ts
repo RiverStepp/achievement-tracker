@@ -22,8 +22,6 @@ function parseSteamId64(input: string | bigint): SteamId64 {
   return id;
 }
 
- // API service for frontend integration
- // Handles scraping requests from frontend with username or Steam ID
 export class ScraperApiService {
   private scraper: SteamScraper;
   private steamApi: SteamApiService;
@@ -101,7 +99,6 @@ export class ScraperApiService {
             kind: 'success',
             steamId: result.steamId,
             username: result.displayName,
-            outputFile: undefined, // No longer writing files by default
             gameStatsCount: result.gamesProcessed
           };
         case 'not_found':
@@ -131,7 +128,7 @@ export class ScraperApiService {
   }
 
   async scrapeUsers(inputs: ScrapeUserInput[]): Promise<ScrapeUsersResult> {
-    // Return per-item status; do NOT swallow errors.
+    // Errors are caught per-item and returned as kind:'error' results, not thrown.
     const results: ScrapeUserResult[] = [];
     for (const input of inputs) {
       results.push(await this.scrapeUser(input));
@@ -139,9 +136,6 @@ export class ScraperApiService {
     return { kind: 'batch_result', results };
   }
 
-  /**
-   * Get current scraping progress
-   */
   getProgress() {
     return this.scraper.getProgress();
   }

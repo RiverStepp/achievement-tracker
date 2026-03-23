@@ -3,10 +3,12 @@ import { SteamScraper } from './services/steamScraper';
 import { SteamApiService } from './services/steamApiService';
 import { ScrapingConfig } from './types';
 import { loadSteamApiKey } from './config/configLoader';
+import { getConnection } from './database/connection';
+import { DatabaseService } from './database/databaseService';
 import axios from 'axios';
 import https from 'https';
 
-/** Node rejects the ASP.NET dev HTTPS cert unless trusted; allow localhost HTTPS only. */
+// Node rejects the ASP.NET dev HTTPS cert unless trusted; allow localhost HTTPS only.
 function httpsAgentForLocalDev(apiUrl: string): https.Agent | undefined {
   try {
     const u = new URL(apiUrl);
@@ -14,7 +16,7 @@ function httpsAgentForLocalDev(apiUrl: string): https.Agent | undefined {
       return new https.Agent({ rejectUnauthorized: false });
     }
   } catch {
-    /* ignore */
+    // ignore invalid URL
   }
   return undefined;
 }
@@ -107,6 +109,16 @@ async function main() {
         console.log(`Games finished achievement step without errors: ${result.gamesProcessed}`);
         console.log(`Achievements saved to DB: ${result.achievementsSaved}`);
         console.log(`Had synced this profile before: ${result.isIncrementalUpdate ? 'Yes' : 'No'}`);
+
+        // Verify the data actually landed in the database
+        try {
+          const pool = await getConnection();
+          const dbService = new DatabaseService(pool);
+          const dbCount = await dbService.getUnlockedAchievementCount(BigInt(steamId));
+          console.log(`[DB verify] SteamUserAchievements rows for this user: ${dbCount}`);
+        } catch (dbErr) {
+          console.warn(`[DB verify] Could not query row count:`, dbErr instanceof Error ? dbErr.message : String(dbErr));
+        }
 
         if (result.gamesWithErrors.length > 0) {
           console.log(`\nGames with errors (${result.gamesWithErrors.length}) — showing up to 10:`);

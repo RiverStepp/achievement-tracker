@@ -139,7 +139,7 @@ export async function getConnection(): Promise<sql.ConnectionPool> {
             const newPool = new sql.ConnectionPool(config);
             await newPool.connect();
             pool = newPool; // Only assign after successful connection
-            console.log('Connected to MSSQL database');
+            console.log(`Connected to MSSQL database: ${config.database} on ${config.server}`);
         } catch (error) {
             // Reset pool on failure
             pool = null;

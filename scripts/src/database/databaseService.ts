@@ -52,10 +52,7 @@ export class DatabaseService {
     return transaction ? new sql.Request(transaction) : this.pool.request();
   }
 
-  /**
-   * Atomic get-or-create for (Table(Name)) style lookup tables.
-   * Requires a unique constraint on Name (or Code for languages).
-   */
+  // Atomic get-or-create for lookup tables. Requires a unique constraint on Name (or Code for languages).
   private async getOrCreateByName(
     table: string,
     nameColumn: string,
@@ -129,7 +126,9 @@ export class DatabaseService {
         OUTPUT inserted.Id as id;
       `);
 
-    return result.recordset[0].id;
+    const id = result.recordset[0]?.id;
+    if (id == null) throw new Error(`Failed to get or create language with code: ${normalizedCode}`);
+    return id;
   }
 
   // Relationship management methods (still name-based for now, but de-duped + transaction-aware)
@@ -151,64 +150,48 @@ export class DatabaseService {
     }
   }
 
-  async setGameGenres(gameId: number, genreNames: string[], transaction?: Tx): Promise<void> {
-    const names = uniqueNormalized(genreNames, 'genre');
-    await this.req(transaction).input('game_id', sql.Int, gameId).query('DELETE FROM SteamGameGenres WHERE GameId = @game_id');
-    for (const genreName of names) {
-      const genreId = await this.getOrCreateGenre(genreName, transaction);
+  // Internal helper for the five junction tables that follow a delete-then-insert pattern.
+  // Table/column names are internal constants, never user input, so template literals are safe.
+  private async setGameJunctionRelation(
+    gameId: number,
+    names: string[],
+    label: string,
+    junctionTable: string,
+    fkColumn: string,
+    getOrCreate: (name: string, tx?: Tx) => Promise<number>,
+    transaction?: Tx,
+  ): Promise<void> {
+    const normalized = uniqueNormalized(names, label);
+    await this.req(transaction)
+      .input('game_id', sql.Int, gameId)
+      .query(`DELETE FROM ${junctionTable} WHERE GameId = @game_id`);
+    for (const name of normalized) {
+      const id = await getOrCreate(name, transaction);
       await this.req(transaction)
         .input('game_id', sql.Int, gameId)
-        .input('genre_id', sql.Int, genreId)
-        .query('INSERT INTO SteamGameGenres (GameId, GenreId) VALUES (@game_id, @genre_id)');
+        .input('rel_id', sql.Int, id)
+        .query(`INSERT INTO ${junctionTable} (GameId, ${fkColumn}) VALUES (@game_id, @rel_id)`);
     }
+  }
+
+  async setGameGenres(gameId: number, genreNames: string[], transaction?: Tx): Promise<void> {
+    return this.setGameJunctionRelation(gameId, genreNames, 'genre', 'SteamGameGenres', 'GenreId', (n, tx) => this.getOrCreateGenre(n, tx), transaction);
   }
 
   async setGameCategories(gameId: number, categoryNames: string[], transaction?: Tx): Promise<void> {
-    const names = uniqueNormalized(categoryNames, 'category');
-    await this.req(transaction).input('game_id', sql.Int, gameId).query('DELETE FROM SteamGameCategories WHERE GameId = @game_id');
-    for (const categoryName of names) {
-      const categoryId = await this.getOrCreateCategory(categoryName, transaction);
-      await this.req(transaction)
-        .input('game_id', sql.Int, gameId)
-        .input('category_id', sql.Int, categoryId)
-        .query('INSERT INTO SteamGameCategories (GameId, CategoryId) VALUES (@game_id, @category_id)');
-    }
+    return this.setGameJunctionRelation(gameId, categoryNames, 'category', 'SteamGameCategories', 'CategoryId', (n, tx) => this.getOrCreateCategory(n, tx), transaction);
   }
 
   async setGameTags(gameId: number, tagNames: string[], transaction?: Tx): Promise<void> {
-    const names = uniqueNormalized(tagNames, 'tag');
-    await this.req(transaction).input('game_id', sql.Int, gameId).query('DELETE FROM SteamGameTags WHERE GameId = @game_id');
-    for (const tagName of names) {
-      const tagId = await this.getOrCreateTag(tagName, transaction);
-      await this.req(transaction)
-        .input('game_id', sql.Int, gameId)
-        .input('tag_id', sql.Int, tagId)
-        .query('INSERT INTO SteamGameTags (GameId, TagId) VALUES (@game_id, @tag_id)');
-    }
+    return this.setGameJunctionRelation(gameId, tagNames, 'tag', 'SteamGameTags', 'TagId', (n, tx) => this.getOrCreateTag(n, tx), transaction);
   }
 
   async setGameDevelopers(gameId: number, developerNames: string[], transaction?: Tx): Promise<void> {
-    const names = uniqueNormalized(developerNames, 'developer');
-    await this.req(transaction).input('game_id', sql.Int, gameId).query('DELETE FROM SteamGameDevelopers WHERE GameId = @game_id');
-    for (const developerName of names) {
-      const developerId = await this.getOrCreateDeveloper(developerName, transaction);
-      await this.req(transaction)
-        .input('game_id', sql.Int, gameId)
-        .input('developer_id', sql.Int, developerId)
-        .query('INSERT INTO SteamGameDevelopers (GameId, DeveloperId) VALUES (@game_id, @developer_id)');
-    }
+    return this.setGameJunctionRelation(gameId, developerNames, 'developer', 'SteamGameDevelopers', 'DeveloperId', (n, tx) => this.getOrCreateDeveloper(n, tx), transaction);
   }
 
   async setGamePublishers(gameId: number, publisherNames: string[], transaction?: Tx): Promise<void> {
-    const names = uniqueNormalized(publisherNames, 'publisher');
-    await this.req(transaction).input('game_id', sql.Int, gameId).query('DELETE FROM SteamGamePublishers WHERE GameId = @game_id');
-    for (const publisherName of names) {
-      const publisherId = await this.getOrCreatePublisher(publisherName, transaction);
-      await this.req(transaction)
-        .input('game_id', sql.Int, gameId)
-        .input('publisher_id', sql.Int, publisherId)
-        .query('INSERT INTO SteamGamePublishers (GameId, PublisherId) VALUES (@game_id, @publisher_id)');
-    }
+    return this.setGameJunctionRelation(gameId, publisherNames, 'publisher', 'SteamGamePublishers', 'PublisherId', (n, tx) => this.getOrCreatePublisher(n, tx), transaction);
   }
 
   async setGameLanguages(gameId: number, languages: GameLanguageSupport[] | string[], transaction?: Tx): Promise<void> {
@@ -251,7 +234,7 @@ export class DatabaseService {
   }
 
   // Game operations
-  async upsertGame(game: Game): Promise<number> {
+  async upsertGame(game: Game): Promise<{ id: number; isNew: boolean }> {
     if (!game.steam_appid || game.steam_appid <= 0 || !Number.isInteger(game.steam_appid)) {
       throw new Error(`Invalid steam_appid: ${game.steam_appid}. Must be a positive integer.`);
     }
@@ -267,8 +250,8 @@ export class DatabaseService {
       .input('IsUnlisted', sql.Bit, game.is_unlisted ?? false)
       .input('IsRemoved', sql.Bit, game.is_removed ?? false)
       .input('Alias', sql.NVarChar(255), normalizeOptionalText(game.alias))
-      .query<{ Id: number }>(`
-DECLARE @Upserted TABLE (Id INT NOT NULL);
+      .query<{ Id: number; Action: string }>(`
+DECLARE @Upserted TABLE (Id INT NOT NULL, Action NVARCHAR(10) NOT NULL);
 MERGE dbo.SteamGames WITH (HOLDLOCK) AS t
 USING (SELECT @SteamAppId AS SteamAppId) AS s
     ON t.SteamAppId = s.SteamAppId
@@ -285,12 +268,14 @@ WHEN MATCHED THEN
 WHEN NOT MATCHED THEN
     INSERT (SteamAppId, Name, ReleaseDate, HeaderImageUrl, ShortDescription, IsUnlisted, IsRemoved, Alias, CreateDate, UpdateDate, IsActive)
     VALUES (@SteamAppId, @Name, @ReleaseDate, @HeaderImageUrl, @ShortDescription, @IsUnlisted, @IsRemoved, @Alias, GETUTCDATE(), GETUTCDATE(), 1)
-OUTPUT inserted.Id INTO @Upserted(Id);
-SELECT TOP 1 Id FROM @Upserted;
+OUTPUT inserted.Id, $action INTO @Upserted(Id, Action);
+SELECT TOP 1 Id, Action FROM @Upserted;
 `);
 
-    const id = result.recordset?.[0]?.Id;
-    if (!id) throw new Error(`SteamGames upsert did not return an Id for steam_appid ${game.steam_appid}`);
+    const row = result.recordset?.[0];
+    if (!row?.Id) throw new Error(`SteamGames upsert did not return an Id for steam_appid ${game.steam_appid}`);
+    const id = row.Id;
+    const isNew = row.Action === 'INSERT';
 
     if (game.platforms?.length) await this.setGamePlatforms(id, game.platforms);
     if (game.genres?.length) await this.setGameGenres(id, game.genres);
@@ -300,7 +285,7 @@ SELECT TOP 1 Id FROM @Upserted;
     if (game.publishers?.length) await this.setGamePublishers(id, game.publishers);
     if (game.languages?.length) await this.setGameLanguages(id, game.languages);
 
-    return id;
+    return { id, isNew };
   }
 
   // Achievement operations
@@ -351,10 +336,7 @@ SELECT TOP 1 Id FROM @Upserted;
     return id;
   }
 
-  /**
-   * SteamUserAchievements / SteamUserGames FK to UserSteamProfiles.SteamId.
-   * Legacy dbo.UpsertSteamUser may only touch SteamUsers — always sync this table.
-   */
+  // SteamUserAchievements / SteamUserGames FK to UserSteamProfiles.SteamId — always keep this table in sync.
   private async mergeUserSteamProfilesRow(user: User): Promise<void> {
     const username = normalizeText(user.username, 'username');
     await this.pool
@@ -376,8 +358,8 @@ WHEN MATCHED THEN
         UpdateDate = GETUTCDATE(),
         IsActive = 1
 WHEN NOT MATCHED THEN
-    INSERT (SteamId, PersonaName, ProfileUrl, AvatarFullUrl, LastSyncedDate, CreateDate, UpdateDate, IsActive)
-    VALUES (@SteamId, LEFT(LTRIM(RTRIM(@Username)), 64), LEFT(@ProfileUrl, 256), LEFT(@AvatarUrl, 256), GETUTCDATE(), GETUTCDATE(), GETUTCDATE(), 1);
+    INSERT (SteamId, PersonaName, ProfileUrl, AvatarFullUrl, IsPrivate, LastSyncedDate, CreateDate, UpdateDate, IsActive)
+    VALUES (@SteamId, LEFT(LTRIM(RTRIM(@Username)), 64), LEFT(@ProfileUrl, 256), LEFT(@AvatarUrl, 256), 0, GETUTCDATE(), GETUTCDATE(), GETUTCDATE(), 1);
 `);
   }
 
@@ -617,7 +599,7 @@ SELECT TOP 1 Id FROM @Upserted;
     return id;
   }
 
-  /** Used by scraper incremental mode — any prior sync counts as incremental. */
+  // Used by scraper incremental mode — any prior sync counts as incremental.
   async getSteamProfileLastUpdated(steamId: bigint): Promise<Date | null> {
     if (!steamId || typeof steamId !== 'bigint' || steamId <= 0n) {
       throw new Error(`Invalid steamId: ${String(steamId)}. Must be a positive bigint.`);
@@ -631,7 +613,19 @@ SELECT TOP 1 Id FROM @Upserted;
     return result.recordset?.[0]?.LastSyncedDate ?? null;
   }
 
-  /** Map Steam achievement API name -> SteamAchievements.Id for one game. */
+  // Count unlocked achievements in SteamUserAchievements for a given user (diagnostic use).
+  async getUnlockedAchievementCount(steamId: bigint): Promise<number> {
+    if (!steamId || typeof steamId !== 'bigint' || steamId <= 0n) {
+      throw new Error(`Invalid steamId: ${String(steamId)}`);
+    }
+    const result = await this.pool
+      .request()
+      .input('SteamId', sql.BigInt, steamId)
+      .query<{ cnt: number }>(`SELECT COUNT(*) AS cnt FROM dbo.SteamUserAchievements WHERE SteamId = @SteamId`);
+    return result.recordset?.[0]?.cnt ?? 0;
+  }
+
+  // Maps Steam achievement API name -> SteamAchievements.Id for a single game.
   async getAchievementMapForGame(gameId: number): Promise<Map<string, number>> {
     if (!gameId || gameId <= 0 || !Number.isInteger(gameId)) {
       throw new Error(`Invalid gameId: ${gameId}. Must be a positive integer.`);
@@ -652,16 +646,10 @@ SELECT TOP 1 Id FROM @Upserted;
   async batchUpsertUserAchievements(
     userAchievements: Array<{ steam_id: bigint; achievement_id: number; unlocked_at: Date }>,
   ): Promise<number> {
-    let count = 0;
     for (const ua of userAchievements) {
-      await this.upsertUserAchievement({
-        steam_id: ua.steam_id,
-        achievement_id: ua.achievement_id,
-        unlocked_at: ua.unlocked_at,
-      });
-      count++;
+      await this.upsertUserAchievement(ua);
     }
-    return count;
+    return userAchievements.length;
   }
 
   // Soft delete user by setting is_active to false
@@ -671,22 +659,14 @@ SELECT TOP 1 Id FROM @Upserted;
     }
 
     const transaction = new sql.Transaction(this.pool);
-    let began = false;
+    await transaction.begin();
 
     try {
-      await transaction.begin();
-      began = true;
-
-      interface UserIdResult {
-        id: bigint | string | number;
-      }
-
       const userResult = await this.req(transaction)
         .input('steam_id', sql.BigInt, steamId)
-        .query<UserIdResult>('SELECT TOP 1 SteamId AS id FROM dbo.UserSteamProfiles WHERE SteamId = @steam_id AND IsActive = 1');
+        .query<{ id: bigint }>('SELECT TOP 1 SteamId AS id FROM dbo.UserSteamProfiles WHERE SteamId = @steam_id AND IsActive = 1');
 
-      const user = userResult.recordset[0];
-      if (!user) {
+      if (!userResult.recordset[0]) {
         await transaction.rollback();
         return false;
       }
@@ -697,13 +677,7 @@ SELECT TOP 1 Id FROM @Upserted;
       await transaction.commit();
       return true;
     } catch (error) {
-      if (began) {
-        try {
-          await transaction.rollback();
-        } catch {
-          // preserve original error
-        }
-      }
+      try { await transaction.rollback(); } catch { /* preserve original error */ }
       const msg = error instanceof Error ? error.message : String(error);
       throw new Error(`Failed to soft delete user with steamId ${String(steamId)}: ${msg}`);
     }

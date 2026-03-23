@@ -35,7 +35,7 @@ export interface SteamGameStats {
   gameName: string;
   appid?: number;
   achievements: SteamAchievement[];
-  stats?: any;
+  stats?: unknown;
 }
 
 export interface ScrapingProgress {
