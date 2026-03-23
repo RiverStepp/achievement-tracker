@@ -11,6 +11,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<UserRole> UserRoles => Set<UserRole>();
+     public DbSet<UserAchievementSummary> UserAchievementSummaries => Set<UserAchievementSummary>();
+
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {
