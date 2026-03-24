@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.DataAccess.Redis;
 using AchievementTracker.Api.DataAccess.Repositories;
 using AchievementTracker.Api.Models.Options;
@@ -136,6 +136,11 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddOptions<ProfileOptions>()
+    .BindConfiguration("Profile")
+    .ValidateOnStart();
 
 // Redis
 // TODO: Use .Validate() instead of if statements
