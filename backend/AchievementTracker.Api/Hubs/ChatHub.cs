@@ -30,8 +30,6 @@ public sealed class ChatHub(IDirectMessageService dmService) : Hub
 
      public override async Task OnDisconnectedAsync(Exception? exception)
      {
-          int userId = GetAppUserId();
-          await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"user-{userId}");
           await base.OnDisconnectedAsync(exception);
      }
 
