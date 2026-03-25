@@ -8,16 +8,17 @@ public sealed class ConversationParticipantConfiguration : IEntityTypeConfigurat
 {
      public void Configure(EntityTypeBuilder<ConversationParticipant> b)
      {
-          b.HasKey(x => x.ConversationParticipantId);
+          b.HasKey(x => new { x.ConversationId, x.AppUserPublicId });
 
           b.Property(x => x.JoinedDate).HasDefaultValueSql("SYSUTCDATETIME()");
           b.Property(x => x.IsMuted).HasDefaultValue(false);
 
           b.HasIndex(x => new { x.ConversationId, x.AppUserId }).IsUnique();
 
-          b.HasOne(x => x.AppUser)
-               .WithMany()
-               .HasForeignKey(x => x.AppUserId)
+               b.HasOne(x => x.AppUser)
+               .WithMany(u => u.ConversationParticipants)
+               .HasForeignKey(x => x.AppUserPublicId)
+               .HasPrincipalKey(u => u.PublicId)
                .OnDelete(DeleteBehavior.NoAction);
 
                b.HasOne(x => x.LastReadMessage)
