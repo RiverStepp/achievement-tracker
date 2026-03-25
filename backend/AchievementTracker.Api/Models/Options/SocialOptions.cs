@@ -1,8 +1,5 @@
 namespace AchievementTracker.Api.Models.Options;
 
-/// <summary>
-/// Bound from the "Social" configuration section (appsettings + Key Vault overrides).
-/// </summary>
 public sealed class SocialOptions
 {
      public int DefaultFeedPageSize { get; set; } = 20;
@@ -20,9 +17,6 @@ public sealed class SocialOptions
 
 public sealed class SocialBlobStorageOptions
 {
-     /// <summary>
-     /// Populated from Key Vault secret Social--BlobStorage--ConnectionString (not appsettings).
-     /// </summary>
      public string ConnectionString { get; set; } = string.Empty;
 
      public string ContainerName { get; set; } = string.Empty;
