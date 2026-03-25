@@ -5,7 +5,7 @@ namespace AchievementTracker.Data.Entities;
 public class ConversationParticipant : AuditableEntity
 {
      public int ConversationParticipantId { get; set; }
-     public int ConversationId { get; set; }
+     public Guid AppUserPublicId { get; set; }
      public int AppUserId { get; set; }
      public DateTime JoinedDate { get; set; }
      public DateTime? LeftDate { get; set; }
