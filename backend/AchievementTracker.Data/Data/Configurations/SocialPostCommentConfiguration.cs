@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,7 +8,14 @@ public sealed class SocialPostCommentConfiguration: IEntityTypeConfiguration<Soc
 {
      public void Configure(EntityTypeBuilder<SocialPostComment> b)
      {
+          b.ToTable("SocialPostComment");
           b.HasKey(x => x.SocialPostCommentId);
+
+          b.Property(x => x.PublicId)
+              .HasDefaultValueSql("NEWSEQUENTIALID()")
+              .ValueGeneratedOnAdd();
+
+          b.HasIndex(x => x.PublicId).IsUnique();
 
           b.Property(x => x.Body)
               .HasMaxLength(4000)

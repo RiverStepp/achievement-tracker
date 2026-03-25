@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,6 +8,7 @@ public sealed class SocialPostConfiguration: IEntityTypeConfiguration<SocialPost
 {
      public void Configure(EntityTypeBuilder<SocialPost> b)
      {
+          b.ToTable("SocialPost");
           b.HasKey(x => x.SocialPostId);
 
           b.Property(x => x.PublicId)

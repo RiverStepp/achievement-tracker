@@ -35,6 +35,14 @@ namespace AchievementTracker.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Handle")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -57,6 +65,10 @@ namespace AchievementTracker.Data.Migrations
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
                     b.HasKey("AppUserId");
+
+                    b.HasIndex("Handle")
+                        .IsUnique()
+                        .HasFilter("[Handle] IS NOT NULL");
 
                     b.HasIndex("PublicId")
                         .IsUnique();
@@ -139,7 +151,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("AuthorAppUserId", "CreateDate", "SocialPostId");
 
-                    b.ToTable("SocialPost");
+                    b.ToTable("SocialPost", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostAttachment", b =>
@@ -184,7 +196,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("SocialPostId", "DisplayOrder")
                         .IsUnique();
 
-                    b.ToTable("SocialPostAttachment");
+                    b.ToTable("SocialPostAttachment", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostComment", b =>
@@ -212,6 +224,11 @@ namespace AchievementTracker.Data.Migrations
                     b.Property<int?>("ParentCommentId")
                         .HasColumnType("int");
 
+                    b.Property<Guid>("PublicId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
                     b.Property<int>("SocialPostId")
                         .HasColumnType("int");
 
@@ -224,9 +241,12 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("ParentCommentId");
 
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
                     b.HasIndex("SocialPostId", "CreateDate", "SocialPostCommentId");
 
-                    b.ToTable("SocialPostComment");
+                    b.ToTable("SocialPostComment", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostReaction", b =>
@@ -246,7 +266,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("SocialPostId");
 
-                    b.ToTable("SocialPostReaction");
+                    b.ToTable("SocialPostReaction", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
@@ -366,11 +386,220 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasKey("SteamId");
 
+                    b.HasIndex("IsActive");
+
                     b.HasIndex("UserExternalLoginId")
                         .IsUnique()
                         .HasFilter("[UserExternalLoginId] IS NOT NULL");
 
-                    b.ToTable("SteamProfiles", (string)null);
+                    b.ToTable("UserSteamProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("Achievements")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievementStat", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamAchievement", "Achievement")
+                        .WithOne("Stats")
+                        .HasForeignKey("AchievementTracker.Data.Entities.SteamAchievementStat", "AchievementId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Achievement");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameCategory", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamCategory", "Category")
+                        .WithMany("GameCategories")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GameCategories")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameDeveloper", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamDeveloper", "Developer")
+                        .WithMany("GameDevelopers")
+                        .HasForeignKey("DeveloperId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GameDevelopers")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Developer");
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameGenre", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GameGenres")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGenre", "Genre")
+                        .WithMany("GameGenres")
+                        .HasForeignKey("GenreId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+
+                    b.Navigation("Genre");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameLanguage", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GameLanguages")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamLanguage", "Language")
+                        .WithMany("GameLanguages")
+                        .HasForeignKey("LanguageId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+
+                    b.Navigation("Language");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGamePlatform", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("Platforms")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGamePrice", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("Prices")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGamePublisher", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GamePublishers")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamPublisher", "Publisher")
+                        .WithMany("GamePublishers")
+                        .HasForeignKey("PublisherId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+
+                    b.Navigation("Publisher");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameReview", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("Reviews")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGameTag", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("GameTags")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamTag", "Tag")
+                        .WithMany("GameTags")
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+
+                    b.Navigation("Tag");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamUserAchievement", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamAchievement", "Achievement")
+                        .WithMany("UserAchievements")
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.UserSteamProfile", "UserSteamProfile")
+                        .WithMany()
+                        .HasForeignKey("SteamId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Achievement");
+
+                    b.Navigation("UserSteamProfile");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamUserGame", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamGame", "Game")
+                        .WithMany("UserGames")
+                        .HasForeignKey("GameId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.UserSteamProfile", "UserSteamProfile")
+                        .WithMany("UserGames")
+                        .HasForeignKey("SteamId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Game");
+
+                    b.Navigation("UserSteamProfile");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
@@ -494,6 +723,68 @@ namespace AchievementTracker.Data.Migrations
                     b.Navigation("UserRoles");
                 });
 
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>
+                {
+                    b.Navigation("Stats");
+
+                    b.Navigation("UserAchievements");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamCategory", b =>
+                {
+                    b.Navigation("GameCategories");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamDeveloper", b =>
+                {
+                    b.Navigation("GameDevelopers");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGame", b =>
+                {
+                    b.Navigation("Achievements");
+
+                    b.Navigation("GameCategories");
+
+                    b.Navigation("GameDevelopers");
+
+                    b.Navigation("GameGenres");
+
+                    b.Navigation("GameLanguages");
+
+                    b.Navigation("GamePublishers");
+
+                    b.Navigation("GameTags");
+
+                    b.Navigation("Platforms");
+
+                    b.Navigation("Prices");
+
+                    b.Navigation("Reviews");
+
+                    b.Navigation("UserGames");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamGenre", b =>
+                {
+                    b.Navigation("GameGenres");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamLanguage", b =>
+                {
+                    b.Navigation("GameLanguages");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamPublisher", b =>
+                {
+                    b.Navigation("GamePublishers");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SteamTag", b =>
+                {
+                    b.Navigation("GameTags");
+                });
+
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
                 {
                     b.Navigation("Attachments");
@@ -511,6 +802,11 @@ namespace AchievementTracker.Data.Migrations
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
                 {
                     b.Navigation("SteamProfile");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.UserSteamProfile", b =>
+                {
+                    b.Navigation("UserGames");
                 });
 #pragma warning restore 612, 618
         }

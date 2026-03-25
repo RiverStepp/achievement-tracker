@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
@@ -38,6 +38,38 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .Where(x => x.AuthProvider == eAuthProvider.Steam && x.ProviderUserId == canonicalSteamId)
                .Select(x => (int?)x.AppUserId)
                .SingleOrDefaultAsync(ct);
+     }
+
+     public async Task<long?> GetSteamIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)
+     {
+          return await _db.UserExternalLogins
+               .AsNoTracking()
+               .Where(x => x.AuthProvider == eAuthProvider.Steam && x.IsActive)
+               .Where(x => x.AppUser.PublicId == publicId && x.AppUser.IsActive)
+               .Select(x => x.SteamProfile != null ? (long?)x.SteamProfile.SteamId : null)
+               .SingleOrDefaultAsync(ct);
+     }
+
+     public async Task<bool> HandleExistsAsync(string handle, int? excludingAppUserId = null, CancellationToken ct = default)
+     {
+          IQueryable<AppUser> query = _db.AppUsers.Where(x => x.Handle == handle);
+          if (excludingAppUserId.HasValue)
+               query = query.Where(x => x.AppUserId != excludingAppUserId.Value);
+
+          return await query.AnyAsync(ct);
+     }
+
+     public async Task<bool> SetSocialIdentityAsync(int appUserId, string? handle, string? displayName, CancellationToken ct = default)
+     {
+          AppUser? user = await _db.AppUsers.SingleOrDefaultAsync(x => x.AppUserId == appUserId, ct);
+          if (user == null)
+               return false;
+
+          user.Handle = handle;
+          user.DisplayName = displayName;
+          await _db.SaveChangesAsync(ct);
+
+          return true;
      }
 
      #region helpers

@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -8,6 +8,7 @@ public sealed class SocialPostReactionConfiguration: IEntityTypeConfiguration<So
 {
      public void Configure(EntityTypeBuilder<SocialPostReaction> b)
      {
+          b.ToTable("SocialPostReaction");
           b.HasKey(x => new { x.SocialPostId, x.AppUserId });
 
           b.Property(x => x.ReactionType)

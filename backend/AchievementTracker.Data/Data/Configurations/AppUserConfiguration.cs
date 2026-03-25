@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -15,6 +15,16 @@ public sealed class AppUserConfiguration: IEntityTypeConfiguration<AppUser>
               .ValueGeneratedOnAdd();
 
           b.HasIndex(x => x.PublicId).IsUnique();
+
+          b.Property(x => x.Handle)
+              .HasMaxLength(15);
+
+          b.Property(x => x.DisplayName)
+              .HasMaxLength(20);
+
+          b.HasIndex(x => x.Handle)
+              .IsUnique()
+              .HasFilter("[Handle] IS NOT NULL");
 
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
