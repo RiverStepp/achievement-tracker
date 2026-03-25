@@ -23,7 +23,7 @@ public sealed class SocialPostAttachmentConfiguration: IEntityTypeConfiguration<
               .HasMaxLength(4000);
 
           b.Property(x => x.DisplayOrder)
-              .HasDefaultValue((short)0);
+              .HasDefaultValue((short)100);
 
           b.HasIndex(x => new { x.SocialPostId, x.DisplayOrder })
               .IsUnique();

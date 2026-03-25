@@ -72,6 +72,15 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           return true;
      }
 
+     public async Task<bool> HasCompleteSocialIdentityAsync(int appUserId, CancellationToken ct = default)
+     {
+          return await _db.AppUsers
+               .AsNoTracking()
+               .Where(x => x.AppUserId == appUserId)
+               .Select(x => !string.IsNullOrWhiteSpace(x.Handle) && !string.IsNullOrWhiteSpace(x.DisplayName))
+               .SingleOrDefaultAsync(ct);
+     }
+
      #region helpers
      private async Task<UserExternalLogin> GetOrCreateSteamLoginAsync(string canonicalSteamId, CancellationToken ct)
      {

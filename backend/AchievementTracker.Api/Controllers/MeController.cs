@@ -1,24 +1,18 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 using AchievementTracker.Api.Models.DTOs.Social;
+using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Models.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AchievementTracker.Controllers;
 
 [ApiController]
-public class MeController : ControllerBase
+public sealed class MeController(ICurrentUser currentUser, IMeService meService) : ControllerBase
 {
-     private readonly ICurrentUser _currentUser;
-     private readonly IMeService _meService;
+     private readonly ICurrentUser _currentUser = currentUser;
+     private readonly IMeService _meService = meService;
 
-     public MeController(ICurrentUser currentUser, IMeService meService)
-     {
-          _currentUser = currentUser;
-          _meService = meService;
-     }
-
-     // Endpoint to return the SteamID of the user that is currently logged in. 
      [Authorize]
      [HttpGet("/me")]
      public IActionResult GetMe()
@@ -29,14 +23,20 @@ public class MeController : ControllerBase
 
      [Authorize]
      [HttpPost("/me/social-identity")]
-     public async Task<IActionResult> SetSocialIdentity([FromBody] SetMySocialIdentityRequestDto request, CancellationToken ct)
+     public async Task<IActionResult> SetSocialIdentity(
+          [FromBody] SetMySocialIdentityRequestDto request,
+          CancellationToken ct)
      {
           if (_currentUser.AppUserId is null)
                return Unauthorized();
 
-          var (success, error) = await _meService.SetSocialIdentityAsync(_currentUser.AppUserId.Value, request, ct);
-          if (!success)
-               return BadRequest(new { error });
+          SetSocialIdentityResult outcome = await _meService.SetSocialIdentityAsync(
+               _currentUser.AppUserId.Value,
+               request,
+               ct);
+
+          if (!outcome.Success)
+               return BadRequest(new { error = outcome.ErrorMessage });
 
           return Ok();
      }
