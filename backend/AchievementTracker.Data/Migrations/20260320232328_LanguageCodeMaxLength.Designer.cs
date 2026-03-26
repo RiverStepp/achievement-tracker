@@ -4,6 +4,7 @@ using AchievementTracker.Data.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AchievementTracker.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260320232328_LanguageCodeMaxLength")]
+    partial class LanguageCodeMaxLength
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -549,7 +552,7 @@ namespace AchievementTracker.Data.Migrations
                     b.Property<int?>("MetacriticScore")
                         .HasColumnType("int");
 
-                    b.Property<int?>("Recommendations")
+                    b.Property<int>("Recommendations")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("RecordedAt")
