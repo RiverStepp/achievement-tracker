@@ -8,7 +8,7 @@ public sealed class SocialPostCommentConfiguration: IEntityTypeConfiguration<Soc
 {
      public void Configure(EntityTypeBuilder<SocialPostComment> b)
      {
-          b.ToTable("SocialPostComment");
+          b.ToTable("SocialPostComments");
           b.HasKey(x => x.SocialPostCommentId);
 
           b.Property(x => x.PublicId)

@@ -30,11 +30,18 @@ public sealed class UserProfileService(
         var achievementsPageSize =
             request.AchievementsPageSize > 0 ? Math.Min(request.AchievementsPageSize, MaxPageSize) : options.AchievementsPageSize;
         var achievementsByPointsPageSize =
-            request.AchievementsByPointsPageSize > 0 ? Math.Min(request.AchievementsByPointsPageSize, MaxPageSize) : options.AchievementsByPointsPageSize;
+            request.AchievementsByPointsPageSize > 0
+                ? Math.Min(request.AchievementsByPointsPageSize, MaxPageSize)
+                : options.AchievementsByPointsPageSize;
+        var latestActivityPageSize =
+            request.LatestActivityPageSize > 0
+                ? Math.Min(request.LatestActivityPageSize, options.MaxLatestActivityPageSize)
+                : options.LatestActivityPageSize;
 
         var pageNumber = Math.Max(1, request.GamesPageNumber);
         var achievementsPageNumber = Math.Max(1, request.AchievementsPageNumber);
         var achievementsByPointsPageNumber = Math.Max(1, request.AchievementsByPointsPageNumber);
+        var latestActivityPageNumber = Math.Max(1, request.LatestActivityPageNumber);
 
         var normalizedRequest = new GetUserProfileRequest
         {
@@ -43,7 +50,9 @@ public sealed class UserProfileService(
             AchievementsPageNumber = achievementsPageNumber,
             AchievementsPageSize = achievementsPageSize,
             AchievementsByPointsPageNumber = achievementsByPointsPageNumber,
-            AchievementsByPointsPageSize = achievementsByPointsPageSize
+            AchievementsByPointsPageSize = achievementsByPointsPageSize,
+            LatestActivityPageNumber = latestActivityPageNumber,
+            LatestActivityPageSize = latestActivityPageSize
         };
 
         return await userProfileRepository.GetProfileAsync(steamId.Value, normalizedRequest, ct);

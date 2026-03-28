@@ -4,6 +4,7 @@ using AchievementTracker.Data.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AchievementTracker.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260328203842_AppUserPinnedAchievementOnly")]
+    partial class AppUserPinnedAchievementOnly
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -84,6 +87,9 @@ namespace AchievementTracker.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AppUserPinnedAchievementId"));
 
+                    b.Property<int>("AchievementId")
+                        .HasColumnType("int");
+
                     b.Property<int>("AppUserId")
                         .HasColumnType("int");
 
@@ -96,24 +102,18 @@ namespace AchievementTracker.Data.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
-                    b.Property<byte>("PlatformId")
-                        .HasColumnType("tinyint");
-
-                    b.Property<int>("SteamAchievementId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("UpdateDate")
                         .HasColumnType("datetime2");
 
                     b.HasKey("AppUserPinnedAchievementId");
 
-                    b.HasIndex("SteamAchievementId");
+                    b.HasIndex("AchievementId");
 
-                    b.HasIndex("AppUserId", "PlatformId", "SteamAchievementId")
+                    b.HasIndex("AppUserId", "AchievementId")
                         .IsUnique()
                         .HasFilter("[IsActive] = 1");
 
-                    b.ToTable("AppUserPinnedAchievements", (string)null);
+                    b.ToTable("AppUserPinnedAchievement", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
@@ -191,7 +191,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("AuthorAppUserId", "CreateDate", "SocialPostId");
 
-                    b.ToTable("SocialPosts", (string)null);
+                    b.ToTable("SocialPost", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostAttachment", b =>
@@ -236,7 +236,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("SocialPostId", "DisplayOrder")
                         .IsUnique();
 
-                    b.ToTable("SocialPostAttachments", (string)null);
+                    b.ToTable("SocialPostAttachment", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostComment", b =>
@@ -286,7 +286,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("SocialPostId", "CreateDate", "SocialPostCommentId");
 
-                    b.ToTable("SocialPostComments", (string)null);
+                    b.ToTable("SocialPostComment", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostReaction", b =>
@@ -306,7 +306,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("SocialPostId");
 
-                    b.ToTable("SocialPostReactions", (string)null);
+                    b.ToTable("SocialPostReaction", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>
@@ -1168,21 +1168,21 @@ namespace AchievementTracker.Data.Migrations
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.AppUserPinnedAchievement", b =>
                 {
+                    b.HasOne("AchievementTracker.Data.Entities.SteamAchievement", "Achievement")
+                        .WithMany()
+                        .HasForeignKey("AchievementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
                         .WithMany("PinnedAchievements")
                         .HasForeignKey("AppUserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("AchievementTracker.Data.Entities.SteamAchievement", "SteamAchievement")
-                        .WithMany()
-                        .HasForeignKey("SteamAchievementId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Navigation("Achievement");
 
                     b.Navigation("AppUser");
-
-                    b.Navigation("SteamAchievement");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>

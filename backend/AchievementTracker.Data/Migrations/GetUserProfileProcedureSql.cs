@@ -1,3 +1,9 @@
+namespace AchievementTracker.Data.Migrations;
+
+internal static class GetUserProfileProcedureSql
+{
+    internal const string UpSql =
+        @"
 CREATE OR ALTER PROCEDURE dbo.GetUserProfile
     @SteamId BIGINT,
     @GamesPageNumber INT = 1,
@@ -219,3 +225,5 @@ SELECT
 FROM Numbered
 WHERE rn > @LatestActivityOffset AND rn <= @LatestActivityOffset + @LatestActivityPageSize
 ORDER BY rn;
+";
+}

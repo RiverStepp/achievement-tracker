@@ -8,7 +8,7 @@ public sealed class SocialPostConfiguration: IEntityTypeConfiguration<SocialPost
 {
      public void Configure(EntityTypeBuilder<SocialPost> b)
      {
-          b.ToTable("SocialPost");
+          b.ToTable("SocialPosts");
           b.HasKey(x => x.SocialPostId);
 
           b.Property(x => x.PublicId)

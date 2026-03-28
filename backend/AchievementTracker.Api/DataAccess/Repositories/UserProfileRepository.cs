@@ -3,6 +3,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.Requests;
 using AchievementTracker.Api.Models.Responses.Profile;
 using AchievementTracker.Data.Data;
+using AchievementTracker.Data.Enums;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
@@ -27,20 +28,44 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
         cmd.Parameters.Add(new SqlParameter("@GamesPageSize", SqlDbType.Int) { Value = request.GamesPageSize });
         cmd.Parameters.Add(new SqlParameter("@AchievementsPageNumber", SqlDbType.Int) { Value = request.AchievementsPageNumber });
         cmd.Parameters.Add(new SqlParameter("@AchievementsPageSize", SqlDbType.Int) { Value = request.AchievementsPageSize });
-        cmd.Parameters.Add(new SqlParameter("@AchievementsByPointsPageNumber", SqlDbType.Int) { Value = request.AchievementsByPointsPageNumber });
-        cmd.Parameters.Add(new SqlParameter("@AchievementsByPointsPageSize", SqlDbType.Int) { Value = request.AchievementsByPointsPageSize });
+        cmd.Parameters.Add(
+            new SqlParameter("@AchievementsByPointsPageNumber", SqlDbType.Int)
+            {
+                Value = request.AchievementsByPointsPageNumber
+            });
+        cmd.Parameters.Add(
+            new SqlParameter("@AchievementsByPointsPageSize", SqlDbType.Int)
+            {
+                Value = request.AchievementsByPointsPageSize
+            });
+        cmd.Parameters.Add(
+            new SqlParameter("@LatestActivityPageNumber", SqlDbType.Int) { Value = request.LatestActivityPageNumber });
+        cmd.Parameters.Add(
+            new SqlParameter("@LatestActivityPageSize", SqlDbType.Int) { Value = request.LatestActivityPageSize });
 
         var pGamesRecentTotal = new SqlParameter("@GamesRecentTotalCount", SqlDbType.Int) { Direction = ParameterDirection.Output };
         var pAchievementsTotal = new SqlParameter("@AchievementsTotalCount", SqlDbType.Int) { Direction = ParameterDirection.Output };
-        var pAchievementsByPointsTotal = new SqlParameter("@AchievementsByPointsTotalCount", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        var pAchievementsByPointsTotal =
+            new SqlParameter("@AchievementsByPointsTotalCount", SqlDbType.Int) { Direction = ParameterDirection.Output };
+        var pLatestActivityTotal =
+            new SqlParameter("@LatestActivityTotalCount", SqlDbType.Int) { Direction = ParameterDirection.Output };
         cmd.Parameters.Add(pGamesRecentTotal);
         cmd.Parameters.Add(pAchievementsTotal);
         cmd.Parameters.Add(pAchievementsByPointsTotal);
+        cmd.Parameters.Add(pLatestActivityTotal);
 
         await using var reader = await cmd.ExecuteReaderAsync(ct);
 
-        SteamProfileMetadataDto? steamProfile = null;
+        ProfileAppUserDto? appUser = null;
         if (await reader.ReadAsync(ct))
+        {
+            appUser = new ProfileAppUserDto(
+                reader.IsDBNull(0) ? null : reader.GetString(0),
+                reader.IsDBNull(1) ? null : reader.GetString(1));
+        }
+
+        SteamProfileMetadataDto? steamProfile = null;
+        if (await reader.NextResultAsync(ct) && await reader.ReadAsync(ct))
         {
             steamProfile = new SteamProfileMetadataDto(
                 reader.IsDBNull(0) ? null : reader.GetString(0),
@@ -96,19 +121,58 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
             }
         }
 
+        var pinnedAchievements = new List<ProfilePinnedAchievementDto>();
+        if (await reader.NextResultAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                pinnedAchievements.Add(ReadPinnedAchievementRow(reader));
+            }
+        }
+
+        var latestActivity = new List<ProfileLatestActivityItemDto>();
+        if (await reader.NextResultAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                latestActivity.Add(ReadLatestActivityRow(reader));
+            }
+        }
+
         await reader.CloseAsync();
 
-        var gamesRecentTotal = pGamesRecentTotal.Value != DBNull.Value && pGamesRecentTotal.Value != null ? Convert.ToInt32(pGamesRecentTotal.Value) : 0;
-        var achievementsTotal = pAchievementsTotal.Value != DBNull.Value && pAchievementsTotal.Value != null ? Convert.ToInt32(pAchievementsTotal.Value) : 0;
-        var achievementsByPointsTotal = pAchievementsByPointsTotal.Value != DBNull.Value && pAchievementsByPointsTotal.Value != null ? Convert.ToInt32(pAchievementsByPointsTotal.Value) : 0;
+        var gamesRecentTotal = ReadOutputInt(pGamesRecentTotal);
+        var achievementsTotal = ReadOutputInt(pAchievementsTotal);
+        var achievementsByPointsTotal = ReadOutputInt(pAchievementsByPointsTotal);
+        var latestActivityTotal = ReadOutputInt(pLatestActivityTotal);
 
         return new UserProfileResponse(
+            appUser,
             steamProfile,
             totals,
             new PagedResultDto<ProfileGameItemDto>(request.GamesPageNumber, request.GamesPageSize, gamesRecentTotal, gamesRecent),
-            new PagedResultDto<ProfileAchievementItemDto>(request.AchievementsPageNumber, request.AchievementsPageSize, achievementsTotal, achievements),
-            new PagedResultDto<ProfileAchievementItemDto>(request.AchievementsByPointsPageNumber, request.AchievementsByPointsPageSize, achievementsByPointsTotal, achievementsByPoints)
+            new PagedResultDto<ProfileAchievementItemDto>(
+                request.AchievementsPageNumber,
+                request.AchievementsPageSize,
+                achievementsTotal,
+                achievements),
+            new PagedResultDto<ProfileAchievementItemDto>(
+                request.AchievementsByPointsPageNumber,
+                request.AchievementsByPointsPageSize,
+                achievementsByPointsTotal,
+                achievementsByPoints),
+            pinnedAchievements,
+            new PagedResultDto<ProfileLatestActivityItemDto>(
+                request.LatestActivityPageNumber,
+                request.LatestActivityPageSize,
+                latestActivityTotal,
+                latestActivity)
         );
+    }
+
+    private static int ReadOutputInt(SqlParameter parameter)
+    {
+        return parameter.Value != DBNull.Value && parameter.Value != null ? Convert.ToInt32(parameter.Value) : 0;
     }
 
     private static ProfileGameItemDto ReadProfileGameRow(System.Data.Common.DbDataReader reader)
@@ -139,6 +203,46 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
             reader.IsDBNull(5) ? null : reader.GetDecimal(5),
             reader.GetDateTime(6),
             reader.GetInt32(7)
+        );
+    }
+
+    private static ProfilePinnedAchievementDto ReadPinnedAchievementRow(System.Data.Common.DbDataReader reader)
+    {
+        return new ProfilePinnedAchievementDto(
+            reader.GetInt32(0),
+            reader.GetInt32(1),
+            (eAchievementPlatform)reader.GetByte(2),
+            reader.GetInt32(3),
+            reader.GetInt32(4),
+            reader.GetString(5),
+            reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetString(8),
+            reader.IsDBNull(9) ? null : reader.GetDecimal(9),
+            reader.GetDateTime(10),
+            reader.GetInt32(11)
+        );
+    }
+
+    private static ProfileLatestActivityItemDto ReadLatestActivityRow(System.Data.Common.DbDataReader reader)
+    {
+        var activityType = (eProfileActivityType)reader.GetInt16(0);
+        return new ProfileLatestActivityItemDto(
+            activityType,
+            reader.GetDateTime(1),
+            reader.IsDBNull(2) ? null : reader.GetInt32(2),
+            reader.IsDBNull(3) ? null : reader.GetString(3),
+            reader.IsDBNull(4) ? null : reader.GetString(4),
+            reader.IsDBNull(5) ? null : reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetDecimal(7),
+            reader.IsDBNull(8) ? null : reader.GetInt32(8),
+            reader.IsDBNull(9) ? null : reader.GetInt32(9),
+            reader.IsDBNull(10) ? null : reader.GetGuid(10),
+            reader.IsDBNull(11) ? null : reader.GetString(11),
+            reader.IsDBNull(12) ? null : reader.GetGuid(12),
+            reader.IsDBNull(13) ? null : reader.GetGuid(13),
+            reader.IsDBNull(14) ? null : reader.GetString(14)
         );
     }
 }
