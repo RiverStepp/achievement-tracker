@@ -25,5 +25,9 @@ public interface ISocialService
      Task<SocialCommentDto> CreateCommentAsync(int currentAppUserId, Guid postPublicId, CreateSocialCommentRequestDto request, CancellationToken ct = default);
      Task<bool?> SetReactionAsync(int currentAppUserId, Guid postPublicId, SetReactionRequestDto request, CancellationToken ct = default);
      Task<List<SocialReactionDto>?> GetReactionsAsync(Guid postPublicId, CancellationToken ct = default);
-     Task<SocialCommentPageDto?> GetCommentsAsync(Guid postPublicId, CancellationToken ct = default);
+     Task<SocialCommentPageDto?> GetCommentsAsync(
+          Guid postPublicId,
+          int pageSize,
+          string? pageToken,
+          CancellationToken ct = default);
 }

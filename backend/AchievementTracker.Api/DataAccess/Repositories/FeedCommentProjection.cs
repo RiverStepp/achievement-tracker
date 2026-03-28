@@ -1,7 +1,9 @@
-namespace AchievementTracker.Api.Models.DTOs.Social;
+namespace AchievementTracker.Api.DataAccess.Repositories;
 
-public sealed record SocialCommentDto
+internal sealed record FeedCommentProjection
 {
+     public int SocialPostId { get; init; }
+     public int SocialPostCommentId { get; init; }
      public Guid CommentPublicId { get; init; }
      public Guid AuthorPublicId { get; init; }
      public string? AuthorHandle { get; init; }
@@ -9,5 +11,4 @@ public sealed record SocialCommentDto
      public required string Body { get; init; }
      public DateTime CreateDate { get; init; }
      public Guid? ParentCommentPublicId { get; init; }
-     public List<SocialCommentDto> Replies { get; init; } = [];
 }

@@ -58,6 +58,10 @@ builder.Services
      .Validate(o => o.MaxDisplayNameLength > 0, "Social: MaxDisplayNameLength must be > 0.")
      .Validate(o => o.MaxContentLength > 0, "Social: MaxContentLength must be > 0.")
      .Validate(o => o.MaxAttachmentUrlLength > 0, "Social: MaxAttachmentUrlLength must be > 0.")
+     .Validate(
+          o => o.DefaultCommentsPageSize > 0 && o.DefaultCommentsPageSize <= o.MaxCommentsPageSize,
+          "Social: DefaultCommentsPageSize must be > 0 and <= MaxCommentsPageSize.")
+     .Validate(o => o.MaxCommentsPageSize > 0, "Social: MaxCommentsPageSize must be > 0.")
      .Validate(o => o.Upload.MaxImageBytes > 0, "Social:Upload:MaxImageBytes must be > 0.")
      .Validate(
           o => o.Upload.AllowedImageMimeTypes is { Length: > 0 },

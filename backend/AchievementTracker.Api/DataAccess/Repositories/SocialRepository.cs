@@ -1,4 +1,5 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.Helpers;
 using AchievementTracker.Api.Models.DTOs.Social;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
@@ -16,6 +17,8 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
           string? pageToken,
           CancellationToken ct = default)
      {
+          SocialPageTokenParser.RequireValidOrNull(pageToken);
+
           IQueryable<SocialPost> query = _db.SocialPosts.AsNoTracking();
           return await BuildFeedPageAsync(query, currentAppUserId, pageSize, pageToken, ct);
      }
@@ -27,6 +30,8 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
           string? pageToken,
           CancellationToken ct = default)
      {
+          SocialPageTokenParser.RequireValidOrNull(pageToken);
+
           int? authorAppUserId = await _db.AppUsers
                .AsNoTracking()
                .Where(x => x.PublicId == authorPublicId)
@@ -51,7 +56,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                .OrderByDescending(x => x.CreateDate)
                .ThenByDescending(x => x.SocialPostId)
                .Select(x => x.SocialPostId)
-               .Take(pageSize)
+               .Take(pageSize + 1)
                .ToListAsync(ct);
 
           return await BuildFeedPageFromIdsAsync(postIds, currentAppUserId, pageSize, ct);
@@ -121,14 +126,13 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                .Where(x => x.SocialPostCommentId == comment.SocialPostCommentId)
                .Select(x => new SocialCommentDto
                {
-                    SocialPostCommentId = x.SocialPostCommentId,
                     CommentPublicId = x.PublicId,
                     AuthorPublicId = x.AppUser.PublicId,
                     AuthorHandle = x.AppUser.Handle,
                     AuthorDisplayName = x.AppUser.DisplayName,
                     Body = x.Body,
                     CreateDate = x.CreateDate,
-                    ParentCommentId = x.ParentCommentId
+                    ParentCommentPublicId = x.ParentComment != null ? x.ParentComment.PublicId : null
                })
                .SingleAsync(ct);
 
@@ -191,8 +195,14 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                .ToListAsync(ct);
      }
 
-     public async Task<SocialCommentPageDto?> GetCommentsByPostPublicIdAsync(Guid postPublicId, CancellationToken ct = default)
+     public async Task<SocialCommentPageDto?> GetCommentsByPostPublicIdAsync(
+          Guid postPublicId,
+          int pageSize,
+          string? pageToken,
+          CancellationToken ct = default)
      {
+          SocialPageTokenParser.RequireValidOrNull(pageToken);
+
           int? postId = await _db.SocialPosts.AsNoTracking()
                .Where(x => x.PublicId == postPublicId)
                .Select(x => (int?)x.SocialPostId)
@@ -201,50 +211,137 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
           if (!postId.HasValue)
                return null;
 
-          List<SocialCommentDto> flat = await _db.SocialPostComments
+          IQueryable<SocialPostComment> rootsQuery = _db.SocialPostComments
                .AsNoTracking()
-               .Where(x => x.SocialPostId == postId.Value)
+               .Where(x => x.SocialPostId == postId.Value && x.ParentCommentId == null);
+
+          if (SocialPageTokenParser.TryParse(pageToken, out DateTime anchorCreateDate, out int anchorCommentId))
+          {
+               rootsQuery = rootsQuery.Where(x =>
+                    x.CreateDate > anchorCreateDate
+                    || (x.CreateDate == anchorCreateDate && x.SocialPostCommentId > anchorCommentId));
+          }
+
+          List<SocialCommentRootCursorRow> rootRows = (await rootsQuery
                .OrderBy(x => x.CreateDate)
                .ThenBy(x => x.SocialPostCommentId)
-               .Select(x => new SocialCommentDto
+               .Select(x => new { x.SocialPostCommentId, x.CreateDate })
+               .Take(pageSize + 1)
+               .ToListAsync(ct))
+               .Select(x => new SocialCommentRootCursorRow
                {
                     SocialPostCommentId = x.SocialPostCommentId,
-                    CommentPublicId = x.PublicId,
-                    AuthorPublicId = x.AppUser.PublicId,
-                    AuthorHandle = x.AppUser.Handle,
-                    AuthorDisplayName = x.AppUser.DisplayName,
-                    Body = x.Body,
-                    CreateDate = x.CreateDate,
-                    ParentCommentId = x.ParentCommentId
+                    CreateDate = x.CreateDate
                })
+               .ToList();
+
+          bool hasMore = rootRows.Count > pageSize;
+          List<int> pageRootIds = rootRows.Take(pageSize).Select(x => x.SocialPostCommentId).ToList();
+
+          if (pageRootIds.Count == 0)
+          {
+               return new SocialCommentPageDto
+               {
+                    Items = [],
+                    HasMore = false,
+                    NextPageToken = null
+               };
+          }
+
+          List<SocialPostComment> rootEntities = await _db.SocialPostComments
+               .AsNoTracking()
+               .Where(x => pageRootIds.Contains(x.SocialPostCommentId))
+               .Include(x => x.AppUser)
+               .OrderBy(x => x.CreateDate)
+               .ThenBy(x => x.SocialPostCommentId)
                .ToListAsync(ct);
 
-          Dictionary<int, SocialCommentDto> byId = flat.ToDictionary(x => x.SocialPostCommentId);
-          List<SocialCommentDto> roots = [];
+          Dictionary<int, SocialPostComment> collectedById = rootEntities.ToDictionary(x => x.SocialPostCommentId);
+          HashSet<int> frontier = pageRootIds.ToHashSet();
 
-          foreach (SocialCommentDto comment in flat)
+          while (frontier.Count > 0)
           {
-               if (!comment.ParentCommentId.HasValue)
-               {
-                    roots.Add(comment);
-                    continue;
-               }
+               List<SocialPostComment> children = await _db.SocialPostComments
+                    .AsNoTracking()
+                    .Where(x =>
+                         x.SocialPostId == postId.Value
+                         && x.ParentCommentId != null
+                         && frontier.Contains(x.ParentCommentId.Value))
+                    .Include(x => x.AppUser)
+                    .OrderBy(x => x.CreateDate)
+                    .ThenBy(x => x.SocialPostCommentId)
+                    .ToListAsync(ct);
 
-               if (byId.TryGetValue(comment.ParentCommentId.Value, out SocialCommentDto? parent))
+               if (children.Count == 0)
+                    break;
+
+               frontier.Clear();
+               foreach (SocialPostComment child in children)
                {
-                    parent.Replies.Add(comment);
-               }
-               else
-               {
-                    roots.Add(comment);
+                    if (collectedById.TryAdd(child.SocialPostCommentId, child))
+                         frontier.Add(child.SocialPostCommentId);
                }
           }
+
+          Dictionary<int, Guid> publicIdByInternalId = collectedById.Values.ToDictionary(
+               x => x.SocialPostCommentId,
+               x => x.PublicId);
+
+          Dictionary<int, SocialCommentDto> dtoByInternalId = [];
+
+          foreach (SocialPostComment entity in collectedById.Values.OrderBy(x => x.CreateDate).ThenBy(x => x.SocialPostCommentId))
+          {
+               Guid? parentPublicId = null;
+               if (entity.ParentCommentId.HasValue
+                    && publicIdByInternalId.TryGetValue(entity.ParentCommentId.Value, out Guid parentPid))
+               {
+                    parentPublicId = parentPid;
+               }
+
+               dtoByInternalId[entity.SocialPostCommentId] = new SocialCommentDto
+               {
+                    CommentPublicId = entity.PublicId,
+                    AuthorPublicId = entity.AppUser.PublicId,
+                    AuthorHandle = entity.AppUser.Handle,
+                    AuthorDisplayName = entity.AppUser.DisplayName,
+                    Body = entity.Body,
+                    CreateDate = entity.CreateDate,
+                    ParentCommentPublicId = parentPublicId
+               };
+          }
+
+          List<SocialCommentDto> roots = [];
+          foreach (int rootId in pageRootIds)
+          {
+               if (dtoByInternalId.TryGetValue(rootId, out SocialCommentDto? rootDto))
+                    roots.Add(rootDto);
+          }
+
+          foreach (SocialPostComment entity in collectedById.Values
+                    .Where(x => !pageRootIds.Contains(x.SocialPostCommentId))
+                    .OrderBy(x => x.CreateDate)
+                    .ThenBy(x => x.SocialPostCommentId))
+          {
+               if (!entity.ParentCommentId.HasValue)
+                    continue;
+
+               if (dtoByInternalId.TryGetValue(entity.ParentCommentId.Value, out SocialCommentDto? parent)
+                    && dtoByInternalId.TryGetValue(entity.SocialPostCommentId, out SocialCommentDto? child))
+               {
+                    parent.Replies.Add(child);
+               }
+          }
+
+          SocialCommentRootCursorRow lastReturnedRoot = rootRows[pageRootIds.Count - 1];
+          string? nextToken = hasMore
+               ? SocialPageTokenParser.Encode(lastReturnedRoot.CreateDate, lastReturnedRoot.SocialPostCommentId)
+               : null;
 
           return new SocialCommentPageDto
           {
                Items = roots,
-               HasMore = false,
-               NextPageToken = null
+               HasMore = hasMore,
+               NextPageToken = nextToken
           };
      }
 
@@ -255,7 +352,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
           string? pageToken,
           CancellationToken ct)
      {
-          if (TryParsePageToken(pageToken, out DateTime anchorCreateDate, out int anchorPostId))
+          if (SocialPageTokenParser.TryParse(pageToken, out DateTime anchorCreateDate, out int anchorPostId))
           {
                query = query.Where(x =>
                     x.CreateDate < anchorCreateDate
@@ -287,11 +384,11 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                .ThenByDescending(x => x.SocialPostId)
                .ToListAsync(ct);
 
-          List<AttachmentProjection> attachmentRows = await _db.SocialPostAttachments
+          List<FeedAttachmentProjection> attachmentRows = await _db.SocialPostAttachments
                .AsNoTracking()
                .Where(x => postIds.Contains(x.SocialPostId))
                .OrderBy(x => x.DisplayOrder)
-               .Select(x => new AttachmentProjection
+               .Select(x => new FeedAttachmentProjection
                {
                     SocialPostId = x.SocialPostId,
                     AttachmentType = x.AttachmentType,
@@ -301,10 +398,10 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                })
                .ToListAsync(ct);
 
-          List<CommentProjection> commentRows = await _db.SocialPostComments
+          List<FeedCommentProjection> commentRows = await _db.SocialPostComments
                .AsNoTracking()
                .Where(x => postIds.Contains(x.SocialPostId))
-               .Select(x => new CommentProjection
+               .Select(x => new FeedCommentProjection
                {
                     SocialPostId = x.SocialPostId,
                     SocialPostCommentId = x.SocialPostCommentId,
@@ -314,14 +411,14 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorDisplayName = x.AppUser.DisplayName,
                     Body = x.Body,
                     CreateDate = x.CreateDate,
-                    ParentCommentId = x.ParentCommentId
+                    ParentCommentPublicId = x.ParentComment != null ? x.ParentComment.PublicId : null
                })
                .ToListAsync(ct);
 
-          List<ReactionProjection> reactionRows = await _db.SocialPostReactions
+          List<FeedReactionProjection> reactionRows = await _db.SocialPostReactions
                .AsNoTracking()
                .Where(x => postIds.Contains(x.SocialPostId))
-               .Select(x => new ReactionProjection
+               .Select(x => new FeedReactionProjection
                {
                     SocialPostId = x.SocialPostId,
                     AppUserId = x.AppUserId,
@@ -329,10 +426,10 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                })
                .ToListAsync(ct);
 
-          Dictionary<int, AppUserProjection> authors = await _db.AppUsers
+          Dictionary<int, FeedAuthorProjection> authors = await _db.AppUsers
                .AsNoTracking()
                .Where(x => posts.Select(p => p.AuthorAppUserId).Contains(x.AppUserId))
-               .Select(x => new AppUserProjection
+               .Select(x => new FeedAuthorProjection
                {
                     AppUserId = x.AppUserId,
                     PublicId = x.PublicId,
@@ -361,13 +458,13 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                .GroupBy(x => x.SocialPostId)
                .ToDictionary(x => x.Key, x => x.Count());
 
-          Dictionary<int, ReactionProjection> currentUserReactionByPost = currentAppUserId.HasValue
+          Dictionary<int, FeedReactionProjection> currentUserReactionByPost = currentAppUserId.HasValue
                ? reactionRows
                     .Where(x => x.AppUserId == currentAppUserId.Value)
                     .ToDictionary(x => x.SocialPostId, x => x)
                : [];
 
-          Dictionary<int, CommentProjection> topCommentByPost = commentRows
+          Dictionary<int, FeedCommentProjection> topCommentByPost = commentRows
                .GroupBy(x => x.SocialPostId)
                .ToDictionary(
                     x => x.Key,
@@ -378,10 +475,10 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
 
           List<SocialFeedItemDto> items = posts.Select(post =>
           {
-               AppUserProjection author = authors[post.AuthorAppUserId];
+               FeedAuthorProjection author = authors[post.AuthorAppUserId];
 
-               topCommentByPost.TryGetValue(post.SocialPostId, out CommentProjection? topComment);
-               currentUserReactionByPost.TryGetValue(post.SocialPostId, out ReactionProjection? currentReaction);
+               topCommentByPost.TryGetValue(post.SocialPostId, out FeedCommentProjection? topComment);
+               currentUserReactionByPost.TryGetValue(post.SocialPostId, out FeedReactionProjection? currentReaction);
 
                return new SocialFeedItemDto
                {
@@ -403,14 +500,13 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                          ? null
                          : new SocialCommentDto
                          {
-                              SocialPostCommentId = topComment.SocialPostCommentId,
                               CommentPublicId = topComment.CommentPublicId,
                               AuthorPublicId = topComment.AuthorPublicId,
                               AuthorHandle = topComment.AuthorHandle,
                               AuthorDisplayName = topComment.AuthorDisplayName,
                               Body = topComment.Body,
                               CreateDate = topComment.CreateDate,
-                              ParentCommentId = topComment.ParentCommentId
+                              ParentCommentPublicId = topComment.ParentCommentPublicId
                          },
                     TopCommentTimestamp = topComment?.CreateDate
                };
@@ -418,7 +514,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
 
           SocialFeedItemDto last = items[^1];
           SocialPost lastPost = posts[^1];
-          string nextPageToken = EncodePageToken(last.CreateDate, lastPost.SocialPostId);
+          string nextPageToken = SocialPageTokenParser.Encode(last.CreateDate, lastPost.SocialPostId);
 
           return new SocialFeedPageDto
           {
@@ -426,68 +522,5 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                HasMore = hasMore,
                NextPageToken = hasMore ? nextPageToken : null
           };
-     }
-
-     private static string EncodePageToken(DateTime createDate, int socialPostId)
-     {
-          return $"{createDate.Ticks}:{socialPostId}";
-     }
-
-     private static bool TryParsePageToken(
-          string? pageToken,
-          out DateTime createDate,
-          out int socialPostId)
-     {
-          createDate = default;
-          socialPostId = default;
-          if (string.IsNullOrWhiteSpace(pageToken))
-               return false;
-
-          string[] parts = pageToken.Split(':', StringSplitOptions.RemoveEmptyEntries);
-          if (parts.Length != 2)
-               return false;
-
-          if (!long.TryParse(parts[0], out long ticks) || !int.TryParse(parts[1], out socialPostId))
-               return false;
-
-          createDate = new DateTime(ticks, DateTimeKind.Utc);
-          return true;
-     }
-
-     private sealed record CommentProjection
-     {
-          public int SocialPostId { get; init; }
-          public int SocialPostCommentId { get; init; }
-          public Guid CommentPublicId { get; init; }
-          public Guid AuthorPublicId { get; init; }
-          public string? AuthorHandle { get; init; }
-          public string? AuthorDisplayName { get; init; }
-          public required string Body { get; init; }
-          public DateTime CreateDate { get; init; }
-          public int? ParentCommentId { get; init; }
-     }
-
-     private sealed record AttachmentProjection
-     {
-          public int SocialPostId { get; init; }
-          public AchievementTracker.Data.Enums.eAttachmentType AttachmentType { get; init; }
-          public required string Url { get; init; }
-          public string? Caption { get; init; }
-          public short DisplayOrder { get; init; }
-     }
-
-     private sealed record ReactionProjection
-     {
-          public int SocialPostId { get; init; }
-          public int AppUserId { get; init; }
-          public AchievementTracker.Data.Enums.eReactionType ReactionType { get; init; }
-     }
-
-     private sealed record AppUserProjection
-     {
-          public int AppUserId { get; init; }
-          public Guid PublicId { get; init; }
-          public string? Handle { get; init; }
-          public string? DisplayName { get; init; }
      }
 }

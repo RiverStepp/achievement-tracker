@@ -1,4 +1,5 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.Helpers;
 using AchievementTracker.Api.Models.DTOs.Social;
 using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Services.Interfaces;
@@ -34,6 +35,7 @@ public sealed class SocialService(
      private const string ErrFileRequired = "File is required.";
      private const string ErrFileTooLargeFormat = "File exceeds max size of {0} bytes.";
      private const string ErrUnsupportedImageMimeType = "Unsupported image MIME type.";
+     private const string ErrInvalidImageContent = "File is not a recognized image format.";
      private const string ErrCommentBodyRequired = "Comment body is required.";
      private const string ErrCommentBodyTooLongFormat =
           "Comment body must be {0} characters or fewer.";
@@ -189,15 +191,25 @@ public sealed class SocialService(
                     nameof(request));
           }
 
+          await using MemoryStream buffer = new();
+          await request.File.CopyToAsync(buffer, ct);
+          buffer.Position = 0;
+
+          if (!SocialImageFormatInspector.TryDetectImageMimeType(buffer, out string detectedMime)
+              || string.IsNullOrEmpty(detectedMime))
+          {
+               throw new ArgumentException(ErrInvalidImageContent, nameof(request));
+          }
+
           bool allowedMime = _social.Upload.AllowedImageMimeTypes
-               .Any(x => x.Equals(request.File.ContentType, StringComparison.OrdinalIgnoreCase));
+               .Any(x => x.Equals(detectedMime, StringComparison.OrdinalIgnoreCase));
           if (!allowedMime)
                throw new ArgumentException(ErrUnsupportedImageMimeType, nameof(request));
 
-          await using Stream stream = request.File.OpenReadStream();
+          buffer.Position = 0;
           string url = await _socialAttachmentStorageService.UploadImageAsync(
-               stream,
-               request.File.ContentType,
+               buffer,
+               detectedMime,
                ct);
 
           return new UploadSocialImageResponseDto { Url = url };
@@ -256,9 +268,14 @@ public sealed class SocialService(
           return _socialRepository.GetReactionsByPostPublicIdAsync(postPublicId, ct);
      }
 
-     public Task<SocialCommentPageDto?> GetCommentsAsync(Guid postPublicId, CancellationToken ct = default)
+     public Task<SocialCommentPageDto?> GetCommentsAsync(
+          Guid postPublicId,
+          int pageSize,
+          string? pageToken,
+          CancellationToken ct = default)
      {
-          return _socialRepository.GetCommentsByPostPublicIdAsync(postPublicId, ct);
+          int size = NormalizeCommentsPageSize(pageSize);
+          return _socialRepository.GetCommentsByPostPublicIdAsync(postPublicId, size, pageToken, ct);
      }
 
      private int NormalizePageSize(int pageSize)
@@ -267,6 +284,15 @@ public sealed class SocialService(
                return _social.DefaultFeedPageSize;
           if (pageSize > _social.MaxFeedPageSize)
                return _social.MaxFeedPageSize;
+          return pageSize;
+     }
+
+     private int NormalizeCommentsPageSize(int pageSize)
+     {
+          if (pageSize <= 0)
+               return _social.DefaultCommentsPageSize;
+          if (pageSize > _social.MaxCommentsPageSize)
+               return _social.MaxCommentsPageSize;
           return pageSize;
      }
 
@@ -284,5 +310,3 @@ public sealed class SocialService(
                throw new SocialIdentityRequiredException(ErrSocialIdentityRequired);
      }
 }
-
-public sealed class SocialIdentityRequiredException(string message) : InvalidOperationException(message);

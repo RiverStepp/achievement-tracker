@@ -11,6 +11,8 @@ namespace AchievementTracker.Api.Controllers;
 [Route("social")]
 public sealed class SocialController(ICurrentUser currentUser, ISocialService socialService) : ControllerBase
 {
+     private const string PageTokenParameterName = "pageToken";
+
      private readonly ICurrentUser _currentUser = currentUser;
      private readonly ISocialService _socialService = socialService;
 
@@ -65,6 +67,10 @@ public sealed class SocialController(ICurrentUser currentUser, ISocialService so
           {
                return StatusCode(StatusCodes.Status403Forbidden, new { error = ex.Message });
           }
+          catch (SocialAttachmentStorageException ex)
+          {
+               return StatusCode(StatusCodes.Status503ServiceUnavailable, new { error = ex.Message });
+          }
           catch (ArgumentException ex)
           {
                return BadRequest(new { error = ex.Message });
@@ -78,13 +84,20 @@ public sealed class SocialController(ICurrentUser currentUser, ISocialService so
           [FromQuery] string? pageToken = null,
           CancellationToken ct = default)
      {
-          SocialFeedPageDto result = await _socialService.GetFeedAsync(
-               _currentUser.AppUserId,
-               pageSize,
-               pageToken,
-               ct);
+          try
+          {
+               SocialFeedPageDto result = await _socialService.GetFeedAsync(
+                    _currentUser.AppUserId,
+                    pageSize,
+                    pageToken,
+                    ct);
 
-          return Ok(result);
+               return Ok(result);
+          }
+          catch (ArgumentException ex) when (IsInvalidPageToken(ex))
+          {
+               return BadRequest(new { error = ex.Message });
+          }
      }
 
      [AllowAnonymous]
@@ -95,14 +108,21 @@ public sealed class SocialController(ICurrentUser currentUser, ISocialService so
           [FromQuery] string? pageToken = null,
           CancellationToken ct = default)
      {
-          SocialFeedPageDto result = await _socialService.GetFeedByUserAsync(
-               _currentUser.AppUserId,
-               authorPublicId,
-               pageSize,
-               pageToken,
-               ct);
+          try
+          {
+               SocialFeedPageDto result = await _socialService.GetFeedByUserAsync(
+                    _currentUser.AppUserId,
+                    authorPublicId,
+                    pageSize,
+                    pageToken,
+                    ct);
 
-          return Ok(result);
+               return Ok(result);
+          }
+          catch (ArgumentException ex) when (IsInvalidPageToken(ex))
+          {
+               return BadRequest(new { error = ex.Message });
+          }
      }
 
      [AllowAnonymous]
@@ -205,12 +225,28 @@ public sealed class SocialController(ICurrentUser currentUser, ISocialService so
      [HttpGet("posts/{postPublicId:guid}/comments")]
      public async Task<ActionResult<SocialCommentPageDto>> GetComments(
           Guid postPublicId,
-          CancellationToken ct)
+          [FromQuery] int pageSize = 0,
+          [FromQuery] string? pageToken = null,
+          CancellationToken ct = default)
      {
-          SocialCommentPageDto? comments = await _socialService.GetCommentsAsync(postPublicId, ct);
-          if (comments == null)
-               return NotFound();
+          try
+          {
+               SocialCommentPageDto? comments = await _socialService.GetCommentsAsync(
+                    postPublicId,
+                    pageSize,
+                    pageToken,
+                    ct);
+               if (comments == null)
+                    return NotFound();
 
-          return Ok(comments);
+               return Ok(comments);
+          }
+          catch (ArgumentException ex) when (IsInvalidPageToken(ex))
+          {
+               return BadRequest(new { error = ex.Message });
+          }
      }
+
+     private static bool IsInvalidPageToken(ArgumentException ex) =>
+          string.Equals(ex.ParamName, PageTokenParameterName, StringComparison.Ordinal);
 }

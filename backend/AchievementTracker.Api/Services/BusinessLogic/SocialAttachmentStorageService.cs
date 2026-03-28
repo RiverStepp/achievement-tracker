@@ -1,6 +1,8 @@
+using System.IO;
 using AchievementTracker.Api.Helpers;
 using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Services.Interfaces;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
@@ -12,6 +14,8 @@ public sealed class SocialAttachmentStorageService(IOptions<SocialOptions> socia
 {
      private const string ErrBlobStorageNotConfigured =
           "Social blob storage settings are not configured.";
+     private const string ErrBlobUploadFailed =
+          "Could not store the image. Please try again later.";
 
      private readonly SocialBlobStorageOptions _blob = socialOptions.Value.BlobStorage;
 
@@ -20,7 +24,7 @@ public sealed class SocialAttachmentStorageService(IOptions<SocialOptions> socia
           if (string.IsNullOrWhiteSpace(_blob.ConnectionString)
               || string.IsNullOrWhiteSpace(_blob.ContainerName))
           {
-               throw new InvalidOperationException(ErrBlobStorageNotConfigured);
+               throw new SocialAttachmentStorageException(ErrBlobStorageNotConfigured);
           }
 
           BlobContainerClient containerClient = new BlobContainerClient(
@@ -28,7 +32,15 @@ public sealed class SocialAttachmentStorageService(IOptions<SocialOptions> socia
                _blob.ContainerName);
 
           PublicAccessType accessType = _blob.PublicRead ? PublicAccessType.Blob : PublicAccessType.None;
-          await containerClient.CreateIfNotExistsAsync(accessType, cancellationToken: ct);
+
+          try
+          {
+               await containerClient.CreateIfNotExistsAsync(accessType, cancellationToken: ct);
+          }
+          catch (Exception ex) when (ex is RequestFailedException or IOException)
+          {
+               throw new SocialAttachmentStorageException(ErrBlobUploadFailed, ex);
+          }
 
           string extension = MimeTypeFileExtensions.GetExtensionForImageMimeType(contentType);
           string blobName = SocialBlobPathBuilder.BuildDatePartitionedBlobName(
@@ -36,13 +48,21 @@ public sealed class SocialAttachmentStorageService(IOptions<SocialOptions> socia
                extension);
 
           BlobClient blobClient = containerClient.GetBlobClient(blobName);
-          await blobClient.UploadAsync(
-               content,
-               new BlobUploadOptions
-               {
-                    HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
-               },
-               ct);
+
+          try
+          {
+               await blobClient.UploadAsync(
+                    content,
+                    new BlobUploadOptions
+                    {
+                         HttpHeaders = new BlobHttpHeaders { ContentType = contentType }
+                    },
+                    ct);
+          }
+          catch (Exception ex) when (ex is RequestFailedException or IOException)
+          {
+               throw new SocialAttachmentStorageException(ErrBlobUploadFailed, ex);
+          }
 
           return blobClient.Uri.ToString();
      }
