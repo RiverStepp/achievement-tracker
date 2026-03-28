@@ -12,8 +12,8 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AchievementTracker.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260328230951_UserProfilesUpdatesAndPinnedAchievementsFixes")]
-    partial class UserProfilesUpdatesAndPinnedAchievementsFixes
+    [Migration("20260328233429_UpdateGetUserProfileProcedure")]
+    partial class UpdateGetUserProfileProcedure
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)

@@ -73,7 +73,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("PublicId")
                         .IsUnique();
 
-                    b.ToTable("AppUsers");
+                    b.ToTable("AppUsers", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.AppUserPinnedAchievement", b =>
@@ -150,7 +150,7 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
@@ -1100,7 +1100,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles");
+                    b.ToTable("UserRoles", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserSteamProfile", b =>

@@ -261,7 +261,7 @@ namespace AchievementTracker.Data.Migrations
                 principalColumn: "AppUserId",
                 onDelete: ReferentialAction.Restrict);
 
-            migrationBuilder.Sql(GetUserProfileProcedureSql.UpSql);
+            migrationBuilder.Sql(GetUserProfileProcedureSql.Load());
         }
 
         /// <inheritdoc />

@@ -21,6 +21,9 @@ DECLARE @AchievementsByPointsOffset INT =
     (@AchievementsByPointsPageNumber - 1) * @AchievementsByPointsPageSize;
 DECLARE @LatestActivityOffset INT = (@LatestActivityPageNumber - 1) * @LatestActivityPageSize;
 DECLARE @AppUserId INT;
+-- Steam store pins; must match eAchievementPlatform.Steam in AchievementTracker.Data.
+-- TODO: Add other platforms here in the future!
+DECLARE @SteamAchievementPlatform TINYINT = CAST(1 AS TINYINT);
 
 SELECT TOP (1) @AppUserId = el.AppUserId
 FROM dbo.UserSteamProfiles p
@@ -38,7 +41,7 @@ WHERE p.SteamId = @SteamId AND p.IsActive = 1;
 
 SELECT
     (SELECT ISNULL(SUM(a.Points), 0) FROM dbo.SteamUserAchievements ua INNER JOIN dbo.SteamAchievements a ON a.Id = ua.AchievementId WHERE ua.SteamId = @SteamId AND ua.IsActive = 1 AND a.IsActive = 1) AS TotalPoints,
-    (SELECT COUNT(*) FROM dbo.SteamUserAchievements ua WHERE ua.SteamId = @SteamId AND ua.IsActive = 1) AS TotalAchievements,
+    (SELECT COUNT(*) FROM dbo.SteamUserAchievements ua INNER JOIN dbo.SteamAchievements a ON a.Id = ua.AchievementId AND a.IsActive = 1 INNER JOIN dbo.SteamGames g ON g.Id = a.GameId AND g.IsActive = 1 WHERE ua.SteamId = @SteamId AND ua.IsActive = 1) AS TotalAchievements,
     (SELECT ISNULL(SUM(ug.PlaytimeForever), 0) FROM dbo.SteamUserGames ug WHERE ug.SteamId = @SteamId AND ug.IsActive = 1) AS TotalPlaytimeMinutes,
     (SELECT COUNT(*) FROM (SELECT g.Id FROM dbo.SteamUserAchievements ua2 INNER JOIN dbo.SteamAchievements a ON a.Id = ua2.AchievementId INNER JOIN dbo.SteamGames g ON g.Id = a.GameId WHERE ua2.SteamId = @SteamId AND ua2.IsActive = 1 AND a.IsActive = 1 AND g.IsActive = 1 GROUP BY g.Id HAVING COUNT(*) = (SELECT COUNT(*) FROM dbo.SteamAchievements a2 WHERE a2.GameId = g.Id AND a2.IsActive = 1)) x) AS GamesAt100Percent,
     (SELECT COUNT(DISTINCT a.GameId) FROM dbo.SteamUserAchievements ua2 INNER JOIN dbo.SteamAchievements a ON a.Id = ua2.AchievementId WHERE ua2.SteamId = @SteamId AND ua2.IsActive = 1 AND a.IsActive = 1) AS StartedGamesCount,
@@ -59,7 +62,11 @@ SELECT @GamesRecentTotalCount = COUNT(*) FROM (SELECT g.Id FROM dbo.SteamUserAch
 SELECT GameName, HeaderImageUrl, PlaytimeForever, EarnedCount, TotalAchievements, CASE WHEN TotalAchievements = 0 THEN NULL ELSE EarnedCount * 100.0 / TotalAchievements END AS PercentCompletion, CASE WHEN EarnedCount >= TotalAchievements AND TotalAchievements > 0 THEN 1 ELSE 0 END AS IsCompleted, PointsEarned, PointsAvailable, LatestUnlockDate, CASE WHEN EarnedCount > 1 THEN DATEDIFF(MINUTE, FirstUnlockDate, LatestUnlockDate) ELSE NULL END AS DurationMinutes
 FROM OrderedRecent WHERE rn > @GamesRecentOffset AND rn <= @GamesRecentOffset + @GamesPageSize ORDER BY rn;
 
-SELECT @AchievementsTotalCount = COUNT(*) FROM dbo.SteamUserAchievements ua WHERE ua.SteamId = @SteamId AND ua.IsActive = 1;
+SELECT @AchievementsTotalCount = COUNT(*)
+FROM dbo.SteamUserAchievements ua
+INNER JOIN dbo.SteamAchievements a ON a.Id = ua.AchievementId AND a.IsActive = 1
+INNER JOIN dbo.SteamGames g ON g.Id = a.GameId AND g.IsActive = 1
+WHERE ua.SteamId = @SteamId AND ua.IsActive = 1;
 
 SELECT g.Id AS GameId, g.Name AS GameName, a.Name AS AchievementName, a.IconUrl, a.Description, stat.GlobalPercentage AS Rarity, ua.UnlockedAt AS UnlockDate, a.Points
 FROM dbo.SteamUserAchievements ua
@@ -68,7 +75,11 @@ INNER JOIN dbo.SteamGames g ON g.Id = a.GameId AND g.IsActive = 1
 LEFT JOIN dbo.SteamAchievementStats stat ON stat.AchievementId = a.Id
 WHERE ua.SteamId = @SteamId AND ua.IsActive = 1 AND a.IsActive = 1 ORDER BY ua.UnlockedAt DESC OFFSET @AchievementsOffset ROWS FETCH NEXT @AchievementsPageSize ROWS ONLY;
 
-SELECT @AchievementsByPointsTotalCount = COUNT(*) FROM dbo.SteamUserAchievements ua WHERE ua.SteamId = @SteamId AND ua.IsActive = 1;
+SELECT @AchievementsByPointsTotalCount = COUNT(*)
+FROM dbo.SteamUserAchievements ua
+INNER JOIN dbo.SteamAchievements a ON a.Id = ua.AchievementId AND a.IsActive = 1
+INNER JOIN dbo.SteamGames g ON g.Id = a.GameId AND g.IsActive = 1
+WHERE ua.SteamId = @SteamId AND ua.IsActive = 1;
 
 SELECT g.Id AS GameId, g.Name AS GameName, a.Name AS AchievementName, a.IconUrl, a.Description, stat.GlobalPercentage AS Rarity, ua.UnlockedAt AS UnlockDate, a.Points
 FROM dbo.SteamUserAchievements ua
@@ -91,7 +102,7 @@ SELECT
     ua.UnlockedAt AS UnlockDate,
     a.Points
 FROM dbo.AppUserPinnedAchievements pin
-INNER JOIN dbo.SteamAchievements a ON a.Id = pin.SteamAchievementId AND pin.PlatformId = 1 AND a.IsActive = 1
+INNER JOIN dbo.SteamAchievements a ON a.Id = pin.SteamAchievementId AND pin.PlatformId = @SteamAchievementPlatform AND a.IsActive = 1
 INNER JOIN dbo.SteamGames g ON g.Id = a.GameId AND g.IsActive = 1
 LEFT JOIN dbo.SteamAchievementStats stat ON stat.AchievementId = a.Id
 INNER JOIN dbo.SteamUserAchievements ua ON ua.AchievementId = a.Id AND ua.SteamId = @SteamId AND ua.IsActive = 1
