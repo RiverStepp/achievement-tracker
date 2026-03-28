@@ -50,6 +50,37 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .SingleOrDefaultAsync(ct);
      }
 
+     public async Task<bool> HandleExistsAsync(string handle, int? excludingAppUserId = null, CancellationToken ct = default)
+     {
+          IQueryable<AppUser> query = _db.AppUsers.Where(x => x.Handle == handle);
+          if (excludingAppUserId.HasValue)
+               query = query.Where(x => x.AppUserId != excludingAppUserId.Value);
+
+          return await query.AnyAsync(ct);
+     }
+
+     public async Task<bool> SetSocialIdentityAsync(int appUserId, string? handle, string? displayName, CancellationToken ct = default)
+     {
+          AppUser? user = await _db.AppUsers.SingleOrDefaultAsync(x => x.AppUserId == appUserId, ct);
+          if (user == null)
+               return false;
+
+          user.Handle = handle;
+          user.DisplayName = displayName;
+          await _db.SaveChangesAsync(ct);
+
+          return true;
+     }
+
+     public async Task<bool> HasCompleteSocialIdentityAsync(int appUserId, CancellationToken ct = default)
+     {
+          return await _db.AppUsers
+               .AsNoTracking()
+               .Where(x => x.AppUserId == appUserId)
+               .Select(x => !string.IsNullOrWhiteSpace(x.Handle) && !string.IsNullOrWhiteSpace(x.DisplayName))
+               .SingleOrDefaultAsync(ct);
+     }
+
      #region helpers
      private async Task<UserExternalLogin> GetOrCreateSteamLoginAsync(string canonicalSteamId, CancellationToken ct)
      {

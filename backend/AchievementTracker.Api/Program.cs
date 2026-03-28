@@ -8,6 +8,7 @@ using AchievementTracker.Data.Extensions;
 using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -36,12 +37,36 @@ CorsSettings corsSettings = new CorsSettings();
 builder.Configuration.GetSection("Cors").Bind(corsSettings);
 
 string jwtSigningKeyValue = builder.Configuration["Jwt:SigningKey"]!;
-SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKeyValue));
+SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(
+     Encoding.UTF8.GetBytes(jwtSigningKeyValue));
 
 builder.Services.AddSingleton(jwtSettings);
 builder.Services.AddSingleton(authSettings);
 builder.Services.AddSingleton(corsSettings);
 builder.Services.AddSingleton(jwtSigningKey);
+
+builder.Services
+     .AddOptions<SocialOptions>()
+     .BindConfiguration("Social")
+     .Validate(
+          o => o.DefaultFeedPageSize > 0 && o.DefaultFeedPageSize <= o.MaxFeedPageSize,
+          "Social: DefaultFeedPageSize must be > 0 and <= MaxFeedPageSize.")
+     .Validate(o => o.MaxFeedPageSize > 0, "Social: MaxFeedPageSize must be > 0.")
+     .Validate(o => o.MaxRefreshIntervalSeconds > 0, "Social: MaxRefreshIntervalSeconds must be > 0.")
+     .Validate(o => o.MaxAttachmentCount > 0, "Social: MaxAttachmentCount must be > 0.")
+     .Validate(o => o.MaxHandleLength > 0, "Social: MaxHandleLength must be > 0.")
+     .Validate(o => o.MaxDisplayNameLength > 0, "Social: MaxDisplayNameLength must be > 0.")
+     .Validate(o => o.MaxContentLength > 0, "Social: MaxContentLength must be > 0.")
+     .Validate(o => o.MaxAttachmentUrlLength > 0, "Social: MaxAttachmentUrlLength must be > 0.")
+     .Validate(
+          o => o.DefaultCommentsPageSize > 0 && o.DefaultCommentsPageSize <= o.MaxCommentsPageSize,
+          "Social: DefaultCommentsPageSize must be > 0 and <= MaxCommentsPageSize.")
+     .Validate(o => o.MaxCommentsPageSize > 0, "Social: MaxCommentsPageSize must be > 0.")
+     .Validate(o => o.Upload.MaxImageBytes > 0, "Social:Upload:MaxImageBytes must be > 0.")
+     .Validate(
+          o => o.Upload.AllowedImageMimeTypes is { Length: > 0 },
+          "Social:Upload:AllowedImageMimeTypes must not be empty.")
+     .ValidateOnStart();
 
 builder.Services.AddCors(options =>
 {
@@ -100,6 +125,12 @@ builder.Services.AddDataAccess(builder.Configuration);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+     options.MapType<IFormFile>(() => new OpenApiSchema
+     {
+          Type = "string",
+          Format = "binary"
+     });
+
      string securitySchemeId = JwtBearerDefaults.AuthenticationScheme;
 
      OpenApiSecurityScheme bearer = new OpenApiSecurityScheme
@@ -136,6 +167,10 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<IMeService, MeService>();
+builder.Services.AddScoped<ISocialRepository, SocialRepository>();
+builder.Services.AddScoped<ISocialAttachmentStorageService, SocialAttachmentStorageService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddOptions<ProfileOptions>()
