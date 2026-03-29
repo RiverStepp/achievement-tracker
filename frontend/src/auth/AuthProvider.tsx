@@ -7,6 +7,8 @@ import {
   useState,
 } from "react";
 import { api, setAuthToken, setupApiInterceptors } from "@/lib/api";
+import { endpoints } from "@/lib/endpoints";
+import { authService } from "@/services/auth";
 import type {
   AuthStatus,
   MeResponse,
@@ -44,9 +46,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
 
-  const loadSession = async () => {
+  const loadSession = async (): Promise<MeResponse | null> => {
     try {
-      const res = await api.get<MeResponse>("/me");
+      console.log("[auth] loading session");
+      const res = await api.get<MeResponse>(endpoints.me.get);
       setSteamUser({ steamId: res.data.steamId });
       setAppUser(res.data.appUser ?? null);
 
@@ -71,13 +74,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       setUserProfile(profile);
       setStatus("authenticated");
+      console.log("[auth] session loaded");
+      return res.data;
     } catch {
+      console.log("[auth] session load failed");
       setAppUser(null);
       setSteamUser(null);
       setUserProfile(null);
       sessionStorage.removeItem("authToken");
       setAuthToken(null);
       setStatus("guest");
+      return null;
     }
   };
 
@@ -125,7 +132,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //   sessionStorage.setItem("mockAuth", "1");
     //   return;
     // }
-    window.location.href = `${api.defaults.baseURL}/auth/steam/login`;
+    const loginUrl = `${api.defaults.baseURL}${authService.getSteamLoginUrl()}`;
+    console.log("[auth] starting Steam login", loginUrl);
+    window.location.href = loginUrl;
   };
 
   const completeLoginFromCallback = async (token: string) => {
@@ -138,10 +147,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //   return;
     // }
 
+    console.log("[auth] completing login from callback");
     setStatus("loading");
     sessionStorage.setItem("authToken", token);
     setAuthToken(token);
-    await loadSession();
+    const session = await loadSession();
+    console.log("[auth] auth completed", {
+      token,
+      steamId: session?.steamId ?? null,
+    });
   };
 
   const logout = async () => {
@@ -155,7 +169,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // }
 
     try {
-      await api.post("/auth/logout", null, { withCredentials: true });
+      console.log("[auth] logging out");
+      await authService.logout();
     } finally {
       setAppUser(null);
       setSteamUser(null);
@@ -163,6 +178,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus("guest");
       sessionStorage.removeItem("authToken");
       setAuthToken(null);
+      console.log("[auth] logout complete");
     }
   };
 
