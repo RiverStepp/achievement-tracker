@@ -55,15 +55,15 @@ public sealed class AuthService(
 
           await _refreshTokenStore.IssueAsync(httpContext, canonicalSteamId);
 
-          (string? handle, string? displayName) =
-               await _appUserRepository.GetHandleAndDisplayNameAsync(upsert.AppUserId, ct);
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(upsert.AppUserId, ct);
 
           return new AuthTokenResponse
           {
                Token = MintAccessToken(canonicalSteamId, upsert.AppUserId),
                SteamId = canonicalSteamId,
                IsNewUser = upsert.IsNewUser,
-               AppUserId = upsert.AppUserId,
+               AppUserPublicId = publicId,
                Handle = handle,
                DisplayName = displayName
           };
@@ -81,15 +81,15 @@ public sealed class AuthService(
           if (appUserId == null)
                return null;
 
-          (string? handle, string? displayName) =
-               await _appUserRepository.GetHandleAndDisplayNameAsync(appUserId.Value, ct);
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(appUserId.Value, ct);
 
           return new AuthTokenResponse
           {
                Token = MintAccessToken(steamId, appUserId.Value),
                SteamId = steamId,
                IsNewUser = false,
-               AppUserId = appUserId.Value,
+               AppUserPublicId = publicId,
                Handle = handle,
                DisplayName = displayName
           };

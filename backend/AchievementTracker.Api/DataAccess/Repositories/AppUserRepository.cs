@@ -41,7 +41,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .SingleOrDefaultAsync(ct);
      }
 
-     public async Task<(string? Handle, string? DisplayName)> GetHandleAndDisplayNameAsync(
+     public async Task<(Guid PublicId, string? Handle, string? DisplayName)> GetPublicIdHandleAndDisplayNameAsync(
           int appUserId,
           CancellationToken ct = default
      )
@@ -49,10 +49,10 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           var row = await _db.AppUsers
                .AsNoTracking()
                .Where(x => x.AppUserId == appUserId)
-               .Select(x => new { x.Handle, x.DisplayName })
+               .Select(x => new { x.PublicId, x.Handle, x.DisplayName })
                .SingleOrDefaultAsync(ct);
 
-          return row == null ? (null, null) : (row.Handle, row.DisplayName);
+          return row == null ? (Guid.Empty, null, null) : (row.PublicId, row.Handle, row.DisplayName);
      }
 
      public async Task<long?> GetSteamIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)

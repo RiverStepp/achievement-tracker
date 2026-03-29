@@ -13,7 +13,7 @@ public interface IAppUserRepository
      );
      Task<int?> GetAppUserIdBySteamIdAsync(string canonicalSteamId, CancellationToken ct = default);
 
-     Task<(string? Handle, string? DisplayName)> GetHandleAndDisplayNameAsync(
+     Task<(Guid PublicId, string? Handle, string? DisplayName)> GetPublicIdHandleAndDisplayNameAsync(
           int appUserId,
           CancellationToken ct = default);
      Task<bool> HandleExistsAsync(string handle, int? excludingAppUserId = null, CancellationToken ct = default);
