@@ -119,6 +119,14 @@ builder.Services.AddScoped<IAuthBusinessLogic, AuthBusinessLogic>();
 builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddSingleton<IProfileGatheringScriptRunner, ProfileGatheringScriptRunner>();
+
+builder.Services
+     .AddOptions<ProfileGatheringScriptOptions>()
+     .BindConfiguration(ProfileGatheringScriptOptions.SectionName)
+     .Validate(o => o.ProcessTimeoutMinutes > 0, "ProfileGatheringScript: ProcessTimeoutMinutes must be > 0.")
+     .ValidateOnStart();
+
 builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);
 
