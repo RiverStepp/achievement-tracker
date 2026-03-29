@@ -23,32 +23,15 @@ export const LoginOrSignup = () => {
             <div className="flex items-center gap-2">
                 <Dialog>
                     <DialogTrigger>
-                        <Button variant="ghost" size="sm">Login</Button>
+                        <Button variant="outline" size="sm">Login</Button>
                     </DialogTrigger>
                     <DialogContent>
                         <DialogHeader>
                             <DialogTitle>Login </DialogTitle>
                             <DialogDescription>
-                                <p className="mb-4">Please log in:</p>
+                                <p className="mb-4">Choose your preferred login method:</p>
                                 <Button variant="outline" size="sm" onClick={loginWithSteam}>
                                     Login with Steam
-                                </Button>
-                            </DialogDescription>
-                        </DialogHeader>
-                    </DialogContent>
-                </Dialog>
-                <span className="text-gray-300">|</span>
-                <Dialog>
-                    <DialogTrigger>
-                        <Button variant="ghost" size="sm">Signup</Button>
-                    </DialogTrigger>
-                    <DialogContent>
-                        <DialogHeader>
-                            <DialogTitle>Signup</DialogTitle>
-                            <DialogDescription>
-                                <p className="mb-4">Please Sign up using your Steam account:</p>
-                                <Button variant="outline" size="sm" onClick={loginWithSteam}>
-                                    Register with Steam
                                 </Button>
                             </DialogDescription>
                         </DialogHeader>

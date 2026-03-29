@@ -3,8 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { LoginOrSignup } from "@/components/app/LoginOrSignup";
 import { Link } from "react-router-dom";
-import logo from "@/assets/logo.png"; // <- adjust name/extension if needed
+import logo from "@/assets/logo.png";
 
+//Deprecated: This component is no longer used in the app, but is kept here for reference and potential future use.
 export const NavBar = () => {
   const { isAuthenticated, isLoading, steamUser, userProfile, logout } = useAuth();
   const displayName =

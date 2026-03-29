@@ -20,7 +20,7 @@ import {
 } from "@/data/mockUser";
 import type { UserProfile } from "@/types/profile";
 
-const USE_MOCK_AUTH = import.meta.env.DEV;
+// const USE_MOCK_AUTH = import.meta.env.DEV;
 
 type AuthContextValue = {
   appUser: AppUser | null;
@@ -91,20 +91,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setStatus("guest");
     });
 
-    //Testing with mock user
-    if (USE_MOCK_AUTH) {
-      const mockLoggedIn = sessionStorage.getItem("mockAuth") === "1";
-      if (mockLoggedIn) {
-        setAppUser(mockAppUserBrandonW);
-        setSteamUser(mockSteamUser);
-        setUserProfile(mockUserProfile);
-        setStatus("authenticated");
-      }
-      if (!mockLoggedIn) {
-        setStatus("guest");
-      }
-      return;
-    }
+    // Testing with mock user.
+    // if (USE_MOCK_AUTH) {
+    //   const mockLoggedIn = sessionStorage.getItem("mockAuth") === "1";
+    //   if (mockLoggedIn) {
+    //     setAppUser(mockAppUserBrandonW);
+    //     setSteamUser(mockSteamUser);
+    //     setUserProfile(mockUserProfile);
+    //     setStatus("authenticated");
+    //   }
+    //   if (!mockLoggedIn) {
+    //     setStatus("guest");
+    //   }
+    //   return;
+    // }
 
     const storedToken = sessionStorage.getItem("authToken");
     if (storedToken) {
@@ -116,29 +116,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const loginWithSteam = () => {
-    if (USE_MOCK_AUTH) {
-      //just pretend we're logged in
-      setAppUser(mockAppUserBrandonW);
-      setSteamUser(mockSteamUser);
-      setUserProfile(mockUserProfile);
-      setStatus("authenticated");
-      sessionStorage.setItem("mockAuth", "1");
-      return;
-    }
+    // if (USE_MOCK_AUTH) {
+    //   // Just pretend we're logged in.
+    //   setAppUser(mockAppUserBrandonW);
+    //   setSteamUser(mockSteamUser);
+    //   setUserProfile(mockUserProfile);
+    //   setStatus("authenticated");
+    //   sessionStorage.setItem("mockAuth", "1");
+    //   return;
+    // }
     window.location.href = `${api.defaults.baseURL}/auth/steam/login`;
   };
 
   const completeLoginFromCallback = async (token: string) => {
-
-    if (USE_MOCK_AUTH) {
-      setAppUser(mockAppUserBrandonW);
-      setSteamUser(mockSteamUser);
-      setUserProfile(mockUserProfile);
-      setStatus("authenticated");
-      sessionStorage.setItem("mockAuth", "1");
-      return;
-    }
-
+    // if (USE_MOCK_AUTH) {
+    //   setAppUser(mockAppUserBrandonW);
+    //   setSteamUser(mockSteamUser);
+    //   setUserProfile(mockUserProfile);
+    //   setStatus("authenticated");
+    //   sessionStorage.setItem("mockAuth", "1");
+    //   return;
+    // }
 
     setStatus("loading");
     sessionStorage.setItem("authToken", token);
@@ -146,16 +144,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await loadSession();
   };
 
-
   const logout = async () => {
-    if (USE_MOCK_AUTH) {
-      setAppUser(null);
-      setSteamUser(null);
-      setUserProfile(null);
-      setStatus("guest");
-      sessionStorage.removeItem("mockAuth");
-      return;
-    }
+    // if (USE_MOCK_AUTH) {
+    //   setAppUser(null);
+    //   setSteamUser(null);
+    //   setUserProfile(null);
+    //   setStatus("guest");
+    //   sessionStorage.removeItem("mockAuth");
+    //   return;
+    // }
 
     try {
       await api.post("/auth/logout", null, { withCredentials: true });
