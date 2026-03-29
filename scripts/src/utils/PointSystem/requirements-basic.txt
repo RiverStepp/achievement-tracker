@@ -1,0 +1,11 @@
+# Basic dependencies for update-points-from-db.py
+# No ML libraries needed - just database, data processing, and Azure Key Vault
+
+pyodbc>=4.0.39
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+
+# Azure Key Vault integration (same as TypeScript)
+azure-identity>=1.12.0
+azure-keyvault-secrets>=4.7.0
