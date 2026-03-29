@@ -12,6 +12,7 @@ public sealed class AppUser: AuditableEntity
      #region navigation
      public List<UserExternalLogin> ExternalLogins { get; set; } = [];
      public List<UserRole> UserRoles { get; set; } = [];
+     public List<ConversationParticipant> ConversationParticipants { get; set; } = [];
      #endregion
 }
 
