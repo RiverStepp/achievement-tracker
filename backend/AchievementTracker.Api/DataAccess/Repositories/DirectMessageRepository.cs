@@ -57,22 +57,22 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
           return message;
      }
 
-     public async Task<(bool IsParticipant, List<DirectMessage> Messages)> GetMessagesAndVerifyParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)     {
-          var result = await _db.Conversations
-               .Where(c => c.ConversationId == conversationId)
-               .Select(c => new
-               {
-                    IsParticipant = c.Participants.Any(p => p.AppUserId == userId),
-                    Messages = c.Messages
-                         .Where(m => beforeMessageId == null || m.DirectMessageId < beforeMessageId.Value)
+     // Returns null if the user is not a participant; fetches participant membership and messages in a single DB trip
+     public async Task<List<DirectMessage>?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default)    
+     {
+           var participant = await _db.ConversationParticipants
+               .Where(p => p.ConversationId == conversationId && p.AppUserId == userId)
+               .Include(p => p.Conversation)
+                    .ThenInclude(c => c.Messages
+                         .Where(m => !beforeMessageId.HasValue || m.DirectMessageId < beforeMessageId.Value)
                          .OrderByDescending(m => m.SentDate)
-                         .Take(pageSize)
-                         .ToList()
-               })
+                         .Take(pageSize))
                .FirstOrDefaultAsync(ct);
 
-         if (result == null) return (false, []);
-          return (result.IsParticipant, result.Messages.OrderBy(m => m.SentDate).ToList());
+         if (participant is null)
+               return null;
+               
+          return [.. participant.Conversation.Messages.OrderBy(m => m.SentDate)];
      }
 
      // Gets all conversations for a user, including participants and the latest message, ordered by most recent activity
@@ -85,29 +85,22 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                .OrderByDescending(c => c.Messages.Max(m => (DateTime?)m.SentDate) ?? c.CreateDate)
                .ToListAsync(ct);
      }
-     
-     // Checks if a user is a participant in the specified conversation
-     public async Task<bool> IsUserInConversationAsync(int conversationId, int userId, CancellationToken ct = default)
+
+     // Marks the conversation as read by setting LastReadMessageId to the latest message via a single UPDATE with a subquery. Returns false if the user is not a participant (no row updated), true otherwise
+     public async Task<bool> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
      {
-          return await _db.ConversationParticipants
-               .AnyAsync(p => p.ConversationId == conversationId && p.AppUserId == userId, ct);
-     }
-
-     // Marks all unread messages in a conversation as read for the specified user
-     public async Task MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
-     {
-          long? latestMessageId = await _db.DirectMessages
-               .Where(m => m.ConversationId == conversationId)
-               .OrderByDescending(m => m.DirectMessageId)
-               .Select(m => (long?)m.DirectMessageId)
-               .FirstOrDefaultAsync(ct);
-
-          if (latestMessageId is null)
-               return;
-
-          await _db.ConversationParticipants
+          int rowsAffected = await _db.ConversationParticipants
                .Where(p => p.ConversationId == conversationId && p.AppUserId == userId)
-               .ExecuteUpdateAsync(s => s.SetProperty(p => p.LastReadMessageId, latestMessageId), ct);
+               .ExecuteUpdateAsync(s => s.SetProperty(
+                    p => p.LastReadMessageId,
+                    p => _db.DirectMessages
+                         .Where(m => m.ConversationId == conversationId)
+                         .OrderByDescending(m => m.DirectMessageId)
+                         .Select(m => (long?)m.DirectMessageId)
+                         .FirstOrDefault()
+               ), ct);
+
+          return rowsAffected > 0;
      }
 
      // Counts how many unread messages exist in a conversation for the specified user
