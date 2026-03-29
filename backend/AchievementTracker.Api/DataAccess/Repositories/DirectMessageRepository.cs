@@ -57,19 +57,22 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
           return message;
      }
 
-     public async Task<List<DirectMessage>> GetMessagesAsync(int conversationId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)
-     {
-          var query = _db.DirectMessages
-               .Where(m => m.ConversationId == conversationId);
+     public async Task<(bool IsParticipant, List<DirectMessage> Messages)> GetMessagesAndVerifyParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)     {
+          var result = await _db.Conversations
+               .Where(c => c.ConversationId == conversationId)
+               .Select(c => new
+               {
+                    IsParticipant = c.Participants.Any(p => p.AppUserId == userId),
+                    Messages = c.Messages
+                         .Where(m => beforeMessageId == null || m.DirectMessageId < beforeMessageId.Value)
+                         .OrderByDescending(m => m.SentDate)
+                         .Take(pageSize)
+                         .ToList()
+               })
+               .FirstOrDefaultAsync(ct);
 
-          if (beforeMessageId.HasValue)
-               query = query.Where(m => m.DirectMessageId < beforeMessageId.Value);
-
-          return await query
-               .OrderByDescending(m => m.SentDate)
-               .Take(pageSize)
-               .OrderBy(m => m.SentDate)
-               .ToListAsync(ct);
+         if (result == null) return (false, []);
+          return (result.IsParticipant, result.Messages.OrderBy(m => m.SentDate).ToList());
      }
 
      // Gets all conversations for a user, including participants and the latest message, ordered by most recent activity
