@@ -1,0 +1,80 @@
+{
+  "model_config": {
+    "xgb": {
+      "n_estimators": 200,
+      "max_depth": 8,
+      "learning_rate": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "random_state": 42,
+      "objective": "reg:squarederror",
+      "eval_metric": "rmse"
+    },
+    "lgb": {
+      "n_estimators": 200,
+      "max_depth": 8,
+      "learning_rate": 0.05,
+      "subsample": 0.8,
+      "colsample_bytree": 0.8,
+      "random_state": 42,
+      "objective": "regression",
+      "metric": "rmse",
+      "verbose": -1
+    },
+    "cat": {
+      "iterations": 200,
+      "depth": 8,
+      "learning_rate": 0.05,
+      "random_seed": 42,
+      "loss_function": "RMSE",
+      "verbose": false,
+      "task_type": "CPU"
+    },
+    "tabnet": {
+      "n_d": 32,
+      "n_a": 32,
+      "n_steps": 5,
+      "gamma": 1.5,
+      "n_independent": 2,
+      "n_shared": 2,
+      "lambda_sparse": 0.001,
+      "optimizer_fn": "Adam",
+      "optimizer_params": {
+        "lr": 0.02
+      },
+      "mask_type": "entmax",
+      "device_name": "cpu",
+      "max_epochs": 50,
+      "patience": 10,
+      "batch_size": 1024,
+      "virtual_batch_size": 128
+    },
+    "ridge": {
+      "alpha": 1.0,
+      "random_state": 42,
+      "solver": "auto"
+    }
+  },
+  "bert_config": {
+    "model_name": "distilbert-base-uncased",
+    "batch_size": 32,
+    "max_length": 512,
+    "use_gpu": false
+  },
+  "training_config": {
+    "test_size": 0.2,
+    "val_size": 0.2,
+    "random_state": 42,
+    "use_bert": false,
+    "use_tabnet": true,
+    "save_models": true
+  },
+  "feature_config": {
+    "min_samples_for_categorical": 50,
+    "max_categorical_values": 50,
+    "price_normalization": true,
+    "time_normalization": true,
+    "text_combination": true
+  }
+}
+
