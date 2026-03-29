@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
 import { SettingsPage } from "./routes/SettingsPage";
 import { LeaderboardPage } from "./routes/LeaderboardPage";
+import { CreateProfileDialog } from "@/components/profile/CreateProfileDialog";
 
 const App: React.FC = () => {
   const location = useLocation();
@@ -68,6 +69,7 @@ const App: React.FC = () => {
           </div>
         </div>
       </div>
+      <CreateProfileDialog />
     </>
   );
 };

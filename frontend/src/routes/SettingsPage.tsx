@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
+import { useNavigate } from "react-router-dom";
 
+import { useAuth } from "@/auth/AuthProvider";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,6 +9,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 
 export const SettingsPage = () => {
+  const navigate = useNavigate();
+  const { deleteUserProfile } = useAuth();
+
+  const handleDeleteProfile = async () => {
+    await deleteUserProfile();
+    navigate("/");
+  };
+
   return (
     <div className="w-full flex justify-center min-h-0">
       <div className="w-full max-w-[1100px] grid grid-cols-1 lg:grid-cols-[minmax(0,2fr)_320px] gap-4 min-h-0">
@@ -164,7 +174,7 @@ export const SettingsPage = () => {
               <Button variant="outline" className="justify-start">
                 Disconnect account
               </Button>
-              <Button variant="outline" className="justify-start">
+              <Button variant="outline" className="justify-start" onClick={handleDeleteProfile}>
                 Delete profile
               </Button>
             </div>
