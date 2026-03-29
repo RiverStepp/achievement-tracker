@@ -1,6 +1,7 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.DirectMessages;
 using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Data.Entities;
 
 namespace AchievementTracker.Api.Services.BusinessLogic;
 
@@ -20,33 +21,17 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
 
           var message = await _dmRepo.AddMessageAsync(conversation.ConversationId, senderUserId, request.Content, ct);
 
-          return new MessageDto
-          {
-               DirectMessageId = message.DirectMessageId,
-               ConversationId = message.ConversationId,
-               SenderAppUserId = message.SenderAppUserId,
-               Content = message.Content,
-               SentDate = message.SentDate
-          };
+          return MapToMessageDto(message);
      }
 
      // Retrieves message history for a conversation after verifying the user is a participant
      public async Task<List<MessageDto>> GetMessageHistoryAsync(int conversationId, int userId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)
      {
-          bool isParticipant = await _dmRepo.IsUserInConversationAsync(conversationId, userId, ct);
-          if (!isParticipant)
+          var messages = await _dmRepo.GetMessagesIfParticipantAsync(conversationId, userId, pageSize, beforeMessageId, ct);
+          if (messages is null)
                throw new UnauthorizedAccessException("You are not a participant in this conversation.");
 
-          var messages = await _dmRepo.GetMessagesAsync(conversationId, pageSize, beforeMessageId, ct);
-
-          return messages.Select(m => new MessageDto
-          {
-               DirectMessageId = m.DirectMessageId,
-               ConversationId = m.ConversationId,
-               SenderAppUserId = m.SenderAppUserId,
-               Content = m.Content,
-               SentDate = m.SentDate
-          }).ToList();
+          return messages.Select(MapToMessageDto).ToList();
      }
 
      // Gets all conversations for a user with unread counts and the most recent message for each
@@ -66,14 +51,7 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
                     ParticipantUserIds = convo.Participants.Select(p => p.AppUserId).ToList(),
                     UnreadCount = unread,
                     CreateDate = convo.CreateDate,
-                    LastMessage = lastMsg != null ? new MessageDto
-                    {
-                         DirectMessageId = lastMsg.DirectMessageId,
-                         ConversationId = lastMsg.ConversationId,
-                         SenderAppUserId = lastMsg.SenderAppUserId,
-                         Content = lastMsg.Content,
-                         SentDate = lastMsg.SentDate
-                    } : null
+                    LastMessage = lastMsg != null ? MapToMessageDto(lastMsg) : null
                });
           }
 
@@ -83,10 +61,18 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
      // Marks all messages in a conversation as read after verifying the user is a participant
      public async Task MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
      {
-          bool isParticipant = await _dmRepo.IsUserInConversationAsync(conversationId, userId, ct);
+          bool isParticipant = await _dmRepo.MarkConversationAsReadAsync(conversationId, userId, ct);
           if (!isParticipant)
                throw new UnauthorizedAccessException("You are not a participant in this conversation.");
 
-          await _dmRepo.MarkConversationAsReadAsync(conversationId, userId, ct);
      }
+
+     private static MessageDto MapToMessageDto(DirectMessage m) => new()
+     {
+          DirectMessageId = m.DirectMessageId,
+          ConversationId = m.ConversationId,
+          SenderAppUserId = m.SenderAppUserId,
+          Content = m.Content,
+          SentDate = m.SentDate
+     };
 }
