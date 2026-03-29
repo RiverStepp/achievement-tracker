@@ -63,7 +63,183 @@ namespace AchievementTracker.Data.Migrations
 
                     b.ToTable("AppUsers");
                 });
+                
+            modelBuilder.Entity("AchievementTracker.Data.Entities.Conversation", b =>
+                {
+                    b.Property<int>("ConversationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
 
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("ConversationId"));
+
+                    b.Property<string>("ConversationImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ConversationTitle")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<short>("ConversationType")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime>("CreateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<int>("CreatedByAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime?>("LastMessageDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("ConversationId");
+
+                    b.HasIndex("CreatedByAppUserId", "LastMessageDate");
+
+                    b.ToTable("Conversations");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.ConversationParticipant", b =>
+                {
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("AppUserPublicId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ConversationParticipantId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("JoinedDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<bool>("IsMuted")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<long?>("LastReadMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<DateTime?>("LeftDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("ConversationId", "AppUserPublicId");
+
+                    b.HasIndex("ConversationId", "AppUserId")
+                        .IsUnique();
+
+                    b.HasIndex("LastReadMessageId");
+
+                    b.ToTable("ConversationParticipants");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.DirectMessage", b =>
+                {
+                    b.Property<long>("DirectMessageId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("DirectMessageId"));
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<int>("ConversationId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SenderAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SentDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("DirectMessageId");
+
+                    b.HasIndex("ConversationId", "SentDate");
+
+                    b.HasIndex("SenderAppUserId");
+
+                    b.ToTable("DirectMessages");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.MessageEmbed", b =>
+                {
+                    b.Property<long>("MessageEmbedId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("MessageEmbedId"));
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<long>("DirectMessageId")
+                        .HasColumnType("bigint");
+
+                    b.Property<short>("EmbedType")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("ThumbnailUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("MessageEmbedId");
+
+                    b.HasIndex("DirectMessageId");
+
+                    b.ToTable("MessageEmbeds");
+                });
+                
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
                 {
                     b.Property<short>("RoleId")
@@ -225,6 +401,74 @@ namespace AchievementTracker.Data.Migrations
                     b.ToTable("SteamProfiles", (string)null);
                 });
 
+             modelBuilder.Entity("AchievementTracker.Data.Entities.Conversation", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedByAppUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.ConversationParticipant", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithMany("ConversationParticipants")
+                        .HasForeignKey("AppUserPublicId")
+                        .HasPrincipalKey("PublicId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.Conversation", "Conversation")
+                        .WithMany("Participants")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.DirectMessage", "LastReadMessage")
+                        .WithMany()
+                        .HasForeignKey("LastReadMessageId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("LastReadMessage");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.DirectMessage", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.Conversation", "Conversation")
+                        .WithMany("Messages")
+                        .HasForeignKey("ConversationId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderAppUserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Conversation");
+
+                    b.Navigation("Sender");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.MessageEmbed", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.DirectMessage", "DirectMessage")
+                        .WithMany("Embeds")
+                        .HasForeignKey("DirectMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("DirectMessage");
+                });
+
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
                 {
                     b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
@@ -267,9 +511,23 @@ namespace AchievementTracker.Data.Migrations
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.AppUser", b =>
                 {
+                    b.Navigation("ConversationParticipants");
+                    
                     b.Navigation("ExternalLogins");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.Conversation", b =>
+                {
+                    b.Navigation("Messages");
+
+                    b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.DirectMessage", b =>
+                {
+                    b.Navigation("Embeds");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
