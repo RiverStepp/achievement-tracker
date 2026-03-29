@@ -8,6 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
      #region DbSet 
      // Please keep these alphabetical :)
+     public DbSet<AppUserPinnedAchievement> AppUserPinnedAchievements => Set<AppUserPinnedAchievement>();
      public DbSet<AppUser> AppUsers => Set<AppUser>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<SocialPostAttachment> SocialPostAttachments => Set<SocialPostAttachment>();

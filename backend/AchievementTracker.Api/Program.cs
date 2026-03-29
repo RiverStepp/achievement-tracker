@@ -172,9 +172,25 @@ builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ISocialAttachmentStorageService, SocialAttachmentStorageService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IUserPinnedAchievementRepository, UserPinnedAchievementRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddOptions<ProfileOptions>()
     .BindConfiguration("Profile")
+    .Validate(
+        o => o.GamesPageSize > 0,
+        "Profile: GamesPageSize must be > 0.")
+    .Validate(
+        o => o.AchievementsPageSize > 0,
+        "Profile: AchievementsPageSize must be > 0.")
+    .Validate(
+        o => o.AchievementsByPointsPageSize > 0,
+        "Profile: AchievementsByPointsPageSize must be > 0.")
+    .Validate(
+        o => o.LatestActivityPageSize > 0 && o.LatestActivityPageSize <= o.MaxLatestActivityPageSize,
+        "Profile: LatestActivityPageSize must be > 0 and <= MaxLatestActivityPageSize.")
+    .Validate(o => o.MaxLatestActivityPageSize > 0, "Profile: MaxLatestActivityPageSize must be > 0.")
+    .Validate(o => o.MaxPinnedAchievements > 0, "Profile: MaxPinnedAchievements must be > 0.")
+    .Validate(o => o.PinnedAchievementDisplayOrderStep > 0, "Profile: PinnedAchievementDisplayOrderStep must be > 0.")
     .ValidateOnStart();
 
 // Redis

@@ -8,7 +8,7 @@ public sealed class SocialPostAttachmentConfiguration: IEntityTypeConfiguration<
 {
      public void Configure(EntityTypeBuilder<SocialPostAttachment> b)
      {
-          b.ToTable("SocialPostAttachment");
+          b.ToTable("SocialPostAttachments");
           b.HasKey(x => x.SocialPostAttachmentId);
 
           b.Property(x => x.AttachmentType)

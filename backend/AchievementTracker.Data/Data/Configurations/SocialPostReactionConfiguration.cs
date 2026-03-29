@@ -8,7 +8,7 @@ public sealed class SocialPostReactionConfiguration: IEntityTypeConfiguration<So
 {
      public void Configure(EntityTypeBuilder<SocialPostReaction> b)
      {
-          b.ToTable("SocialPostReaction");
+          b.ToTable("SocialPostReactions");
           b.HasKey(x => new { x.SocialPostId, x.AppUserId });
 
           b.Property(x => x.ReactionType)

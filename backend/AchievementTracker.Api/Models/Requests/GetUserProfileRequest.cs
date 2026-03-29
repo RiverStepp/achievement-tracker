@@ -10,4 +10,6 @@ public sealed class GetUserProfileRequest
     public int AchievementsPageSize { get; set; } = ProfileOptions.DefaultAchievementsPageSize;
     public int AchievementsByPointsPageNumber { get; set; } = 1;
     public int AchievementsByPointsPageSize { get; set; } = ProfileOptions.DefaultAchievementsPageSize;
+    public int LatestActivityPageNumber { get; set; } = 1;
+    public int LatestActivityPageSize { get; set; } = ProfileOptions.DefaultLatestActivityPageSize;
 }

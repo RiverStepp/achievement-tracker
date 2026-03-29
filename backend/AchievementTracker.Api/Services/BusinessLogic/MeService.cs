@@ -1,6 +1,7 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Social;
 using AchievementTracker.Api.Models.Options;
+using AchievementTracker.Api.Models.Requests;
 using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Api.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,11 @@ using Microsoft.Extensions.Options;
 
 namespace AchievementTracker.Api.Services.BusinessLogic;
 
-public sealed class MeService(IAppUserRepository appUserRepository, IOptions<SocialOptions> socialOptions)
+public sealed class MeService(
+     IAppUserRepository appUserRepository,
+     IUserPinnedAchievementRepository pinnedAchievementRepository,
+     IOptions<SocialOptions> socialOptions,
+     IOptions<ProfileOptions> profileOptions)
      : IMeService
 {
      private const string ErrBothMissing = "Either handle or display name must be provided.";
@@ -21,7 +26,9 @@ public sealed class MeService(IAppUserRepository appUserRepository, IOptions<Soc
      private const string ErrUserNotFound = "Authenticated user was not found.";
 
      private readonly IAppUserRepository _appUserRepository = appUserRepository;
+     private readonly IUserPinnedAchievementRepository _pinnedAchievementRepository = pinnedAchievementRepository;
      private readonly SocialOptions _social = socialOptions.Value;
+     private readonly ProfileOptions _profile = profileOptions.Value;
 
      public async Task<SetSocialIdentityResult> SetSocialIdentityAsync(
           int appUserId,
@@ -102,5 +109,41 @@ public sealed class MeService(IAppUserRepository appUserRepository, IOptions<Soc
           }
 
           return true;
+     }
+
+     public Task<PinAchievementResult> PinAchievementAsync(
+          int appUserId,
+          PinMyAchievementRequestDto request,
+          CancellationToken ct = default)
+     {
+          if (request.SteamAchievementId <= 0)
+               return Task.FromResult(PinAchievementResult.Failed("Steam achievement id must be positive."));
+
+          return _pinnedAchievementRepository.TryPinAsync(
+               appUserId,
+               request.SteamAchievementId,
+               request.PlatformId,
+               _profile.MaxPinnedAchievements,
+               ct);
+     }
+
+     public Task<UpdatePinnedDisplayOrderResult> UpdatePinnedAchievementDisplayOrderAsync(
+          int appUserId,
+          int appUserPinnedAchievementId,
+          UpdatePinnedAchievementDisplayOrderRequestDto request,
+          CancellationToken ct = default)
+     {
+          if (appUserPinnedAchievementId <= 0)
+               return Task.FromResult(UpdatePinnedDisplayOrderResult.Failed("Pinned achievement id must be positive."));
+
+          if (request.DisplayOrder <= 0)
+               return Task.FromResult(UpdatePinnedDisplayOrderResult.Failed("Display order must be positive."));
+
+          return _pinnedAchievementRepository.TryUpdateDisplayOrderAsync(
+               appUserId,
+               appUserPinnedAchievementId,
+               request.DisplayOrder,
+               _profile.PinnedAchievementDisplayOrderStep,
+               ct);
      }
 }
