@@ -19,7 +19,7 @@ public class NotificationsController(INotificationService notificationService, I
           [FromQuery] long? before = null,
           CancellationToken ct = default)
      {
-          int userId = RequireUserId();
+          int userId = _currentUser.AppUserId!.Value;
 
           if (pageSize is < 1 or > 100)
                return BadRequest("pageSize must be between 1 and 100.");
@@ -32,16 +32,16 @@ public class NotificationsController(INotificationService notificationService, I
      [HttpGet("unread-count")]
      public async Task<IActionResult> GetUnreadCount(CancellationToken ct)
      {
-          int userId = RequireUserId();
+          int userId = _currentUser.AppUserId!.Value;
           int count = await _notificationService.GetUnreadCountAsync(userId, ct);
-          return Ok(new { unreadCount = count });
+          return Ok(new { UnreadCount = count });
      }
 
      // Mark a single notification as read
      [HttpPost("{notificationId:long}/read")]
      public async Task<IActionResult> MarkAsRead(long notificationId, CancellationToken ct)
      {
-          int userId = RequireUserId();
+          int userId = _currentUser.AppUserId!.Value;
           await _notificationService.MarkAsReadAsync(notificationId, userId, ct);
           return NoContent();
      }
@@ -50,14 +50,8 @@ public class NotificationsController(INotificationService notificationService, I
      [HttpPost("read-all")]
      public async Task<IActionResult> MarkAllAsRead(CancellationToken ct)
      {
-          int userId = RequireUserId();
+          int userId = _currentUser.AppUserId!.Value;
           await _notificationService.MarkAllAsReadAsync(userId, ct);
           return NoContent();
-     }
-
-     private int RequireUserId()
-     {
-          return _currentUser.AppUserId
-               ?? throw new UnauthorizedAccessException("User is not authenticated.");
      }
 }
