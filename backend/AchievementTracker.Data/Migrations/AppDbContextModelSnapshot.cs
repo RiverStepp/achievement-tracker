@@ -64,6 +64,56 @@ namespace AchievementTracker.Data.Migrations
                     b.ToTable("AppUsers");
                 });
 
+            modelBuilder.Entity("AchievementTracker.Data.Entities.Notification", b =>
+                {
+                    b.Property<long>("NotificationId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("NotificationId"));
+
+                    b.Property<int>("ActorAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
+                    b.Property<short>("NotificationType")
+                        .HasColumnType("smallint");
+
+                    b.Property<DateTime?>("ReadDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("RecipientAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReferenceId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("SYSUTCDATETIME()");
+
+                    b.HasKey("NotificationId");
+
+                    b.HasIndex("ActorAppUserId");
+
+                    b.HasIndex("RecipientAppUserId", "CreateDate");
+
+                    b.HasIndex("RecipientAppUserId", "ReadDate");
+
+                    b.ToTable("Notifications");
+                });
+            
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
                 {
                     b.Property<short>("RoleId")
@@ -225,6 +275,23 @@ namespace AchievementTracker.Data.Migrations
                     b.ToTable("SteamProfiles", (string)null);
                 });
 
+            modelBuilder.Entity("AchievementTracker.Data.Entities.Notification", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "Actor")
+                        .WithMany()
+                        .HasForeignKey("ActorAppUserId")
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "Recipient")
+                        .WithMany()
+                        .HasForeignKey("RecipientAppUserId")
+                        .IsRequired();
+
+                    b.Navigation("Actor");
+
+                    b.Navigation("Recipient");
+                });
+            
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserExternalLogin", b =>
                 {
                     b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
