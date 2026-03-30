@@ -61,7 +61,7 @@ public sealed class NotificationService(
                ActorAppUserId = n.ActorAppUserId,
                NotificationType = n.NotificationType,
                ReferenceId = n.ReferenceId,
-               CreatedDate = n.CreatedDate,
+               CreateDate = n.CreateDate,
                ReadDate = n.ReadDate
           };
      }
