@@ -20,7 +20,6 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
                ActorAppUserId = actorUserId,
                NotificationType = type,
                ReferenceId = referenceId,
-               CreatedDate = DateTime.UtcNow
           };
 
           _db.Notifications.Add(notification);
@@ -40,7 +39,7 @@ public sealed class NotificationRepository(AppDbContext db) : INotificationRepos
                query = query.Where(n => n.NotificationId < beforeNotificationId.Value);
 
           return await query
-               .OrderByDescending(n => n.CreatedDate)
+               .OrderByDescending(n => n.NotificationId)
                .Take(pageSize)
                .ToListAsync(ct);
      }
