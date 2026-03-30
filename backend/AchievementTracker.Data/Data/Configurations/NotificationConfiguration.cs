@@ -12,9 +12,11 @@ public sealed class NotificationConfiguration : IEntityTypeConfiguration<Notific
 
           b.Property(x => x.NotificationType).IsRequired();
           b.Property(x => x.ReferenceId).HasMaxLength(200);
-          b.Property(x => x.CreatedDate).HasDefaultValueSql("SYSUTCDATETIME()");
-
-          b.HasIndex(x => new { x.RecipientAppUserId, x.CreatedDate });
+          b.Property(x => x.IsActive).HasDefaultValue(true);
+          b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
+          b.Property(x => x.UpdateDate).HasDefaultValueSql("SYSUTCDATETIME()");
+          
+          b.HasIndex(x => new { x.RecipientAppUserId, x.CreateDate });
           b.HasIndex(x => new { x.RecipientAppUserId, x.ReadDate });
 
           b.HasOne(x => x.Recipient)
