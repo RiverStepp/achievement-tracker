@@ -136,6 +136,8 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<ILeaderboardRepository, LeaderboardRepository>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 
 // Redis
 // TODO: Use .Validate() instead of if statements
