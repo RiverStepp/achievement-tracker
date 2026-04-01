@@ -8,6 +8,7 @@ public sealed class UserAchievementSummary : AuditableEntity
      public int TotalAchievementsUnlocked { get; set; }
      public int TotalGamesTracked { get; set; }
      public int PerfectGamesCount { get; set; }
+     public int TotalPoints { get; set; }
      public DateTime? LastSyncedDate { get; set; }
  
      #region navigation
