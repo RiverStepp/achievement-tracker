@@ -9,5 +9,6 @@ public sealed record LeaderboardEntryDto(
      int TotalAchievementsUnlocked,
      int TotalGamesTracked,
      int PerfectGamesCount,
+     int TotalPoints,
      DateTime? LastSyncedDate
 );
