@@ -10,10 +10,13 @@ namespace AchievementTracker.Api.Controllers;
 [Authorize]
 public class DirectMessagesController(IDirectMessageService dmService, ICurrentUser currentUser) : ControllerBase
 {
+     private const int MinPageSize = 1;
+     private const int MaxPageSize = 100;
+     
      private readonly IDirectMessageService _dmService = dmService;
      private readonly ICurrentUser _currentUser = currentUser;
 
-     // Get all conversations for the current user.
+     // Get all conversations for the current user
      [HttpGet("conversations")]
      public async Task<IActionResult> GetConversations(CancellationToken ct)
      {
@@ -22,7 +25,7 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
           return Ok(conversations);
      }
 
-     // Get message history for a specific conversation with cursor-based pagination.
+     // Get message history for a specific conversation with cursor-based pagination
      [HttpGet("conversations/{conversationId:int}/messages")]
      public async Task<IActionResult> GetMessages(
           int conversationId,
@@ -32,8 +35,8 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
      {
           int userId = RequireUserId();
 
-          if (pageSize is < 1 or > 100)
-               return BadRequest("pageSize must be between 1 and 100.");
+          if (pageSize is < MinPageSize or > MaxPageSize)
+               return BadRequest($"pageSize must be between {MinPageSize} and {MaxPageSize}.");
 
           var messages = await _dmService.GetMessageHistoryAsync(conversationId, userId, pageSize, before, ct);
           return Ok(messages);
@@ -48,7 +51,7 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
           return Ok(message);
      }
 
-     // Mark all messages in a conversation as read.
+     // Mark all messages in a conversation as read
      [HttpPost("conversations/{conversationId:int}/read")]
      public async Task<IActionResult> MarkAsRead(int conversationId, CancellationToken ct)
      {
