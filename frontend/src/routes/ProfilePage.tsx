@@ -24,6 +24,15 @@ export function ProfilePage() {
       return;
     }
 
+    if (
+      currentUserProfile &&
+      handle.toLowerCase() === currentUserProfile.handle.toLowerCase()
+    ) {
+      setProfile(currentUserProfile);
+      setLoading(false);
+      return;
+    }
+
     // dev: use mock profile only when the handle matches
     if (
       USE_MOCK_PROFILE &&
@@ -41,7 +50,7 @@ export function ProfilePage() {
       .then((res) => setProfile(res.data))
       .catch(() => setProfile(null))
       .finally(() => setLoading(false));
-  }, [handle, USE_MOCK_PROFILE]);
+  }, [handle, USE_MOCK_PROFILE, currentUserProfile]);
 
   if (loading) return <div>Loading...</div>;
   if (!profile) return <div>Profile not found.</div>;

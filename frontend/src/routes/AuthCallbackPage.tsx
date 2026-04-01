@@ -14,12 +14,14 @@ export const AuthCallbackPage = () => {
       params.get("token") || params.get("accessToken") || params.get("jwt");
 
     if (!token) {
+      console.log("[auth] callback reached without token");
       // No token? Just boot them home.
       navigate("/", { replace: true });
       return;
     }
 
     (async () => {
+      console.log("[auth] callback token received");
       await completeLoginFromCallback(token);
       navigate("/", { replace: true });
     })();

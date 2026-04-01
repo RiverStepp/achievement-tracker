@@ -1,8 +1,9 @@
 import axios from "axios";
+import { endpoints } from "@/lib/endpoints";
 import type { AuthTokenResponse } from "@/types/auth";
 
 const API_BASE =
-  import.meta.env.VITE_API_BASE_URL ?? "https://localhost:7111";
+  import.meta.env.VITE_API_BASE_URL
 
 export const api = axios.create({
   baseURL: API_BASE,
@@ -37,17 +38,20 @@ export function setupApiInterceptors(onUnauthorized: () => void) {
         isRefreshing = true;
         refreshPromise = (async () => {
           try {
+            console.log("[auth] refreshing access token");
             const res = await api.post<AuthTokenResponse>(
-              "/auth/refresh",
+              endpoints.auth.refresh,
               null,
               { withCredentials: true }
             );
             const newToken = res.data.token;
+            console.log("[auth] refresh succeeded");
             setAuthToken(newToken);
             sessionStorage.setItem("authToken", newToken);
             isRefreshing = false;
             return newToken;
           } catch (e) {
+            console.log("[auth] refresh failed");
             isRefreshing = false;
             onUnauthorized();
             return null;
