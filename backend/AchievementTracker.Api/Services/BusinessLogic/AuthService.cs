@@ -41,7 +41,7 @@ public sealed class AuthService(
 
           SteamProfileDto? profile = await _steamClient.GetProfileAsync(steamId64, ct);
 
-          int appUserId = await _appUserRepository.UpsertSteamUserAsync(
+          var (appUserId, publicId) = await _appUserRepository.UpsertSteamUserAsync(
                steamId64,
                canonicalSteamId,
                profile,
@@ -52,7 +52,7 @@ public sealed class AuthService(
 
           return new AuthTokenResponse
           {
-               Token = MintAccessToken(canonicalSteamId, appUserId),
+               Token = MintAccessToken(canonicalSteamId, appUserId, publicId),
                SteamId = canonicalSteamId
           };
      }
@@ -65,13 +65,13 @@ public sealed class AuthService(
           if (steamId == null) 
                return null;
 
-          int? appUserId = await _appUserRepository.GetAppUserIdBySteamIdAsync(steamId, ct);
-          if (appUserId == null)
+          var user = await _appUserRepository.GetAppUserBySteamIdAsync(steamId, ct);
+          if (user == null)
                return null;
 
           return new AuthTokenResponse
           {
-               Token = MintAccessToken(steamId, appUserId.Value),
+               Token = MintAccessToken(steamId, user.Value.AppUserId, user.Value.PublicId),
                SteamId = steamId
           };
      }
@@ -81,12 +81,13 @@ public sealed class AuthService(
           await _refreshTokenStore.RevokeAsync(httpContext);
      }
 
-     private string MintAccessToken(string steamId, int appUserId)
+     private string MintAccessToken(string steamId, int appUserId, Guid publicId)
      {
           Claim[] claims =
           [
                new Claim(AuthClaims.SteamId, steamId),
                new Claim(AuthClaims.AppUserId, appUserId.ToString()),
+               new Claim(AuthClaims.AppUserPublicId, publicId.ToString()),
                new Claim(AuthClaims.AuthProvider, eAuthProvider.Steam.ToString()),
                new Claim(AuthClaims.ProviderUserId, steamId),
 
