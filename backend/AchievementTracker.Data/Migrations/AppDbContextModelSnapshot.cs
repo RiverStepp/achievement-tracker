@@ -127,6 +127,9 @@ namespace AchievementTracker.Data.Migrations
  
                     b.Property<int>("TotalGamesTracked")
                         .HasColumnType("int");
+
+                    b.Property<int>("TotalPoints")
+                        .HasColumnType("int");
  
                     b.Property<DateTime>("UpdateDate")
                         .ValueGeneratedOnAdd()
