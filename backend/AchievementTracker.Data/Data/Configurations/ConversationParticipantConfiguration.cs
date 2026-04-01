@@ -14,6 +14,7 @@ public sealed class ConversationParticipantConfiguration : IEntityTypeConfigurat
           b.Property(x => x.IsMuted).HasDefaultValue(false);
 
           b.HasIndex(x => new { x.ConversationId, x.AppUserId }).IsUnique();
+          b.HasIndex(x => new { x.AppUserId, x.ConversationId });
 
                b.HasOne(x => x.AppUser)
                .WithMany(u => u.ConversationParticipants)
