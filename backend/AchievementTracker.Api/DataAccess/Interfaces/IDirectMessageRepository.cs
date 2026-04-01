@@ -2,17 +2,27 @@ using AchievementTracker.Data.Entities;
 
 namespace AchievementTracker.Api.DataAccess.Interfaces;
 
+// All chat messages (grouped and organzied) fetched in one request
+public sealed class ConversationWithUnread
+{
+     public int ConversationId { get; init; }
+     public List<int> ParticipantUserIds { get; init; } = [];
+     public int UnreadCount { get; init; }
+     public DateTime CreateDate { get; init; }
+     // The most recent message's details (null when the conversation has no messages yet)
+     public long? LastMessageId { get; init; }
+     public int? LastMessageSenderUserId { get; init; }
+     public string? LastMessageContent { get; init; }
+     public DateTime? LastMessageSentDate { get; init; }
+}
 
 // Repository interface for managing direct message data access operations
 // Handles conversations and messages between users in the database
 public interface IDirectMessageRepository
 {
-     Task<Conversation?> GetConversationBetweenUsersAsync(int userId1, int userId2, CancellationToken ct = default);
-     Task<Conversation> CreateConversationAsync(int userId1, int userId2, CancellationToken ct = default);
-     Task<DirectMessage> AddMessageAsync(int conversationId, int senderUserId, string content, CancellationToken ct = default);
+     Task<DirectMessage> SendMessageToConversationAsync(int senderUserId, int recipientUserId, string content, CancellationToken ct = default);
      Task<List<DirectMessage>?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default);
-     Task<List<Conversation>> GetUserConversationsAsync(int userId, CancellationToken ct = default); 
-     Task<bool> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default);
-     Task<int> GetUnreadCountAsync(int conversationId, int userId, CancellationToken ct = default);
-     Task<long?> GetLastReadMessageIdAsync(int conversationId, int userId, CancellationToken ct = default);
+     Task<List<ConversationWithUnread>> GetUserConversationsAsync(int userId, CancellationToken ct = default);
+     Task<List<Guid>?> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default);
+     Task<Guid?> GetUserPublicIdAsync(int appUserId, CancellationToken ct = default);
 }
