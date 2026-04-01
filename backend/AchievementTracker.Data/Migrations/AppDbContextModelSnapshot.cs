@@ -155,6 +155,8 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("ConversationId", "AppUserId")
                         .IsUnique();
 
+                    b.HasIndex("AppUserId", "ConversationId");
+                    
                     b.HasIndex("LastReadMessageId");
 
                     b.ToTable("ConversationParticipants");
@@ -195,8 +197,8 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasKey("DirectMessageId");
 
-                    b.HasIndex("ConversationId", "SentDate");
-
+                    b.HasIndex("ConversationId", "DirectMessageId");
+                    
                     b.HasIndex("SenderAppUserId");
 
                     b.ToTable("DirectMessages");
