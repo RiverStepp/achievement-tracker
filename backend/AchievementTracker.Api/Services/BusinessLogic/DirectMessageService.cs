@@ -9,17 +9,13 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
 {
      private readonly IDirectMessageRepository _dmRepo = dmRepo;
 
-     // Sends a message by finding or creating a conversation, adding the message, and returning it as a DTO
+     // Sends a message, finding or creating the conversation atomically in the repository layer
      public async Task<MessageDto> SendMessageAsync(int senderUserId, SendMessageRequest request, CancellationToken ct = default)
      {
           if (request.RecipientUserId == senderUserId)
                throw new InvalidOperationException("Cannot send a message to yourself.");
 
-          var conversation = await _dmRepo.GetConversationBetweenUsersAsync(senderUserId, request.RecipientUserId, ct);
-
-          conversation ??= await _dmRepo.CreateConversationAsync(senderUserId, request.RecipientUserId, ct);
-
-          var message = await _dmRepo.AddMessageAsync(conversation.ConversationId, senderUserId, request.Content, ct);
+          var message = await _dmRepo.SendMessageToConversationAsync(senderUserId, request.RecipientUserId, request.Content, ct);
 
           return MapToMessageDto(message);
      }
@@ -39,40 +35,39 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
      {
           var conversations = await _dmRepo.GetUserConversationsAsync(userId, ct);
 
-          var result = new List<ConversationDto>();
-          foreach (var convo in conversations)
-          {
-               int unread = await _dmRepo.GetUnreadCountAsync(convo.ConversationId, userId, ct);
-               var lastMsg = convo.Messages.FirstOrDefault();
-
-               result.Add(new ConversationDto
-               {
-                    ConversationId = convo.ConversationId,
-                    ParticipantUserIds = convo.Participants.Select(p => p.AppUserId).ToList(),
-                    UnreadCount = unread,
-                    CreateDate = convo.CreateDate,
-                    LastMessage = lastMsg != null ? MapToMessageDto(lastMsg) : null
-               });
-          }
-
-          return result;
+         return conversations.Select(c => new ConversationDto(
+               c.ConversationId,
+               c.ParticipantUserIds,
+               c.LastMessageId.HasValue ? new MessageDto(
+                    c.LastMessageId.Value,
+                    c.ConversationId,
+                    c.LastMessageSenderUserId!.Value,
+                    c.LastMessageContent!,
+                    c.LastMessageSentDate!.Value
+               ) : null,
+               c.UnreadCount,
+               c.CreateDate
+          )).ToList();
      }
 
-     // Marks all messages in a conversation as read after verifying the user is a participant
-     public async Task MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
+     // Marks all messages in a conversation as read and returns the other participant's PublicIds
+     public async Task<List<Guid>> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
      {
-          bool isParticipant = await _dmRepo.MarkConversationAsReadAsync(conversationId, userId, ct);
-          if (!isParticipant)
+          var otherPublicIds = await _dmRepo.MarkConversationAsReadAsync(conversationId, userId, ct);
+          if (otherPublicIds is null)
                throw new UnauthorizedAccessException("You are not a participant in this conversation.");
 
+          return otherPublicIds;
      }
 
-     private static MessageDto MapToMessageDto(DirectMessage m) => new()
-     {
-          DirectMessageId = m.DirectMessageId,
-          ConversationId = m.ConversationId,
-          SenderAppUserId = m.SenderAppUserId,
-          Content = m.Content,
-          SentDate = m.SentDate
-     };
+     public Task<Guid?> GetUserPublicIdAsync(int appUserId, CancellationToken ct = default)
+          => _dmRepo.GetUserPublicIdAsync(appUserId, ct);
+
+     private static MessageDto MapToMessageDto(DirectMessage m) => new(
+          m.DirectMessageId,
+          m.ConversationId,
+          m.SenderAppUserId,
+          m.Content,
+          m.SentDate
+     );
 }
