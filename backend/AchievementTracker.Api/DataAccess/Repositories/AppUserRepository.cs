@@ -11,7 +11,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
 {
      private readonly AppDbContext _db = db;
 
-     public async Task<int> UpsertSteamUserAsync(
+     public async Task<(int AppUserId, Guid PublicId)> UpsertSteamUserAsync(
           long steamId64,
           string canonicalSteamId,
           SteamProfileDto? steamProfile,
@@ -28,15 +28,15 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           await _db.SaveChangesAsync(ct);
           await transaction.CommitAsync(ct);
 
-          return login.AppUserId;
+          return (login.AppUserId, login.AppUser.PublicId);
      }
 
-     public async Task<int?> GetAppUserIdBySteamIdAsync(string canonicalSteamId, CancellationToken ct = default)
+      public async Task<(int AppUserId, Guid PublicId)?> GetAppUserBySteamIdAsync(string canonicalSteamId, CancellationToken ct = default)
      {
           // Casting to (int?) so that this will return null instead of 0 when a record is not found
           return await _db.UserExternalLogins
                .Where(x => x.AuthProvider == eAuthProvider.Steam && x.ProviderUserId == canonicalSteamId)
-               .Select(x => (int?)x.AppUserId)
+               .Select(x => ((int AppUserId, Guid PublicId)?)new ValueTuple<int, Guid>(x.AppUserId, x.AppUser.PublicId))
                .SingleOrDefaultAsync(ct);
      }
 
