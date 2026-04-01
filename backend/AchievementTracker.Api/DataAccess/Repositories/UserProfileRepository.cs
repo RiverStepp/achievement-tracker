@@ -3,6 +3,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.Requests;
 using AchievementTracker.Api.Models.Responses.Profile;
 using AchievementTracker.Data.Data;
+using AchievementTracker.Api.DataAccess;
 using AchievementTracker.Data.Enums;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -59,9 +60,45 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
         ProfileAppUserDto? appUser = null;
         if (await reader.ReadAsync(ct))
         {
+            ProfileUserLocationDto? location = null;
+            int? countryId = reader.IsDBNull(4) ? null : reader.GetInt32(4);
+            string? countryName = reader.IsDBNull(5) ? null : reader.GetString(5);
+            int? stateId = reader.IsDBNull(6) ? null : reader.GetInt32(6);
+            string? stateName = reader.IsDBNull(7) ? null : reader.GetString(7);
+            int? cityId = reader.IsDBNull(8) ? null : reader.GetInt32(8);
+            string? cityName = reader.IsDBNull(9) ? null : reader.GetString(9);
+            if (countryId.HasValue || stateId.HasValue || cityId.HasValue
+                || !string.IsNullOrEmpty(countryName) || !string.IsNullOrEmpty(stateName) || !string.IsNullOrEmpty(cityName))
+            {
+                location = new ProfileUserLocationDto(
+                    countryId,
+                    countryName,
+                    stateId,
+                    stateName,
+                    cityId,
+                    cityName);
+            }
+
             appUser = new ProfileAppUserDto(
                 reader.IsDBNull(0) ? null : reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetString(1));
+                reader.IsDBNull(1) ? null : reader.GetString(1),
+                reader.IsDBNull(2) ? null : reader.GetString(2),
+                reader.IsDBNull(3) ? null : reader.GetString(3),
+                location,
+                reader.IsDBNull(10) ? null : reader.GetString(10),
+                reader.IsDBNull(11) ? null : reader.GetDateTime(11));
+        }
+
+        var visibleSocialLinks = new List<ProfileSocialLinkItemDto>();
+        if (await reader.NextResultAsync(ct))
+        {
+            while (await reader.ReadAsync(ct))
+            {
+                visibleSocialLinks.Add(
+                    new ProfileSocialLinkItemDto(
+                        (eSocialPlatform)reader.GetInt32FromNumericColumn(0),
+                        reader.GetString(1)));
+            }
         }
 
         SteamProfileMetadataDto? steamProfile = null;
@@ -148,6 +185,7 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
 
         return new UserProfileResponse(
             appUser,
+            visibleSocialLinks,
             steamProfile,
             totals,
             new PagedResultDto<ProfileGameItemDto>(request.GamesPageNumber, request.GamesPageSize, gamesRecentTotal, gamesRecent),

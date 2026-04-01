@@ -174,6 +174,9 @@ builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
 builder.Services.AddScoped<IUserPinnedAchievementRepository, UserPinnedAchievementRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<ILookupRepository, LookupRepository>();
+builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
+builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
 builder.Services.AddOptions<ProfileOptions>()
     .BindConfiguration("Profile")
     .Validate(
@@ -191,6 +194,13 @@ builder.Services.AddOptions<ProfileOptions>()
     .Validate(o => o.MaxLatestActivityPageSize > 0, "Profile: MaxLatestActivityPageSize must be > 0.")
     .Validate(o => o.MaxPinnedAchievements > 0, "Profile: MaxPinnedAchievements must be > 0.")
     .Validate(o => o.PinnedAchievementDisplayOrderStep > 0, "Profile: PinnedAchievementDisplayOrderStep must be > 0.")
+    .ValidateOnStart();
+
+builder.Services
+    .AddOptions<UserSettingsOptions>()
+    .BindConfiguration("UserSettings")
+    .Validate(o => o.MaxBioLength > 0, "UserSettings: MaxBioLength must be > 0.")
+    .Validate(o => o.MaxSocialLinkValueLength > 0, "UserSettings: MaxSocialLinkValueLength must be > 0.")
     .ValidateOnStart();
 
 // Redis

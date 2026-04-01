@@ -30,10 +30,86 @@ FROM dbo.UserSteamProfiles p
 INNER JOIN dbo.UserExternalLogins el ON el.UserExternalLoginId = p.UserExternalLoginId
 WHERE p.SteamId = @SteamId AND p.IsActive = 1 AND el.IsActive = 1 AND el.AuthProvider = 1;
 
+DECLARE @Bio NVARCHAR(500);
+DECLARE @Pronouns NVARCHAR(120);
+DECLARE @JoinDate DATETIME2;
+DECLARE @TimeZoneDisplay NVARCHAR(200);
+DECLARE @LocCountryId INT;
+DECLARE @LocCountryName NVARCHAR(120);
+DECLARE @LocStateRegionId INT;
+DECLARE @LocStateName NVARCHAR(120);
+DECLARE @LocCityId INT;
+DECLARE @LocCityName NVARCHAR(120);
+DECLARE @UserCityId INT;
+DECLARE @UserStateId INT;
+DECLARE @UserCountryId INT;
+
+SELECT
+    @Bio = u.Bio,
+    @Pronouns = po.DisplayLabel,
+    @JoinDate = u.CreateDate,
+    @TimeZoneDisplay = tz.DisplayName,
+    @UserCityId = u.LocationCityId,
+    @UserStateId = u.LocationStateRegionId,
+    @UserCountryId = u.LocationCountryId
+FROM dbo.AppUsers u
+LEFT JOIN dbo.PronounOptions po ON po.PronounOptionId = u.PronounOptionId
+LEFT JOIN dbo.IanaTimeZones tz ON tz.IanaTimeZoneId = u.IanaTimeZoneId
+WHERE u.AppUserId = @AppUserId AND u.IsActive = 1;
+
+IF @UserCityId IS NOT NULL
+BEGIN
+    SET @LocCityId = @UserCityId;
+    SELECT @LocCityName = ct.Name, @LocStateRegionId = ct.LocationStateRegionId
+    FROM dbo.LocationCities ct
+    WHERE ct.LocationCityId = @UserCityId;
+
+    SELECT @LocStateName = sr.Name, @LocCountryId = sr.LocationCountryId
+    FROM dbo.LocationStateRegions sr
+    WHERE sr.LocationStateRegionId = @LocStateRegionId;
+
+    SELECT @LocCountryName = c.Name
+    FROM dbo.LocationCountries c
+    WHERE c.LocationCountryId = @LocCountryId;
+END
+ELSE IF @UserStateId IS NOT NULL
+BEGIN
+    SET @LocStateRegionId = @UserStateId;
+    SELECT @LocStateName = sr.Name, @LocCountryId = sr.LocationCountryId
+    FROM dbo.LocationStateRegions sr
+    WHERE sr.LocationStateRegionId = @UserStateId;
+
+    SELECT @LocCountryName = c.Name
+    FROM dbo.LocationCountries c
+    WHERE c.LocationCountryId = @LocCountryId;
+END
+ELSE IF @UserCountryId IS NOT NULL
+BEGIN
+    SET @LocCountryId = @UserCountryId;
+    SELECT @LocCountryName = c.Name
+    FROM dbo.LocationCountries c
+    WHERE c.LocationCountryId = @UserCountryId;
+END
+
 SELECT
     (SELECT TOP (1) u.Handle FROM dbo.AppUsers u WHERE u.AppUserId = @AppUserId AND u.IsActive = 1) AS Handle,
     (SELECT TOP (1) u.DisplayName FROM dbo.AppUsers u WHERE u.AppUserId = @AppUserId AND u.IsActive = 1)
-        AS DisplayName;
+        AS DisplayName,
+    @Bio AS Bio,
+    @Pronouns AS Pronouns,
+    @LocCountryId AS LocationCountryId,
+    @LocCountryName AS CountryName,
+    @LocStateRegionId AS LocationStateRegionId,
+    @LocStateName AS StateName,
+    @LocCityId AS LocationCityId,
+    @LocCityName AS CityName,
+    @TimeZoneDisplay AS TimeZoneDisplayName,
+    @JoinDate AS JoinDate;
+
+SELECT l.Platform, l.LinkValue
+FROM dbo.AppUserSocialLinks l
+WHERE l.AppUserId = @AppUserId AND l.IsActive = 1 AND l.IsVisible = 1
+ORDER BY l.Platform ASC;
 
 SELECT p.ProfileUrl, p.AvatarSmallUrl, p.LastCheckedDate, p.LastSyncedDate, p.IsPrivate
 FROM dbo.UserSteamProfiles p
