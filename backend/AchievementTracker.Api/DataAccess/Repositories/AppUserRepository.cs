@@ -1,5 +1,6 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
+using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
 using AchievementTracker.Data.Enums;
@@ -11,7 +12,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
 {
      private readonly AppDbContext _db = db;
 
-     public async Task<int> UpsertSteamUserAsync(
+     public async Task<SteamUserUpsertResult> UpsertSteamUserAsync(
           long steamId64,
           string canonicalSteamId,
           SteamProfileDto? steamProfile,
@@ -20,7 +21,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
      {
           await using var transaction = await _db.Database.BeginTransactionAsync(ct);
 
-          var login = await GetOrCreateSteamLoginAsync(canonicalSteamId, ct);
+          var (login, isNewUser) = await GetOrCreateSteamLoginAsync(canonicalSteamId, ct);
           await GetOrCreateSteamProfileAsync(steamId64, login.UserExternalLoginId, steamProfile, ct);
 
           login.AppUser.LastLoginDate = DateTime.UtcNow;
@@ -28,7 +29,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           await _db.SaveChangesAsync(ct);
           await transaction.CommitAsync(ct);
 
-          return login.AppUserId;
+          return new SteamUserUpsertResult(login.AppUserId, isNewUser);
      }
 
      public async Task<int?> GetAppUserIdBySteamIdAsync(string canonicalSteamId, CancellationToken ct = default)
@@ -38,6 +39,20 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .Where(x => x.AuthProvider == eAuthProvider.Steam && x.ProviderUserId == canonicalSteamId)
                .Select(x => (int?)x.AppUserId)
                .SingleOrDefaultAsync(ct);
+     }
+
+     public async Task<(Guid PublicId, string? Handle, string? DisplayName)> GetPublicIdHandleAndDisplayNameAsync(
+          int appUserId,
+          CancellationToken ct = default
+     )
+     {
+          var row = await _db.AppUsers
+               .AsNoTracking()
+               .Where(x => x.AppUserId == appUserId)
+               .Select(x => new { x.PublicId, x.Handle, x.DisplayName })
+               .SingleOrDefaultAsync(ct);
+
+          return row == null ? (Guid.Empty, null, null) : (row.PublicId, row.Handle, row.DisplayName);
      }
 
      public async Task<long?> GetSteamIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)
@@ -82,7 +97,10 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
      }
 
      #region helpers
-     private async Task<UserExternalLogin> GetOrCreateSteamLoginAsync(string canonicalSteamId, CancellationToken ct)
+     private async Task<(UserExternalLogin Login, bool IsNewUser)> GetOrCreateSteamLoginAsync(
+          string canonicalSteamId,
+          CancellationToken ct
+     )
      {
           var login = await _db.UserExternalLogins
             .Include(x => x.AppUser)
@@ -91,11 +109,9 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                 x.ProviderUserId == canonicalSteamId,
                 ct);
 
-          // User exists
           if (login != null)
-               return login;
+               return (login, false);
 
-          // User does not exist 
           var user = new AppUser
           {
                IsListedOnLeaderboards = true,
@@ -112,7 +128,7 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           _db.UserExternalLogins.Add(login);
           await _db.SaveChangesAsync(ct);
 
-          return login;
+          return (login, true);
      }
 
      private async Task GetOrCreateSteamProfileAsync(
