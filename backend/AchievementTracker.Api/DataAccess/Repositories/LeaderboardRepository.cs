@@ -15,6 +15,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
           int totalAchievementsUnlocked,
           int totalGamesTracked,
           int perfectGamesCount,
+          int totalPoints,
           CancellationToken ct = default
      )
      {
@@ -32,11 +33,72 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
           summary.TotalAchievementsUnlocked = totalAchievementsUnlocked;
           summary.TotalGamesTracked = totalGamesTracked;
           summary.PerfectGamesCount = perfectGamesCount;
+          summary.TotalPoints = totalPoints;
           summary.LastSyncedDate = DateTime.UtcNow;
 
           await _db.SaveChangesAsync(ct);
      }
 
+     // Private result types for raw SQL projections
+     private sealed class UserStatsResult
+     {
+          public int TotalUnlocked { get; init; }
+          public int TotalPoints { get; init; }
+          public int TotalGamesTracked { get; init; }
+     }
+ 
+     private sealed class PerfectGamesResult
+     {
+          public int PerfectGames { get; init; }
+     }
+ 
+     public async Task<(int TotalUnlocked, int TotalPoints, int TotalGamesTracked, int PerfectGames)> ComputeUserStatsAsync(
+          long steamId64,
+          CancellationToken ct = default
+     )
+     {
+          // Sum points and count unlocked achievements and distinct games for this Steam user
+          var stats = await _db.Database.SqlQuery<UserStatsResult>(
+               $"""
+               SELECT
+                    COUNT(sua.Id)             AS TotalUnlocked,
+                    ISNULL(SUM(sa.Points), 0) AS TotalPoints,
+                    COUNT(DISTINCT sa.GameId) AS TotalGamesTracked
+               FROM SteamUserAchievements sua
+               JOIN SteamAchievements sa ON sua.AchievementId = sa.Id
+               WHERE sua.SteamId   = {steamId64}
+                 AND sua.IsActive  = 1
+                 AND sa.IsActive   = 1
+               """
+          ).FirstOrDefaultAsync(ct);
+ 
+          // A perfect game = user has unlocked every active achievement in that game
+          var perfect = await _db.Database.SqlQuery<PerfectGamesResult>(
+               $"""
+               SELECT COUNT(*) AS PerfectGames
+               FROM (
+                    SELECT sa.GameId
+                    FROM SteamAchievements sa
+                    LEFT JOIN SteamUserAchievements sua
+                         ON  sa.Id          = sua.AchievementId
+                         AND sua.SteamId    = {steamId64}
+                         AND sua.IsActive   = 1
+                    WHERE sa.IsActive = 1
+                    GROUP BY sa.GameId
+                    HAVING COUNT(sa.Id) > 0
+                       AND COUNT(sa.Id) = SUM(CASE WHEN sua.Id IS NOT NULL THEN 1 ELSE 0 END)
+               ) g
+               """
+          ).FirstOrDefaultAsync(ct);
+ 
+          return (
+               stats?.TotalUnlocked     ?? 0,
+               stats?.TotalPoints       ?? 0,
+               stats?.TotalGamesTracked ?? 0,
+               perfect?.PerfectGames    ?? 0
+          );
+     }
+ 
      public async Task<AchievementSummaryDto?> GetAchievementSummaryAsync(int appUserId, CancellationToken ct = default)
      {
           return await _db.UserAchievementSummaries
@@ -45,6 +107,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     x.TotalAchievementsUnlocked,
                     x.TotalGamesTracked,
                     x.PerfectGamesCount,
+                    x.TotalPoints,
                     x.LastSyncedDate
                ))
                .SingleOrDefaultAsync(ct);
@@ -63,15 +126,16 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     on (int?)login.UserExternalLoginId equals profile.UserExternalLoginId
                     into profileGroup
                from profile in profileGroup.DefaultIfEmpty() // Left join: Steam profile may not exist yet
-               orderby summary.TotalAchievementsUnlocked descending, // Primary rank: most achievements first
-                       summary.PerfectGamesCount descending, // Tiebreak: favour 100% completionists
-                       summary.TotalGamesTracked descending  // Final tiebreak: more games tracked wins
+               orderby summary.TotalPoints descending,             // Primary rank: highest points first
+                       summary.PerfectGamesCount descending,         // Tiebreak: favour 100% completionists
+                       summary.TotalAchievementsUnlocked descending  // Final tiebreak: most achievements wins
                select new
                {
                     appUser.PublicId,
                     summary.TotalAchievementsUnlocked,
                     summary.TotalGamesTracked,
                     summary.PerfectGamesCount,
+                    summary.TotalPoints,
                     summary.LastSyncedDate,
                     PersonaName = profile != null ? profile.PersonaName : null,
                     AvatarUrl = profile != null ? profile.AvatarMediumUrl : null,
@@ -98,6 +162,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     TotalAchievementsUnlocked: e.TotalAchievementsUnlocked,
                     TotalGamesTracked: e.TotalGamesTracked,
                     PerfectGamesCount: e.PerfectGamesCount,
+                    TotalPoints: e.TotalPoints,
                     LastSyncedDate: e.LastSyncedDate
                ))
                .ToList();
