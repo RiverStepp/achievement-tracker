@@ -17,6 +17,14 @@ public sealed class CurrentUser(IHttpContextAccessor accessor): ICurrentUser
                return int.TryParse(raw, out int id) ? id : null;
           }
      }
+      public Guid? AppUserPublicId
+     {
+          get
+          {
+               string? raw = User?.FindFirstValue(AuthClaims.AppUserPublicId);
+               return Guid.TryParse(raw, out Guid id) ? id : null;
+          }
+     }
      public eAuthProvider? AuthProvider
      {
           get
