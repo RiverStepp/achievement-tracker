@@ -1,14 +1,17 @@
 ﻿using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.DataAccess.Repositories;
+using AchievementTracker.Api.Hubs;
 using AchievementTracker.Api.Services.BusinessLogic;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Extensions;
 using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Threading.RateLimiting;
 using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -65,6 +68,21 @@ builder.Services.AddAuthentication(options =>
           ValidateLifetime = true,
           ClockSkew = TimeSpan.FromMinutes(1)
      };
+
+     // SignalR WebSocket connections cannot set Authorization headers, so the token is sent via the access_token query string parameter and forwarded to the bearer handler here
+     options.Events = new JwtBearerEvents
+     {
+          OnMessageReceived = context =>
+          {
+               var accessToken = context.Request.Query["access_token"];
+               if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/chat"))
+               {
+                    context.Token = accessToken;
+               }
+               return Task.CompletedTask;
+          }
+     };
 })
 .AddCookie(authSettings.ExternalScheme, options =>
 {
@@ -82,12 +100,31 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Rate limiting (applied to REST API controllers). ChatHub rates for users are limited internally.
+builder.Services.AddRateLimiter(options =>
+{
+     options.AddSlidingWindowLimiter("chat-api", configure =>
+     {
+          configure.Window = TimeSpan.FromSeconds(10);
+          configure.SegmentsPerWindow = 5;
+          configure.PermitLimit = 20;
+          configure.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+          configure.QueueLimit = 0;
+     });
+     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
+builder.Services.AddSignalR();
+
 builder.Services.AddScoped<IAuthBusinessLogic, AuthBusinessLogic>();
 builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);
+
+builder.Services.AddScoped<IDirectMessageRepository, DirectMessageRepository>();
+builder.Services.AddScoped<IDirectMessageService, DirectMessageService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -141,7 +178,9 @@ app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/chat");
 
 app.Run();
