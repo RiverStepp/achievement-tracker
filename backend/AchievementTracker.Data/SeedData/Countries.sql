@@ -1,251 +1,255 @@
 SET NOCOUNT ON;
-INSERT INTO LocationCountries (IsoAlpha2, Name) VALUES
-(N'AF', N'Afghanistan')
-,(N'AX', N'Åland Islands')
-,(N'AL', N'Albania')
-,(N'DZ', N'Algeria')
-,(N'AS', N'American Samoa')
-,(N'AD', N'Andorra')
-,(N'AO', N'Angola')
-,(N'AI', N'Anguilla')
-,(N'AQ', N'Antarctica')
-,(N'AG', N'Antigua and Barbuda')
-,(N'AR', N'Argentina')
-,(N'AM', N'Armenia')
-,(N'AW', N'Aruba')
-,(N'AU', N'Australia')
-,(N'AT', N'Austria')
-,(N'AZ', N'Azerbaijan')
-,(N'BS', N'Bahamas')
-,(N'BH', N'Bahrain')
-,(N'BD', N'Bangladesh')
-,(N'BB', N'Barbados')
-,(N'BY', N'Belarus')
-,(N'BE', N'Belgium')
-,(N'BZ', N'Belize')
-,(N'BJ', N'Benin')
-,(N'BM', N'Bermuda')
-,(N'BT', N'Bhutan')
-,(N'BO', N'Bolivia, Plurinational State of')
-,(N'BQ', N'Bonaire, Sint Eustatius and Saba')
-,(N'BA', N'Bosnia and Herzegovina')
-,(N'BW', N'Botswana')
-,(N'BV', N'Bouvet Island')
-,(N'BR', N'Brazil')
-,(N'IO', N'British Indian Ocean Territory')
-,(N'BN', N'Brunei Darussalam')
-,(N'BG', N'Bulgaria')
-,(N'BF', N'Burkina Faso')
-,(N'BI', N'Burundi')
-,(N'CV', N'Cabo Verde')
-,(N'KH', N'Cambodia')
-,(N'CM', N'Cameroon')
-,(N'CA', N'Canada')
-,(N'KY', N'Cayman Islands')
-,(N'CF', N'Central African Republic')
-,(N'TD', N'Chad')
-,(N'CL', N'Chile')
-,(N'CN', N'China')
-,(N'CX', N'Christmas Island')
-,(N'CC', N'Cocos (Keeling) Islands')
-,(N'CO', N'Colombia')
-,(N'KM', N'Comoros')
-,(N'CG', N'Congo')
-,(N'CD', N'Congo, Democratic Republic of the')
-,(N'CK', N'Cook Islands')
-,(N'CR', N'Costa Rica')
-,(N'CI', N'CÃ´te d''Ivoire')
-,(N'HR', N'Croatia')
-,(N'CU', N'Cuba')
-,(N'CW', N'CuraÃ§ao')
-,(N'CY', N'Cyprus')
-,(N'CZ', N'Czechia')
-,(N'DK', N'Denmark')
-,(N'DJ', N'Djibouti')
-,(N'DM', N'Dominica')
-,(N'DO', N'Dominican Republic')
-,(N'EC', N'Ecuador')
-,(N'EG', N'Egypt')
-,(N'SV', N'El Salvador')
-,(N'GQ', N'Equatorial Guinea')
-,(N'ER', N'Eritrea')
-,(N'EE', N'Estonia')
-,(N'SZ', N'Eswatini')
-,(N'ET', N'Ethiopia')
-,(N'FK', N'Falkland Islands (Malvinas)')
-,(N'FO', N'Faroe Islands')
-,(N'FJ', N'Fiji')
-,(N'FI', N'Finland')
-,(N'FR', N'France')
-,(N'GF', N'French Guiana')
-,(N'PF', N'French Polynesia')
-,(N'TF', N'French Southern Territories')
-,(N'GA', N'Gabon')
-,(N'GM', N'Gambia')
-,(N'GE', N'Georgia')
-,(N'DE', N'Germany')
-,(N'GH', N'Ghana')
-,(N'GI', N'Gibraltar')
-,(N'GR', N'Greece')
-,(N'GL', N'Greenland')
-,(N'GD', N'Grenada')
-,(N'GP', N'Guadeloupe')
-,(N'GU', N'Guam')
-,(N'GT', N'Guatemala')
-,(N'GG', N'Guernsey')
-,(N'GN', N'Guinea')
-,(N'GW', N'Guinea-Bissau')
-,(N'GY', N'Guyana')
-,(N'HT', N'Haiti')
-,(N'HM', N'Heard Island and McDonald Islands')
-,(N'VA', N'Holy See')
-,(N'HN', N'Honduras')
-,(N'HK', N'Hong Kong')
-,(N'HU', N'Hungary')
-,(N'IS', N'Iceland')
-,(N'IN', N'India')
-,(N'ID', N'Indonesia')
-,(N'IR', N'Iran, Islamic Republic of')
-,(N'IQ', N'Iraq')
-,(N'IE', N'Ireland')
-,(N'IM', N'Isle of Man')
-,(N'IL', N'Israel')
-,(N'IT', N'Italy')
-,(N'JM', N'Jamaica')
-,(N'JP', N'Japan')
-,(N'JE', N'Jersey')
-,(N'JO', N'Jordan')
-,(N'KZ', N'Kazakhstan')
-,(N'KE', N'Kenya')
-,(N'KI', N'Kiribati')
-,(N'KP', N'Korea, Democratic People''s Republic of')
-,(N'KR', N'Korea, Republic of')
-,(N'KW', N'Kuwait')
-,(N'KG', N'Kyrgyzstan')
-,(N'LA', N'Lao People''s Democratic Republic')
-,(N'LV', N'Latvia')
-,(N'LB', N'Lebanon')
-,(N'LS', N'Lesotho')
-,(N'LR', N'Liberia')
-,(N'LY', N'Libya')
-,(N'LI', N'Liechtenstein')
-,(N'LT', N'Lithuania')
-,(N'LU', N'Luxembourg')
-,(N'MO', N'Macao')
-,(N'MG', N'Madagascar')
-,(N'MW', N'Malawi')
-,(N'MY', N'Malaysia')
-,(N'MV', N'Maldives')
-,(N'ML', N'Mali')
-,(N'MT', N'Malta')
-,(N'MH', N'Marshall Islands')
-,(N'MQ', N'Martinique')
-,(N'MR', N'Mauritania')
-,(N'MU', N'Mauritius')
-,(N'YT', N'Mayotte')
-,(N'MX', N'Mexico')
-,(N'FM', N'Micronesia, Federated States of')
-,(N'MD', N'Moldova, Republic of')
-,(N'MC', N'Monaco')
-,(N'MN', N'Mongolia')
-,(N'ME', N'Montenegro')
-,(N'MS', N'Montserrat')
-,(N'MA', N'Morocco')
-,(N'MZ', N'Mozambique')
-,(N'MM', N'Myanmar')
-,(N'NA', N'Namibia')
-,(N'NR', N'Nauru')
-,(N'NP', N'Nepal')
-,(N'NL', N'Netherlands, Kingdom of the')
-,(N'NC', N'New Caledonia')
-,(N'NZ', N'New Zealand')
-,(N'NI', N'Nicaragua')
-,(N'NE', N'Niger')
-,(N'NG', N'Nigeria')
-,(N'NU', N'Niue')
-,(N'NF', N'Norfolk Island')
-,(N'MK', N'North Macedonia')
-,(N'MP', N'Northern Mariana Islands')
-,(N'NO', N'Norway')
-,(N'OM', N'Oman')
-,(N'PK', N'Pakistan')
-,(N'PW', N'Palau')
-,(N'PS', N'Palestine, State of')
-,(N'PA', N'Panama')
-,(N'PG', N'Papua New Guinea')
-,(N'PY', N'Paraguay')
-,(N'PE', N'Peru')
-,(N'PH', N'Philippines')
-,(N'PN', N'Pitcairn')
-,(N'PL', N'Poland')
-,(N'PT', N'Portugal')
-,(N'PR', N'Puerto Rico')
-,(N'QA', N'Qatar')
-,(N'RE', N'RÃ©union')
-,(N'RO', N'Romania')
-,(N'RU', N'Russian Federation')
-,(N'RW', N'Rwanda')
-,(N'BL', N'Saint BarthÃ©lemy')
-,(N'SH', N'Saint Helena, Ascension and Tristan da Cunha')
-,(N'KN', N'Saint Kitts and Nevis')
-,(N'LC', N'Saint Lucia')
-,(N'MF', N'Saint Martin (French part)')
-,(N'PM', N'Saint Pierre and Miquelon')
-,(N'VC', N'Saint Vincent and the Grenadines')
-,(N'WS', N'Samoa')
-,(N'SM', N'San Marino')
-,(N'ST', N'Sao Tome and Principe')
-,(N'SA', N'Saudi Arabia')
-,(N'SN', N'Senegal')
-,(N'RS', N'Serbia')
-,(N'SC', N'Seychelles')
-,(N'SL', N'Sierra Leone')
-,(N'SG', N'Singapore')
-,(N'SX', N'Sint Maarten (Dutch part)')
-,(N'SK', N'Slovakia')
-,(N'SI', N'Slovenia')
-,(N'SB', N'Solomon Islands')
-,(N'SO', N'Somalia')
-,(N'ZA', N'South Africa')
-,(N'GS', N'South Georgia and the South Sandwich Islands')
-,(N'SS', N'South Sudan')
-,(N'ES', N'Spain')
-,(N'LK', N'Sri Lanka')
-,(N'SD', N'Sudan')
-,(N'SR', N'Suriname')
-,(N'SJ', N'Svalbard and Jan Mayen')
-,(N'SE', N'Sweden')
-,(N'CH', N'Switzerland')
-,(N'SY', N'Syrian Arab Republic')
-,(N'TW', N'Taiwan, Province of China')
-,(N'TJ', N'Tajikistan')
-,(N'TZ', N'Tanzania, United Republic of')
-,(N'TH', N'Thailand')
-,(N'TL', N'Timor-Leste')
-,(N'TG', N'Togo')
-,(N'TK', N'Tokelau')
-,(N'TO', N'Tonga')
-,(N'TT', N'Trinidad and Tobago')
-,(N'TN', N'Tunisia')
-,(N'TR', N'TÃ¼rkiye')
-,(N'TM', N'Turkmenistan')
-,(N'TC', N'Turks and Caicos Islands')
-,(N'TV', N'Tuvalu')
-,(N'UG', N'Uganda')
-,(N'UA', N'Ukraine')
-,(N'AE', N'United Arab Emirates')
-,(N'GB', N'United Kingdom of Great Britain and Northern Ireland')
-,(N'US', N'United States of America')
-,(N'UM', N'United States Minor Outlying Islands')
-,(N'UY', N'Uruguay')
-,(N'UZ', N'Uzbekistan')
-,(N'VU', N'Vanuatu')
-,(N'VE', N'Venezuela, Bolivarian Republic of')
-,(N'VN', N'Viet Nam')
-,(N'VG', N'Virgin Islands (British)')
-,(N'VI', N'Virgin Islands (U.S.)')
-,(N'WF', N'Wallis and Futuna')
-,(N'EH', N'Western Sahara')
-,(N'YE', N'Yemen')
-,(N'ZM', N'Zambia')
-,(N'ZW', N'Zimbabwe');
+INSERT INTO dbo.LocationCountries (IsoAlpha2, Name)
+SELECT v.IsoAlpha2, v.Name
+FROM (VALUES
+(N'AF', N'Afghanistan'),
+(N'AX', N'Åland Islands'),
+(N'AL', N'Albania'),
+(N'DZ', N'Algeria'),
+(N'AS', N'American Samoa'),
+(N'AD', N'Andorra'),
+(N'AO', N'Angola'),
+(N'AI', N'Anguilla'),
+(N'AQ', N'Antarctica'),
+(N'AG', N'Antigua and Barbuda'),
+(N'AR', N'Argentina'),
+(N'AM', N'Armenia'),
+(N'AW', N'Aruba'),
+(N'AU', N'Australia'),
+(N'AT', N'Austria'),
+(N'AZ', N'Azerbaijan'),
+(N'BS', N'Bahamas'),
+(N'BH', N'Bahrain'),
+(N'BD', N'Bangladesh'),
+(N'BB', N'Barbados'),
+(N'BY', N'Belarus'),
+(N'BE', N'Belgium'),
+(N'BZ', N'Belize'),
+(N'BJ', N'Benin'),
+(N'BM', N'Bermuda'),
+(N'BT', N'Bhutan'),
+(N'BO', N'Bolivia, Plurinational State of'),
+(N'BQ', N'Bonaire, Sint Eustatius and Saba'),
+(N'BA', N'Bosnia and Herzegovina'),
+(N'BW', N'Botswana'),
+(N'BV', N'Bouvet Island'),
+(N'BR', N'Brazil'),
+(N'IO', N'British Indian Ocean Territory'),
+(N'BN', N'Brunei Darussalam'),
+(N'BG', N'Bulgaria'),
+(N'BF', N'Burkina Faso'),
+(N'BI', N'Burundi'),
+(N'CV', N'Cabo Verde'),
+(N'KH', N'Cambodia'),
+(N'CM', N'Cameroon'),
+(N'CA', N'Canada'),
+(N'KY', N'Cayman Islands'),
+(N'CF', N'Central African Republic'),
+(N'TD', N'Chad'),
+(N'CL', N'Chile'),
+(N'CN', N'China'),
+(N'CX', N'Christmas Island'),
+(N'CC', N'Cocos (Keeling) Islands'),
+(N'CO', N'Colombia'),
+(N'KM', N'Comoros'),
+(N'CG', N'Congo'),
+(N'CD', N'Congo, Democratic Republic of the'),
+(N'CK', N'Cook Islands'),
+(N'CR', N'Costa Rica'),
+(N'CI', N'Côte d''Ivoire'),
+(N'HR', N'Croatia'),
+(N'CU', N'Cuba'),
+(N'CW', N'Curaçao'),
+(N'CY', N'Cyprus'),
+(N'CZ', N'Czechia'),
+(N'DK', N'Denmark'),
+(N'DJ', N'Djibouti'),
+(N'DM', N'Dominica'),
+(N'DO', N'Dominican Republic'),
+(N'EC', N'Ecuador'),
+(N'EG', N'Egypt'),
+(N'SV', N'El Salvador'),
+(N'GQ', N'Equatorial Guinea'),
+(N'ER', N'Eritrea'),
+(N'EE', N'Estonia'),
+(N'SZ', N'Eswatini'),
+(N'ET', N'Ethiopia'),
+(N'FK', N'Falkland Islands (Malvinas)'),
+(N'FO', N'Faroe Islands'),
+(N'FJ', N'Fiji'),
+(N'FI', N'Finland'),
+(N'FR', N'France'),
+(N'GF', N'French Guiana'),
+(N'PF', N'French Polynesia'),
+(N'TF', N'French Southern Territories'),
+(N'GA', N'Gabon'),
+(N'GM', N'Gambia'),
+(N'GE', N'Georgia'),
+(N'DE', N'Germany'),
+(N'GH', N'Ghana'),
+(N'GI', N'Gibraltar'),
+(N'GR', N'Greece'),
+(N'GL', N'Greenland'),
+(N'GD', N'Grenada'),
+(N'GP', N'Guadeloupe'),
+(N'GU', N'Guam'),
+(N'GT', N'Guatemala'),
+(N'GG', N'Guernsey'),
+(N'GN', N'Guinea'),
+(N'GW', N'Guinea-Bissau'),
+(N'GY', N'Guyana'),
+(N'HT', N'Haiti'),
+(N'HM', N'Heard Island and McDonald Islands'),
+(N'VA', N'Holy See'),
+(N'HN', N'Honduras'),
+(N'HK', N'Hong Kong'),
+(N'HU', N'Hungary'),
+(N'IS', N'Iceland'),
+(N'IN', N'India'),
+(N'ID', N'Indonesia'),
+(N'IR', N'Iran, Islamic Republic of'),
+(N'IQ', N'Iraq'),
+(N'IE', N'Ireland'),
+(N'IM', N'Isle of Man'),
+(N'IL', N'Israel'),
+(N'IT', N'Italy'),
+(N'JM', N'Jamaica'),
+(N'JP', N'Japan'),
+(N'JE', N'Jersey'),
+(N'JO', N'Jordan'),
+(N'KZ', N'Kazakhstan'),
+(N'KE', N'Kenya'),
+(N'KI', N'Kiribati'),
+(N'KP', N'Korea, Democratic People''s Republic of'),
+(N'KR', N'Korea, Republic of'),
+(N'KW', N'Kuwait'),
+(N'KG', N'Kyrgyzstan'),
+(N'LA', N'Lao People''s Democratic Republic'),
+(N'LV', N'Latvia'),
+(N'LB', N'Lebanon'),
+(N'LS', N'Lesotho'),
+(N'LR', N'Liberia'),
+(N'LY', N'Libya'),
+(N'LI', N'Liechtenstein'),
+(N'LT', N'Lithuania'),
+(N'LU', N'Luxembourg'),
+(N'MO', N'Macao'),
+(N'MG', N'Madagascar'),
+(N'MW', N'Malawi'),
+(N'MY', N'Malaysia'),
+(N'MV', N'Maldives'),
+(N'ML', N'Mali'),
+(N'MT', N'Malta'),
+(N'MH', N'Marshall Islands'),
+(N'MQ', N'Martinique'),
+(N'MR', N'Mauritania'),
+(N'MU', N'Mauritius'),
+(N'YT', N'Mayotte'),
+(N'MX', N'Mexico'),
+(N'FM', N'Micronesia, Federated States of'),
+(N'MD', N'Moldova, Republic of'),
+(N'MC', N'Monaco'),
+(N'MN', N'Mongolia'),
+(N'ME', N'Montenegro'),
+(N'MS', N'Montserrat'),
+(N'MA', N'Morocco'),
+(N'MZ', N'Mozambique'),
+(N'MM', N'Myanmar'),
+(N'NA', N'Namibia'),
+(N'NR', N'Nauru'),
+(N'NP', N'Nepal'),
+(N'NL', N'Netherlands, Kingdom of the'),
+(N'NC', N'New Caledonia'),
+(N'NZ', N'New Zealand'),
+(N'NI', N'Nicaragua'),
+(N'NE', N'Niger'),
+(N'NG', N'Nigeria'),
+(N'NU', N'Niue'),
+(N'NF', N'Norfolk Island'),
+(N'MK', N'North Macedonia'),
+(N'MP', N'Northern Mariana Islands'),
+(N'NO', N'Norway'),
+(N'OM', N'Oman'),
+(N'PK', N'Pakistan'),
+(N'PW', N'Palau'),
+(N'PS', N'Palestine, State of'),
+(N'PA', N'Panama'),
+(N'PG', N'Papua New Guinea'),
+(N'PY', N'Paraguay'),
+(N'PE', N'Peru'),
+(N'PH', N'Philippines'),
+(N'PN', N'Pitcairn'),
+(N'PL', N'Poland'),
+(N'PT', N'Portugal'),
+(N'PR', N'Puerto Rico'),
+(N'QA', N'Qatar'),
+(N'RE', N'Réunion'),
+(N'RO', N'Romania'),
+(N'RU', N'Russian Federation'),
+(N'RW', N'Rwanda'),
+(N'BL', N'Saint Barthélemy'),
+(N'SH', N'Saint Helena, Ascension and Tristan da Cunha'),
+(N'KN', N'Saint Kitts and Nevis'),
+(N'LC', N'Saint Lucia'),
+(N'MF', N'Saint Martin (French part)'),
+(N'PM', N'Saint Pierre and Miquelon'),
+(N'VC', N'Saint Vincent and the Grenadines'),
+(N'WS', N'Samoa'),
+(N'SM', N'San Marino'),
+(N'ST', N'Sao Tome and Principe'),
+(N'SA', N'Saudi Arabia'),
+(N'SN', N'Senegal'),
+(N'RS', N'Serbia'),
+(N'SC', N'Seychelles'),
+(N'SL', N'Sierra Leone'),
+(N'SG', N'Singapore'),
+(N'SX', N'Sint Maarten (Dutch part)'),
+(N'SK', N'Slovakia'),
+(N'SI', N'Slovenia'),
+(N'SB', N'Solomon Islands'),
+(N'SO', N'Somalia'),
+(N'ZA', N'South Africa'),
+(N'GS', N'South Georgia and the South Sandwich Islands'),
+(N'SS', N'South Sudan'),
+(N'ES', N'Spain'),
+(N'LK', N'Sri Lanka'),
+(N'SD', N'Sudan'),
+(N'SR', N'Suriname'),
+(N'SJ', N'Svalbard and Jan Mayen'),
+(N'SE', N'Sweden'),
+(N'CH', N'Switzerland'),
+(N'SY', N'Syrian Arab Republic'),
+(N'TW', N'Taiwan, Province of China'),
+(N'TJ', N'Tajikistan'),
+(N'TZ', N'Tanzania, United Republic of'),
+(N'TH', N'Thailand'),
+(N'TL', N'Timor-Leste'),
+(N'TG', N'Togo'),
+(N'TK', N'Tokelau'),
+(N'TO', N'Tonga'),
+(N'TT', N'Trinidad and Tobago'),
+(N'TN', N'Tunisia'),
+(N'TR', N'Türkiye'),
+(N'TM', N'Turkmenistan'),
+(N'TC', N'Turks and Caicos Islands'),
+(N'TV', N'Tuvalu'),
+(N'UG', N'Uganda'),
+(N'UA', N'Ukraine'),
+(N'AE', N'United Arab Emirates'),
+(N'GB', N'United Kingdom of Great Britain and Northern Ireland'),
+(N'US', N'United States of America'),
+(N'UM', N'United States Minor Outlying Islands'),
+(N'UY', N'Uruguay'),
+(N'UZ', N'Uzbekistan'),
+(N'VU', N'Vanuatu'),
+(N'VE', N'Venezuela, Bolivarian Republic of'),
+(N'VN', N'Viet Nam'),
+(N'VG', N'Virgin Islands (British)'),
+(N'VI', N'Virgin Islands (U.S.)'),
+(N'WF', N'Wallis and Futuna'),
+(N'EH', N'Western Sahara'),
+(N'YE', N'Yemen'),
+(N'ZM', N'Zambia'),
+(N'ZW', N'Zimbabwe')
+) AS v(IsoAlpha2, Name)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.LocationCountries c WHERE c.IsoAlpha2 = v.IsoAlpha2);

@@ -5,15 +5,13 @@ namespace AchievementTracker.Api.DataAccess.Interfaces;
 
 public interface IUserSettingsRepository
 {
-    Task<UserSettingsResponseDto?> GetSettingsAsync(int appUserId, CancellationToken ct = default);
+    Task<UserSettingsValuesDto?> GetUserSettingsValuesAsync(int appUserId, CancellationToken ct = default);
 
     Task<AppUser?> GetTrackedUserForSettingsUpdateAsync(int appUserId, CancellationToken ct = default);
 
     Task<bool> CountryExistsAsync(int locationCountryId, CancellationToken ct = default);
 
     Task<bool> StateRegionExistsInCountryAsync(int locationStateRegionId, int locationCountryId, CancellationToken ct = default);
-
-    Task<int?> GetCountryIdForStateRegionAsync(int locationStateRegionId, CancellationToken ct = default);
 
     Task<bool> CityExistsInStateRegionAsync(int locationCityId, int locationStateRegionId, CancellationToken ct = default);
 

@@ -1,5 +1,7 @@
 SET NOCOUNT ON;
-INSERT INTO IanaTimeZones (IanaIdentifier, DisplayName) VALUES
+INSERT INTO dbo.IanaTimeZones (IanaIdentifier, DisplayName)
+SELECT v.IanaIdentifier, v.DisplayName
+FROM (VALUES
 (N'Africa/Abidjan', N'Greenwich Mean Time (Abidjan)'),
 (N'Africa/Cairo', N'Eastern European Time (Cairo)'),
 (N'Africa/Johannesburg', N'South Africa Standard Time'),
@@ -56,4 +58,6 @@ INSERT INTO IanaTimeZones (IanaIdentifier, DisplayName) VALUES
 (N'Pacific/Auckland', N'New Zealand Time'),
 (N'Pacific/Fiji', N'Fiji Time'),
 (N'Pacific/Honolulu', N'Hawaii-Aleutian Time'),
-(N'UTC', N'Coordinated Universal Time (UTC)');
+(N'UTC', N'Coordinated Universal Time (UTC)')
+) AS v(IanaIdentifier, DisplayName)
+WHERE NOT EXISTS (SELECT 1 FROM dbo.IanaTimeZones t WHERE t.IanaIdentifier = v.IanaIdentifier);

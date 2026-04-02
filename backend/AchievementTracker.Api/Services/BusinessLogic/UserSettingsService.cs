@@ -7,6 +7,7 @@ using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Entities;
 using AchievementTracker.Data.Enums;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -14,6 +15,7 @@ namespace AchievementTracker.Api.Services.BusinessLogic;
 
 public sealed class UserSettingsService(
     IUserSettingsRepository userSettingsRepository,
+    ILookupRepository lookupRepository,
     IOptions<SocialOptions> socialOptions,
     IOptions<UserSettingsOptions> userSettingsOptions)
     : IUserSettingsService
@@ -33,18 +35,41 @@ public sealed class UserSettingsService(
     private const string ErrTimeZoneUnknown = "The selected time zone is not valid.";
     private const string ErrPronounUnknown = "The selected pronouns option is not valid.";
     private const string ErrSocialPlatformUnknown = "Social platform is not valid.";
+    private const string ErrSaveGeneric = "Could not save settings. Please try again.";
+    private const string ErrUniqueConflict = "This update conflicts with existing data.";
+    private const string ErrFkOrReference = "The selected reference data is not valid or no longer exists.";
 
     private static readonly Regex s_identifierChars = new(
-        @"^[\w.@#+\-]+$",
+        @"^[a-zA-Z0-9_.@#+\-]+$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private readonly IUserSettingsRepository _repo = userSettingsRepository;
+    private readonly ILookupRepository _lookups = lookupRepository;
     private readonly SocialOptions _social = socialOptions.Value;
     private readonly UserSettingsOptions _settings = userSettingsOptions.Value;
 
-    public Task<UserSettingsResponseDto?> GetSettingsAsync(int appUserId, CancellationToken ct = default)
+    public async Task<UserSettingsResponseDto?> GetSettingsAsync(int appUserId, CancellationToken ct = default)
     {
-        return _repo.GetSettingsAsync(appUserId, ct);
+        var values = await _repo.GetUserSettingsValuesAsync(appUserId, ct);
+        if (values is null)
+            return null;
+
+        var countriesTask = _lookups.GetCountriesAsync(ct);
+        var timeZonesTask = _lookups.GetIanaTimeZonesAsync(ct);
+        var pronounsTask = _lookups.GetPronounOptionsAsync(ct);
+        await Task.WhenAll(countriesTask, timeZonesTask, pronounsTask);
+
+        return new UserSettingsResponseDto(
+            values.DisplayName,
+            values.Handle,
+            values.Bio,
+            values.Location,
+            values.TimeZone,
+            values.Pronouns,
+            values.SocialLinks,
+            await countriesTask,
+            await timeZonesTask,
+            await pronounsTask);
     }
 
     public async Task<UpdateUserSettingsResult> UpdateSettingsAsync(
@@ -54,14 +79,14 @@ public sealed class UserSettingsService(
     {
         var user = await _repo.GetTrackedUserForSettingsUpdateAsync(appUserId, ct);
         if (user == null)
-            return UpdateUserSettingsResult.Failed("User was not found.");
+            return UpdateUserSettingsResult.NotFound("User was not found.");
 
         if (request.DisplayName != null)
         {
             string trimmed = request.DisplayName.Trim();
             if (trimmed.Length > _social.MaxDisplayNameLength)
             {
-                return UpdateUserSettingsResult.Failed(
+                return UpdateUserSettingsResult.ValidationFailed(
                     string.Format(ErrDisplayNameTooLongFormat, _social.MaxDisplayNameLength));
             }
 
@@ -78,15 +103,15 @@ public sealed class UserSettingsService(
             {
                 if (normalized.Length > _social.MaxHandleLength)
                 {
-                    return UpdateUserSettingsResult.Failed(
+                    return UpdateUserSettingsResult.ValidationFailed(
                         string.Format(ErrHandleTooLongFormat, _social.MaxHandleLength));
                 }
 
                 if (!IsValidHandle(normalized, _social.MaxHandleLength))
-                    return UpdateUserSettingsResult.Failed(ErrHandleInvalid);
+                    return UpdateUserSettingsResult.ValidationFailed(ErrHandleInvalid);
 
                 if (await _repo.HandleExistsAsync(normalized, appUserId, ct))
-                    return UpdateUserSettingsResult.Failed(ErrHandleInUse);
+                    return UpdateUserSettingsResult.Conflict(ErrHandleInUse);
             }
 
             if (!string.Equals(user.Handle, normalized, StringComparison.Ordinal))
@@ -98,7 +123,7 @@ public sealed class UserSettingsService(
             string trimmed = request.Bio.Trim();
             if (trimmed.Length > _settings.MaxBioLength)
             {
-                return UpdateUserSettingsResult.Failed(
+                return UpdateUserSettingsResult.ValidationFailed(
                     string.Format(ErrBioTooLongFormat, _settings.MaxBioLength));
             }
 
@@ -132,7 +157,7 @@ public sealed class UserSettingsService(
         {
             int tzId = request.IanaTimeZoneId.Value;
             if (!await _repo.IanaTimeZoneExistsAsync(tzId, ct))
-                return UpdateUserSettingsResult.Failed(ErrTimeZoneUnknown);
+                return UpdateUserSettingsResult.ValidationFailed(ErrTimeZoneUnknown);
 
             if (user.IanaTimeZoneId != tzId)
                 user.IanaTimeZoneId = tzId;
@@ -147,7 +172,7 @@ public sealed class UserSettingsService(
         {
             int pId = request.PronounOptionId.Value;
             if (!await _repo.PronounOptionExistsAsync(pId, ct))
-                return UpdateUserSettingsResult.Failed(ErrPronounUnknown);
+                return UpdateUserSettingsResult.ValidationFailed(ErrPronounUnknown);
 
             if (user.PronounOptionId != pId)
                 user.PronounOptionId = pId;
@@ -164,12 +189,34 @@ public sealed class UserSettingsService(
         {
             await _repo.SaveChangesAsync(ct);
         }
-        catch (DbUpdateException)
+        catch (DbUpdateException ex)
         {
-            return UpdateUserSettingsResult.Failed(ErrHandleInUse);
+            return MapDbUpdateException(ex);
         }
 
         return UpdateUserSettingsResult.Ok();
+    }
+
+    private static UpdateUserSettingsResult MapDbUpdateException(DbUpdateException ex)
+    {
+        if (ex.InnerException is SqlException sql)
+        {
+            foreach (SqlError err in sql.Errors)
+            {
+                if (err.Number is 2601 or 2627)
+                {
+                    if (err.Message.Contains("IX_AppUsers_Handle", StringComparison.OrdinalIgnoreCase))
+                        return UpdateUserSettingsResult.Conflict(ErrHandleInUse);
+
+                    return UpdateUserSettingsResult.ValidationFailed(ErrUniqueConflict);
+                }
+
+                if (err.Number == 547)
+                    return UpdateUserSettingsResult.ValidationFailed(ErrFkOrReference);
+            }
+        }
+
+        return UpdateUserSettingsResult.ValidationFailed(ErrSaveGeneric);
     }
 
     private async Task<UpdateUserSettingsResult?> TryApplyLocationAsync(
@@ -182,10 +229,10 @@ public sealed class UserSettingsService(
         int? cityId = loc.CityId;
 
         if (cityId.HasValue && !sId.HasValue)
-            return UpdateUserSettingsResult.Failed(ErrLocationHierarchy);
+            return UpdateUserSettingsResult.ValidationFailed(ErrLocationHierarchy);
 
         if (sId.HasValue && !cId.HasValue)
-            return UpdateUserSettingsResult.Failed(ErrLocationHierarchy);
+            return UpdateUserSettingsResult.ValidationFailed(ErrLocationHierarchy);
 
         if (!cId.HasValue && !sId.HasValue && !cityId.HasValue)
         {
@@ -200,24 +247,24 @@ public sealed class UserSettingsService(
         }
 
         if (cId.HasValue && !await _repo.CountryExistsAsync(cId.Value, ct))
-            return UpdateUserSettingsResult.Failed(ErrLocationUnknown);
+            return UpdateUserSettingsResult.ValidationFailed(ErrLocationUnknown);
 
         if (sId.HasValue)
         {
             if (!cId.HasValue)
-                return UpdateUserSettingsResult.Failed(ErrLocationHierarchy);
+                return UpdateUserSettingsResult.ValidationFailed(ErrLocationHierarchy);
 
             if (!await _repo.StateRegionExistsInCountryAsync(sId.Value, cId.Value, ct))
-                return UpdateUserSettingsResult.Failed(ErrLocationUnknown);
+                return UpdateUserSettingsResult.ValidationFailed(ErrLocationUnknown);
         }
 
         if (cityId.HasValue)
         {
             if (!sId.HasValue)
-                return UpdateUserSettingsResult.Failed(ErrLocationHierarchy);
+                return UpdateUserSettingsResult.ValidationFailed(ErrLocationHierarchy);
 
             if (!await _repo.CityExistsInStateRegionAsync(cityId.Value, sId.Value, ct))
-                return UpdateUserSettingsResult.Failed(ErrLocationUnknown);
+                return UpdateUserSettingsResult.ValidationFailed(ErrLocationUnknown);
         }
 
         int? newCountry = null;
@@ -227,10 +274,13 @@ public sealed class UserSettingsService(
         if (cityId.HasValue)
         {
             newCity = cityId;
+            newState = sId;
+            newCountry = cId;
         }
         else if (sId.HasValue)
         {
             newState = sId;
+            newCountry = cId;
         }
         else if (cId.HasValue)
         {
@@ -258,23 +308,23 @@ public sealed class UserSettingsService(
         foreach (var item in links)
         {
             if (!seen.Add(item.Platform))
-                return UpdateUserSettingsResult.Failed(ErrSocialDuplicatePlatform);
+                return UpdateUserSettingsResult.ValidationFailed(ErrSocialDuplicatePlatform);
 
             if (!Enum.IsDefined(item.Platform))
-                return UpdateUserSettingsResult.Failed(ErrSocialPlatformUnknown);
+                return UpdateUserSettingsResult.ValidationFailed(ErrSocialPlatformUnknown);
 
             string trimmed = item.LinkValue?.Trim() ?? string.Empty;
             if (trimmed.Length == 0)
-                return UpdateUserSettingsResult.Failed(ErrSocialLinkInvalid);
+                return UpdateUserSettingsResult.ValidationFailed(ErrSocialLinkInvalid);
 
             if (trimmed.Length > settings.MaxSocialLinkValueLength)
             {
-                return UpdateUserSettingsResult.Failed(
+                return UpdateUserSettingsResult.ValidationFailed(
                     string.Format(ErrSocialLinkTooLongFormat, settings.MaxSocialLinkValueLength));
             }
 
             if (!IsValidSocialLinkValue(trimmed))
-                return UpdateUserSettingsResult.Failed(ErrSocialLinkInvalid);
+                return UpdateUserSettingsResult.ValidationFailed(ErrSocialLinkInvalid);
         }
 
         var requestedPlatforms = links.Select(l => l.Platform).ToHashSet();

@@ -60,13 +60,26 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
         ProfileAppUserDto? appUser = null;
         if (await reader.ReadAsync(ct))
         {
+            int ordHandle = reader.GetOrdinal("Handle");
+            int ordDisplayName = reader.GetOrdinal("DisplayName");
+            int ordBio = reader.GetOrdinal("Bio");
+            int ordPronouns = reader.GetOrdinal("Pronouns");
+            int ordLocCountryId = reader.GetOrdinal("LocationCountryId");
+            int ordCountryName = reader.GetOrdinal("CountryName");
+            int ordLocStateId = reader.GetOrdinal("LocationStateRegionId");
+            int ordStateName = reader.GetOrdinal("StateName");
+            int ordLocCityId = reader.GetOrdinal("LocationCityId");
+            int ordCityName = reader.GetOrdinal("CityName");
+            int ordTz = reader.GetOrdinal("TimeZoneDisplayName");
+            int ordJoin = reader.GetOrdinal("JoinDate");
+
             ProfileUserLocationDto? location = null;
-            int? countryId = reader.IsDBNull(4) ? null : reader.GetInt32(4);
-            string? countryName = reader.IsDBNull(5) ? null : reader.GetString(5);
-            int? stateId = reader.IsDBNull(6) ? null : reader.GetInt32(6);
-            string? stateName = reader.IsDBNull(7) ? null : reader.GetString(7);
-            int? cityId = reader.IsDBNull(8) ? null : reader.GetInt32(8);
-            string? cityName = reader.IsDBNull(9) ? null : reader.GetString(9);
+            int? countryId = reader.IsDBNull(ordLocCountryId) ? null : reader.GetInt32(ordLocCountryId);
+            string? countryName = reader.IsDBNull(ordCountryName) ? null : reader.GetString(ordCountryName);
+            int? stateId = reader.IsDBNull(ordLocStateId) ? null : reader.GetInt32(ordLocStateId);
+            string? stateName = reader.IsDBNull(ordStateName) ? null : reader.GetString(ordStateName);
+            int? cityId = reader.IsDBNull(ordLocCityId) ? null : reader.GetInt32(ordLocCityId);
+            string? cityName = reader.IsDBNull(ordCityName) ? null : reader.GetString(ordCityName);
             if (countryId.HasValue || stateId.HasValue || cityId.HasValue
                 || !string.IsNullOrEmpty(countryName) || !string.IsNullOrEmpty(stateName) || !string.IsNullOrEmpty(cityName))
             {
@@ -80,24 +93,26 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
             }
 
             appUser = new ProfileAppUserDto(
-                reader.IsDBNull(0) ? null : reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetString(1),
-                reader.IsDBNull(2) ? null : reader.GetString(2),
-                reader.IsDBNull(3) ? null : reader.GetString(3),
+                reader.IsDBNull(ordHandle) ? null : reader.GetString(ordHandle),
+                reader.IsDBNull(ordDisplayName) ? null : reader.GetString(ordDisplayName),
+                reader.IsDBNull(ordBio) ? null : reader.GetString(ordBio),
+                reader.IsDBNull(ordPronouns) ? null : reader.GetString(ordPronouns),
                 location,
-                reader.IsDBNull(10) ? null : reader.GetString(10),
-                reader.IsDBNull(11) ? null : reader.GetDateTime(11));
+                reader.IsDBNull(ordTz) ? null : reader.GetString(ordTz),
+                reader.IsDBNull(ordJoin) ? null : reader.GetDateTime(ordJoin));
         }
 
         var visibleSocialLinks = new List<ProfileSocialLinkItemDto>();
         if (await reader.NextResultAsync(ct))
         {
+            int ordPlatform = reader.GetOrdinal("Platform");
+            int ordLinkValue = reader.GetOrdinal("LinkValue");
             while (await reader.ReadAsync(ct))
             {
                 visibleSocialLinks.Add(
                     new ProfileSocialLinkItemDto(
-                        (eSocialPlatform)reader.GetInt32FromNumericColumn(0),
-                        reader.GetString(1)));
+                        (eSocialPlatform)reader.GetInt32FromNumericColumn(ordPlatform),
+                        reader.GetString(ordLinkValue)));
             }
         }
 

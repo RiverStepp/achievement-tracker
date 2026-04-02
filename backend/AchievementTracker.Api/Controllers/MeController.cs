@@ -51,7 +51,15 @@ public sealed class MeController(
                ct);
 
           if (!outcome.Success)
-               return BadRequest(new { error = outcome.ErrorMessage });
+          {
+               return outcome.FailureKind switch
+               {
+                    UpdateUserSettingsFailureKind.NotFound => NotFound(new { error = outcome.ErrorMessage }),
+                    UpdateUserSettingsFailureKind.Conflict =>
+                         Conflict(new { error = outcome.ErrorMessage }),
+                    _ => BadRequest(new { error = outcome.ErrorMessage }),
+               };
+          }
 
           return Ok();
      }

@@ -1,4 +1,5 @@
-﻿SET NOCOUNT ON;
+SET NOCOUNT ON;
+-- State/region and city seeds are limited to US, CA, AU, GB (capitals for cities). Other countries have country rows only.
 
 INSERT INTO LocationStateRegions (LocationCountryId, Code, Name)
 SELECT c.LocationCountryId, v.Code, v.Name
@@ -56,7 +57,8 @@ CROSS JOIN (VALUES
   (N'US-WI', N'Wisconsin'),
   (N'US-WY', N'Wyoming')
 ) v(Code, Name)
-WHERE c.IsoAlpha2 = N'US';
+WHERE c.IsoAlpha2 = N'US'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationStateRegions x WHERE x.LocationCountryId = c.LocationCountryId AND x.Code = v.Code);
 
 INSERT INTO LocationStateRegions (LocationCountryId, Code, Name)
 SELECT c.LocationCountryId, v.Code, v.Name
@@ -76,7 +78,8 @@ CROSS JOIN (VALUES
   (N'CA-SK', N'Saskatchewan'),
   (N'CA-YT', N'Yukon')
 ) v(Code, Name)
-WHERE c.IsoAlpha2 = N'CA';
+WHERE c.IsoAlpha2 = N'CA'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationStateRegions x WHERE x.LocationCountryId = c.LocationCountryId AND x.Code = v.Code);
 
 INSERT INTO LocationStateRegions (LocationCountryId, Code, Name)
 SELECT c.LocationCountryId, v.Code, v.Name
@@ -91,7 +94,8 @@ CROSS JOIN (VALUES
   (N'AU-ACT', N'Australian Capital Territory'),
   (N'AU-NT', N'Northern Territory')
 ) v(Code, Name)
-WHERE c.IsoAlpha2 = N'AU';
+WHERE c.IsoAlpha2 = N'AU'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationStateRegions x WHERE x.LocationCountryId = c.LocationCountryId AND x.Code = v.Code);
 
 INSERT INTO LocationStateRegions (LocationCountryId, Code, Name)
 SELECT c.LocationCountryId, v.Code, v.Name
@@ -102,4 +106,5 @@ CROSS JOIN (VALUES
   (N'GB-WLS', N'Wales'),
   (N'GB-NIR', N'Northern Ireland')
 ) v(Code, Name)
-WHERE c.IsoAlpha2 = N'GB';
+WHERE c.IsoAlpha2 = N'GB'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationStateRegions x WHERE x.LocationCountryId = c.LocationCountryId AND x.Code = v.Code);

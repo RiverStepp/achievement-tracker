@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AchievementTracker.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class SettingsFeature : Migration
+    public partial class FixAppUserLocationConstraintIfMissing : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -31,9 +31,10 @@ namespace AchievementTracker.Data.Migrations
                 INNER JOIN dbo.LocationStateRegions sr ON sr.LocationStateRegionId = u.LocationStateRegionId
                 WHERE u.LocationStateRegionId IS NOT NULL AND u.LocationCountryId IS NULL;
 
-                ALTER TABLE dbo.AppUsers ADD CONSTRAINT CK_AppUsers_UserLocationHierarchy CHECK (
-                    NOT (LocationCityId IS NOT NULL AND (LocationStateRegionId IS NULL OR LocationCountryId IS NULL))
-                    AND NOT (LocationStateRegionId IS NOT NULL AND LocationCountryId IS NULL));
+                IF NOT EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_AppUsers_UserLocationHierarchy' AND parent_object_id = OBJECT_ID(N'dbo.AppUsers'))
+                    ALTER TABLE dbo.AppUsers ADD CONSTRAINT CK_AppUsers_UserLocationHierarchy CHECK (
+                        NOT (LocationCityId IS NOT NULL AND (LocationStateRegionId IS NULL OR LocationCountryId IS NULL))
+                        AND NOT (LocationStateRegionId IS NOT NULL AND LocationCountryId IS NULL));
 
                 UPDATE dbo.LocationCountries SET Name = N'Côte d''Ivoire' WHERE IsoAlpha2 = N'CI';
                 UPDATE dbo.LocationCountries SET Name = N'Curaçao' WHERE IsoAlpha2 = N'CW';
@@ -48,23 +49,6 @@ namespace AchievementTracker.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.Sql(
-                """
-                IF EXISTS (SELECT 1 FROM sys.check_constraints WHERE name = N'CK_AppUsers_UserLocationHierarchy' AND parent_object_id = OBJECT_ID(N'dbo.AppUsers'))
-                    ALTER TABLE dbo.AppUsers DROP CONSTRAINT CK_AppUsers_UserLocationHierarchy;
-
-                UPDATE dbo.AppUsers SET LocationCountryId = NULL, LocationStateRegionId = NULL WHERE LocationCityId IS NOT NULL;
-                UPDATE dbo.AppUsers SET LocationCountryId = NULL WHERE LocationStateRegionId IS NOT NULL AND LocationCityId IS NULL;
-
-                ALTER TABLE dbo.AppUsers ADD CONSTRAINT CK_AppUsers_UserLocationDepth CHECK (
-                (
-                    CASE WHEN LocationCityId IS NOT NULL THEN 1 ELSE 0 END +
-                    CASE WHEN LocationStateRegionId IS NOT NULL THEN 1 ELSE 0 END +
-                    CASE WHEN LocationCountryId IS NOT NULL THEN 1 ELSE 0 END
-                ) <= 1);
-                """);
-
-            migrationBuilder.Sql(GetUserProfileProcedureSql.Load());
         }
     }
 }

@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace AchievementTracker.Data.Migrations;
 
 internal static class GetUserProfileProcedureSql
@@ -17,7 +19,7 @@ internal static class GetUserProfileProcedureSql
         if (stream is null)
             throw new InvalidOperationException($"Could not open embedded resource '{name}'.");
 
-        using var reader = new StreamReader(stream);
+        using var reader = new StreamReader(stream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
         return reader.ReadToEnd();
     }
 }

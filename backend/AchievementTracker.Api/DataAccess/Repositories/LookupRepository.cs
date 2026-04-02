@@ -1,7 +1,6 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.Responses.Settings;
 using AchievementTracker.Data.Data;
-using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace AchievementTracker.Api.DataAccess.Repositories;
@@ -9,57 +8,6 @@ namespace AchievementTracker.Api.DataAccess.Repositories;
 public sealed class LookupRepository(AppDbContext db) : ILookupRepository
 {
     private readonly AppDbContext _db = db;
-
-    public async Task<LookupOptionsBatchDto> GetLookupOptionsBatchAsync(CancellationToken ct = default)
-    {
-        await _db.Database.OpenConnectionAsync(ct);
-        try
-        {
-            var connection = (SqlConnection)_db.Database.GetDbConnection();
-            await using var cmd = new SqlCommand(
-                """
-                SELECT LocationCountryId, IsoAlpha2, Name FROM dbo.LocationCountries ORDER BY Name;
-                SELECT IanaTimeZoneId, IanaIdentifier, DisplayName FROM dbo.IanaTimeZones ORDER BY DisplayName;
-                SELECT PronounOptionId, Code, DisplayLabel FROM dbo.PronounOptions ORDER BY Code;
-                """,
-                connection);
-
-            await using var reader = await cmd.ExecuteReaderAsync(ct);
-
-            var countries = new List<LocationCountryOptionDto>();
-            while (await reader.ReadAsync(ct))
-            {
-                countries.Add(
-                    new LocationCountryOptionDto(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
-            }
-
-            if (!await reader.NextResultAsync(ct))
-                throw new InvalidOperationException("Expected second result set for IANA time zones.");
-
-            var timeZones = new List<IanaTimeZoneOptionDto>();
-            while (await reader.ReadAsync(ct))
-            {
-                timeZones.Add(
-                    new IanaTimeZoneOptionDto(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
-            }
-
-            if (!await reader.NextResultAsync(ct))
-                throw new InvalidOperationException("Expected third result set for pronouns.");
-
-            var pronouns = new List<PronounOptionItemDto>();
-            while (await reader.ReadAsync(ct))
-            {
-                pronouns.Add(
-                    new PronounOptionItemDto(reader.GetInt32(0), reader.GetString(1), reader.GetString(2)));
-            }
-
-            return new LookupOptionsBatchDto(countries, timeZones, pronouns);
-        }
-        finally
-        {
-            await _db.Database.CloseConnectionAsync();
-        }
-    }
 
     public async Task<IReadOnlyList<LocationCountryOptionDto>> GetCountriesAsync(CancellationToken ct = default)
     {

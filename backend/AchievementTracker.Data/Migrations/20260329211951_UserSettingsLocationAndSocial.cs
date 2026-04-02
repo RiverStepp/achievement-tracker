@@ -223,13 +223,17 @@ namespace AchievementTracker.Data.Migrations
             migrationBuilder.Sql(EmbeddedSeedSql.Load("IanaTimeZones.sql"));
             migrationBuilder.Sql(
                 """
-                INSERT INTO PronounOptions (Code, DisplayLabel) VALUES
-                (N'he_him', N'He/Him'),
-                (N'she_her', N'She/Her'),
-                (N'they_them', N'They/Them'),
-                (N'other', N'Other'),
-                (N'prefer_not_to_say', N'Prefer not to say'),
-                (N'ask_me', N'Ask me my pronouns');
+                INSERT INTO dbo.PronounOptions (Code, DisplayLabel)
+                SELECT v.Code, v.DisplayLabel
+                FROM (VALUES
+                    (N'he_him', N'He/Him'),
+                    (N'she_her', N'She/Her'),
+                    (N'they_them', N'They/Them'),
+                    (N'other', N'Other'),
+                    (N'prefer_not_to_say', N'Prefer not to say'),
+                    (N'ask_me', N'Ask me my pronouns')
+                ) AS v(Code, DisplayLabel)
+                WHERE NOT EXISTS (SELECT 1 FROM dbo.PronounOptions p WHERE p.Code = v.Code);
                 """);
 
             migrationBuilder.AddForeignKey(

@@ -57,7 +57,8 @@ CROSS JOIN (VALUES
   (N'US-WV', N'Charleston'),
   (N'US-WY', N'Cheyenne')
 ) v(Code, City)
-WHERE s.Code = v.Code AND c.IsoAlpha2 = N'US';
+WHERE s.Code = v.Code AND c.IsoAlpha2 = N'US'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationCities x WHERE x.LocationStateRegionId = s.LocationStateRegionId AND x.Name = v.City);
 
 INSERT INTO LocationCities (LocationStateRegionId, Name)
 SELECT s.LocationStateRegionId, v.City
@@ -78,7 +79,8 @@ CROSS JOIN (VALUES
   (N'CA-SK', N'Regina'),
   (N'CA-YT', N'Whitehorse')
 ) v(Code, City)
-WHERE s.Code = v.Code AND c.IsoAlpha2 = N'CA';
+WHERE s.Code = v.Code AND c.IsoAlpha2 = N'CA'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationCities x WHERE x.LocationStateRegionId = s.LocationStateRegionId AND x.Name = v.City);
 
 INSERT INTO LocationCities (LocationStateRegionId, Name)
 SELECT s.LocationStateRegionId, v.City
@@ -94,7 +96,8 @@ CROSS JOIN (VALUES
   (N'AU-VIC', N'Melbourne'),
   (N'AU-WA', N'Perth')
 ) v(Code, City)
-WHERE s.Code = v.Code AND c.IsoAlpha2 = N'AU';
+WHERE s.Code = v.Code AND c.IsoAlpha2 = N'AU'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationCities x WHERE x.LocationStateRegionId = s.LocationStateRegionId AND x.Name = v.City);
 
 INSERT INTO LocationCities (LocationStateRegionId, Name)
 SELECT s.LocationStateRegionId, v.City
@@ -106,4 +109,5 @@ CROSS JOIN (VALUES
   (N'GB-SCT', N'Edinburgh'),
   (N'GB-WLS', N'Cardiff')
 ) v(Code, City)
-WHERE s.Code = v.Code AND c.IsoAlpha2 = N'GB';
+WHERE s.Code = v.Code AND c.IsoAlpha2 = N'GB'
+  AND NOT EXISTS (SELECT 1 FROM dbo.LocationCities x WHERE x.LocationStateRegionId = s.LocationStateRegionId AND x.Name = v.City);

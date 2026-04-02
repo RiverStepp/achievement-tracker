@@ -6,7 +6,7 @@ namespace AchievementTracker.Api.Controllers;
 
 [ApiController]
 [Route("settings/lookup")]
-[AllowAnonymous]
+[Authorize]
 public sealed class SettingsLookupController(ILookupRepository lookupRepository) : ControllerBase
 {
     private readonly ILookupRepository _lookupRepository = lookupRepository;

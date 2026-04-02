@@ -6,13 +6,11 @@ using Microsoft.EntityFrameworkCore;
 
 namespace AchievementTracker.Api.DataAccess.Repositories;
 
-public sealed class UserSettingsRepository(AppDbContext db, ILookupRepository lookupRepository)
-    : IUserSettingsRepository
+public sealed class UserSettingsRepository(AppDbContext db) : IUserSettingsRepository
 {
     private readonly AppDbContext _db = db;
-    private readonly ILookupRepository _lookupRepository = lookupRepository;
 
-    public async Task<UserSettingsResponseDto?> GetSettingsAsync(int appUserId, CancellationToken ct = default)
+    public async Task<UserSettingsValuesDto?> GetUserSettingsValuesAsync(int appUserId, CancellationToken ct = default)
     {
         var u = await _db.AppUsers
             .AsNoTracking()
@@ -30,8 +28,6 @@ public sealed class UserSettingsRepository(AppDbContext db, ILookupRepository lo
 
         if (u == null)
             return null;
-
-        var lookupBatch = await _lookupRepository.GetLookupOptionsBatchAsync(ct);
 
         UserSettingsLocationResponseDto? location = null;
         if (u.LocationCityId.HasValue && u.LocationCity != null)
@@ -88,17 +84,14 @@ public sealed class UserSettingsRepository(AppDbContext db, ILookupRepository lo
             .Select(s => new UserSettingsSocialLinkResponseDto(s.Platform, s.LinkValue, s.IsVisible))
             .ToList();
 
-        return new UserSettingsResponseDto(
+        return new UserSettingsValuesDto(
             u.DisplayName,
             u.Handle,
             u.Bio,
             location,
             tz,
             pronouns,
-            links,
-            lookupBatch.Countries,
-            lookupBatch.IanaTimeZones,
-            lookupBatch.PronounOptions);
+            links);
     }
 
     public Task<AppUser?> GetTrackedUserForSettingsUpdateAsync(int appUserId, CancellationToken ct = default)
@@ -123,15 +116,6 @@ public sealed class UserSettingsRepository(AppDbContext db, ILookupRepository lo
             .AnyAsync(
                 s => s.LocationStateRegionId == locationStateRegionId && s.LocationCountryId == locationCountryId,
                 ct);
-    }
-
-    public Task<int?> GetCountryIdForStateRegionAsync(int locationStateRegionId, CancellationToken ct = default)
-    {
-        return _db.LocationStateRegions
-            .AsNoTracking()
-            .Where(s => s.LocationStateRegionId == locationStateRegionId)
-            .Select(s => (int?)s.LocationCountryId)
-            .SingleOrDefaultAsync(ct);
     }
 
     public Task<bool> CityExistsInStateRegionAsync(

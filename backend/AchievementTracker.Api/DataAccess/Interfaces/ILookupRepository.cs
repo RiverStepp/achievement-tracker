@@ -4,8 +4,6 @@ namespace AchievementTracker.Api.DataAccess.Interfaces;
 
 public interface ILookupRepository
 {
-    Task<LookupOptionsBatchDto> GetLookupOptionsBatchAsync(CancellationToken ct = default);
-
     Task<IReadOnlyList<LocationCountryOptionDto>> GetCountriesAsync(CancellationToken ct = default);
 
     Task<IReadOnlyList<LocationStateRegionOptionDto>> GetStateRegionsByCountryIdAsync(
