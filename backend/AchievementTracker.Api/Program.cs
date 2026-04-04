@@ -8,6 +8,7 @@ using AchievementTracker.Data.Extensions;
 using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -32,20 +33,40 @@ builder.Configuration.GetSection("Jwt").Bind(jwtSettings);
 AuthSettings authSettings = new AuthSettings();
 builder.Configuration.GetSection("Auth").Bind(authSettings);
 
-FrontendSettings frontendSettings = new FrontendSettings();
-builder.Configuration.GetSection("Frontend").Bind(frontendSettings);
-
 CorsSettings corsSettings = new CorsSettings();
 builder.Configuration.GetSection("Cors").Bind(corsSettings);
 
 string jwtSigningKeyValue = builder.Configuration["Jwt:SigningKey"]!;
-SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSigningKeyValue));
+SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(
+     Encoding.UTF8.GetBytes(jwtSigningKeyValue));
 
 builder.Services.AddSingleton(jwtSettings);
 builder.Services.AddSingleton(authSettings);
-builder.Services.AddSingleton(frontendSettings);
 builder.Services.AddSingleton(corsSettings);
 builder.Services.AddSingleton(jwtSigningKey);
+
+builder.Services
+     .AddOptions<SocialOptions>()
+     .BindConfiguration("Social")
+     .Validate(
+          o => o.DefaultFeedPageSize > 0 && o.DefaultFeedPageSize <= o.MaxFeedPageSize,
+          "Social: DefaultFeedPageSize must be > 0 and <= MaxFeedPageSize.")
+     .Validate(o => o.MaxFeedPageSize > 0, "Social: MaxFeedPageSize must be > 0.")
+     .Validate(o => o.MaxRefreshIntervalSeconds > 0, "Social: MaxRefreshIntervalSeconds must be > 0.")
+     .Validate(o => o.MaxAttachmentCount > 0, "Social: MaxAttachmentCount must be > 0.")
+     .Validate(o => o.MaxHandleLength > 0, "Social: MaxHandleLength must be > 0.")
+     .Validate(o => o.MaxDisplayNameLength > 0, "Social: MaxDisplayNameLength must be > 0.")
+     .Validate(o => o.MaxContentLength > 0, "Social: MaxContentLength must be > 0.")
+     .Validate(o => o.MaxAttachmentUrlLength > 0, "Social: MaxAttachmentUrlLength must be > 0.")
+     .Validate(
+          o => o.DefaultCommentsPageSize > 0 && o.DefaultCommentsPageSize <= o.MaxCommentsPageSize,
+          "Social: DefaultCommentsPageSize must be > 0 and <= MaxCommentsPageSize.")
+     .Validate(o => o.MaxCommentsPageSize > 0, "Social: MaxCommentsPageSize must be > 0.")
+     .Validate(o => o.Upload.MaxImageBytes > 0, "Social:Upload:MaxImageBytes must be > 0.")
+     .Validate(
+          o => o.Upload.AllowedImageMimeTypes is { Length: > 0 },
+          "Social:Upload:AllowedImageMimeTypes must not be empty.")
+     .ValidateOnStart();
 
 builder.Services.AddCors(options =>
 {
@@ -98,12 +119,26 @@ builder.Services.AddScoped<IAuthBusinessLogic, AuthBusinessLogic>();
 builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
+builder.Services.AddSingleton<IProfileGatheringScriptRunner, ProfileGatheringScriptRunner>();
+
+builder.Services
+     .AddOptions<ProfileGatheringScriptOptions>()
+     .BindConfiguration(ProfileGatheringScriptOptions.SectionName)
+     .Validate(o => o.ProcessTimeoutMinutes > 0, "ProfileGatheringScript: ProcessTimeoutMinutes must be > 0.")
+     .ValidateOnStart();
+
 builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
 {
+     options.MapType<IFormFile>(() => new OpenApiSchema
+     {
+          Type = "string",
+          Format = "binary"
+     });
+
      string securitySchemeId = JwtBearerDefaults.AuthenticationScheme;
 
      OpenApiSecurityScheme bearer = new OpenApiSecurityScheme
@@ -140,10 +175,30 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<IMeService, MeService>();
+builder.Services.AddScoped<ISocialRepository, SocialRepository>();
+builder.Services.AddScoped<ISocialAttachmentStorageService, SocialAttachmentStorageService>();
+builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IUserPinnedAchievementRepository, UserPinnedAchievementRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddOptions<ProfileOptions>()
     .BindConfiguration("Profile")
+    .Validate(
+        o => o.GamesPageSize > 0,
+        "Profile: GamesPageSize must be > 0.")
+    .Validate(
+        o => o.AchievementsPageSize > 0,
+        "Profile: AchievementsPageSize must be > 0.")
+    .Validate(
+        o => o.AchievementsByPointsPageSize > 0,
+        "Profile: AchievementsByPointsPageSize must be > 0.")
+    .Validate(
+        o => o.LatestActivityPageSize > 0 && o.LatestActivityPageSize <= o.MaxLatestActivityPageSize,
+        "Profile: LatestActivityPageSize must be > 0 and <= MaxLatestActivityPageSize.")
+    .Validate(o => o.MaxLatestActivityPageSize > 0, "Profile: MaxLatestActivityPageSize must be > 0.")
+    .Validate(o => o.MaxPinnedAchievements > 0, "Profile: MaxPinnedAchievements must be > 0.")
+    .Validate(o => o.PinnedAchievementDisplayOrderStep > 0, "Profile: PinnedAchievementDisplayOrderStep must be > 0.")
     .ValidateOnStart();
 
 // Redis

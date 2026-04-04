@@ -35,6 +35,14 @@ namespace AchievementTracker.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("SYSUTCDATETIME()");
 
+                    b.Property<string>("DisplayName")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Handle")
+                        .HasMaxLength(15)
+                        .HasColumnType("nvarchar(15)");
+
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -58,10 +66,54 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasKey("AppUserId");
 
+                    b.HasIndex("Handle")
+                        .IsUnique()
+                        .HasFilter("[Handle] IS NOT NULL");
+
                     b.HasIndex("PublicId")
                         .IsUnique();
 
-                    b.ToTable("AppUsers");
+                    b.ToTable("AppUsers", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.AppUserPinnedAchievement", b =>
+                {
+                    b.Property<int>("AppUserPinnedAchievementId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AppUserPinnedAchievementId"));
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<byte>("PlatformId")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("SteamAchievementId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("AppUserPinnedAchievementId");
+
+                    b.HasIndex("SteamAchievementId");
+
+                    b.HasIndex("AppUserId", "PlatformId", "SteamAchievementId")
+                        .IsUnique()
+                        .HasFilter("[IsActive] = 1");
+
+                    b.ToTable("AppUserPinnedAchievements", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
@@ -98,7 +150,163 @@ namespace AchievementTracker.Data.Migrations
                     b.HasIndex("Name")
                         .IsUnique();
 
-                    b.ToTable("Roles");
+                    b.ToTable("Roles", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
+                {
+                    b.Property<int>("SocialPostId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SocialPostId"));
+
+                    b.Property<int>("AuthorAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Content")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("PublicId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SocialPostId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("CreateDate", "SocialPostId");
+
+                    b.HasIndex("AuthorAppUserId", "CreateDate", "SocialPostId");
+
+                    b.ToTable("SocialPosts", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostAttachment", b =>
+                {
+                    b.Property<int>("SocialPostAttachmentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SocialPostAttachmentId"));
+
+                    b.Property<short>("AttachmentType")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<short>("DisplayOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("smallint")
+                        .HasDefaultValue((short)100);
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SocialPostId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("SocialPostAttachmentId");
+
+                    b.HasIndex("SocialPostId", "DisplayOrder")
+                        .IsUnique();
+
+                    b.ToTable("SocialPostAttachments", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostComment", b =>
+                {
+                    b.Property<int>("SocialPostCommentId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("SocialPostCommentId"));
+
+                    b.Property<int>("AuthorAppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime>("CreateDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("ParentCommentId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PublicId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier")
+                        .HasDefaultValueSql("NEWSEQUENTIALID()");
+
+                    b.Property<int>("SocialPostId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdateDate")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("SocialPostCommentId");
+
+                    b.HasIndex("AuthorAppUserId");
+
+                    b.HasIndex("ParentCommentId");
+
+                    b.HasIndex("PublicId")
+                        .IsUnique();
+
+                    b.HasIndex("SocialPostId", "CreateDate", "SocialPostCommentId");
+
+                    b.ToTable("SocialPostComments", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostReaction", b =>
+                {
+                    b.Property<int>("SocialPostId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("AppUserId")
+                        .HasColumnType("int");
+
+                    b.Property<short>("ReactionType")
+                        .HasColumnType("smallint");
+
+                    b.HasKey("SocialPostId", "AppUserId");
+
+                    b.HasIndex("AppUserId");
+
+                    b.HasIndex("SocialPostId");
+
+                    b.ToTable("SocialPostReactions", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>
@@ -892,7 +1100,7 @@ namespace AchievementTracker.Data.Migrations
 
                     b.HasIndex("RoleId");
 
-                    b.ToTable("UserRoles");
+                    b.ToTable("UserRoles", (string)null);
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.UserSteamProfile", b =>
@@ -956,6 +1164,92 @@ namespace AchievementTracker.Data.Migrations
                         .HasFilter("[UserExternalLoginId] IS NOT NULL");
 
                     b.ToTable("UserSteamProfiles", (string)null);
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.AppUserPinnedAchievement", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithMany("PinnedAchievements")
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SteamAchievement", "SteamAchievement")
+                        .WithMany()
+                        .HasForeignKey("SteamAchievementId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("SteamAchievement");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithMany("SocialPosts")
+                        .HasForeignKey("AuthorAppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostAttachment", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.SocialPost", "Post")
+                        .WithMany("Attachments")
+                        .HasForeignKey("SocialPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostComment", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AuthorAppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SocialPostComment", "ParentComment")
+                        .WithMany("Replies")
+                        .HasForeignKey("ParentCommentId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("AchievementTracker.Data.Entities.SocialPost", "Post")
+                        .WithMany("Comments")
+                        .HasForeignKey("SocialPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("ParentComment");
+
+                    b.Navigation("Post");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostReaction", b =>
+                {
+                    b.HasOne("AchievementTracker.Data.Entities.AppUser", "AppUser")
+                        .WithMany()
+                        .HasForeignKey("AppUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("AchievementTracker.Data.Entities.SocialPost", "Post")
+                        .WithMany("Reactions")
+                        .HasForeignKey("SocialPostId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AppUser");
+
+                    b.Navigation("Post");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>
@@ -1209,12 +1503,30 @@ namespace AchievementTracker.Data.Migrations
                 {
                     b.Navigation("ExternalLogins");
 
+                    b.Navigation("PinnedAchievements");
+
+                    b.Navigation("SocialPosts");
+
                     b.Navigation("UserRoles");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.Role", b =>
                 {
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPost", b =>
+                {
+                    b.Navigation("Attachments");
+
+                    b.Navigation("Comments");
+
+                    b.Navigation("Reactions");
+                });
+
+            modelBuilder.Entity("AchievementTracker.Data.Entities.SocialPostComment", b =>
+                {
+                    b.Navigation("Replies");
                 });
 
             modelBuilder.Entity("AchievementTracker.Data.Entities.SteamAchievement", b =>

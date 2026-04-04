@@ -13,13 +13,11 @@ namespace AchievementTracker.Controllers;
 public class AuthController : ControllerBase
 {
      private readonly AuthSettings authSettings;
-     private readonly FrontendSettings frontendSettings;
      private readonly IAuthService authService;
 
-     public AuthController(AuthSettings authSettings, FrontendSettings frontendSettings, IAuthService authService)
+     public AuthController(AuthSettings authSettings, IAuthService authService)
      {
           this.authSettings = authSettings;
-          this.frontendSettings = frontendSettings;
           this.authService = authService;
      }
 
@@ -53,14 +51,7 @@ public class AuthController : ControllerBase
           AuthTokenResponse? response = await authService.IssueTokensAsync(HttpContext, steamId);
           if (response == null) return Unauthorized();
 
-          string frontendBaseUrl = frontendSettings.BaseUrl.TrimEnd('/');
-          if (string.IsNullOrWhiteSpace(frontendBaseUrl))
-          {
-               return StatusCode(StatusCodes.Status500InternalServerError, "Frontend:BaseUrl is not configured.");
-          }
-
-          string callbackUrl = $"{frontendBaseUrl}/auth/callback?token={Uri.EscapeDataString(response.Token)}";
-          return Redirect(callbackUrl);
+          return Ok(response);
      }
 
      [HttpPost("refresh")]

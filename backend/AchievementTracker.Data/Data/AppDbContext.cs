@@ -8,8 +8,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
      #region DbSet 
      // Please keep these alphabetical :)
+     public DbSet<AppUserPinnedAchievement> AppUserPinnedAchievements => Set<AppUserPinnedAchievement>();
      public DbSet<AppUser> AppUsers => Set<AppUser>();
      public DbSet<Role> Roles => Set<Role>();
+     public DbSet<SocialPostAttachment> SocialPostAttachments => Set<SocialPostAttachment>();
+     public DbSet<SocialPostComment> SocialPostComments => Set<SocialPostComment>();
+     public DbSet<SocialPostReaction> SocialPostReactions => Set<SocialPostReaction>();
+     public DbSet<SocialPost> SocialPosts => Set<SocialPost>();
+
      public DbSet<SteamAchievement> SteamAchievements => Set<SteamAchievement>();
      public DbSet<SteamAchievementStat> SteamAchievementStats => Set<SteamAchievementStat>();
      public DbSet<SteamCategory> SteamCategories => Set<SteamCategory>();

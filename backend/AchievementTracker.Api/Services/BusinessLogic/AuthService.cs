@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Entities;
@@ -18,7 +18,8 @@ public sealed class AuthService(
      IRefreshTokenStore refreshTokenStore,
      IAuthBusinessLogic authBusinessLogic,
      ISteamClient steamClient,
-     IAppUserRepository appUserRepository
+     IAppUserRepository appUserRepository,
+     IProfileGatheringScriptRunner profileGatheringScriptRunner
 ): IAuthService
 {
      private readonly JwtSettings _jwtSettings = jwtSettings;
@@ -27,6 +28,7 @@ public sealed class AuthService(
      private readonly IAuthBusinessLogic _authBusinessLogic = authBusinessLogic;
      private readonly ISteamClient _steamClient = steamClient;
      private readonly IAppUserRepository _appUserRepository = appUserRepository;
+     private readonly IProfileGatheringScriptRunner _profileGatheringScriptRunner = profileGatheringScriptRunner;
 
      public async Task<AuthTokenResponse?> IssueTokensAsync(HttpContext httpContext, string steamId)
      {
@@ -41,19 +43,29 @@ public sealed class AuthService(
 
           SteamProfileDto? profile = await _steamClient.GetProfileAsync(steamId64, ct);
 
-          int appUserId = await _appUserRepository.UpsertSteamUserAsync(
+          var upsert = await _appUserRepository.UpsertSteamUserAsync(
                steamId64,
                canonicalSteamId,
                profile,
                ct
           );
 
+          if (upsert.IsNewUser)
+               _profileGatheringScriptRunner.ScheduleFirstTimeProfileGather(canonicalSteamId);
+
           await _refreshTokenStore.IssueAsync(httpContext, canonicalSteamId);
+
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(upsert.AppUserId, ct);
 
           return new AuthTokenResponse
           {
-               Token = MintAccessToken(canonicalSteamId, appUserId),
-               SteamId = canonicalSteamId
+               Token = MintAccessToken(canonicalSteamId, upsert.AppUserId),
+               SteamId = canonicalSteamId,
+               IsNewUser = upsert.IsNewUser,
+               AppUserPublicId = publicId,
+               Handle = handle,
+               DisplayName = displayName
           };
      }
 
@@ -69,10 +81,17 @@ public sealed class AuthService(
           if (appUserId == null)
                return null;
 
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(appUserId.Value, ct);
+
           return new AuthTokenResponse
           {
                Token = MintAccessToken(steamId, appUserId.Value),
-               SteamId = steamId
+               SteamId = steamId,
+               IsNewUser = false,
+               AppUserPublicId = publicId,
+               Handle = handle,
+               DisplayName = displayName
           };
      }
 

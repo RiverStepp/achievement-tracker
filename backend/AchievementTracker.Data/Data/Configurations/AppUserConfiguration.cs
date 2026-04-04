@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
@@ -16,6 +16,16 @@ public sealed class AppUserConfiguration: IEntityTypeConfiguration<AppUser>
 
           b.HasIndex(x => x.PublicId).IsUnique();
 
+          b.Property(x => x.Handle)
+              .HasMaxLength(15);
+
+          b.Property(x => x.DisplayName)
+              .HasMaxLength(20);
+
+          b.HasIndex(x => x.Handle)
+              .IsUnique()
+              .HasFilter("[Handle] IS NOT NULL");
+
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
           b.Property(x => x.UpdateDate).HasDefaultValueSql("SYSUTCDATETIME()");
@@ -29,5 +39,10 @@ public sealed class AppUserConfiguration: IEntityTypeConfiguration<AppUser>
               .WithOne(x => x.AppUser)
               .HasForeignKey(x => x.AppUserId)
               .OnDelete(DeleteBehavior.Cascade);
+
+          b.HasMany(x => x.SocialPosts)
+              .WithOne(x => x.AppUser)
+              .HasForeignKey(x => x.AuthorAppUserId)
+              .OnDelete(DeleteBehavior.Restrict);
      }
 }
