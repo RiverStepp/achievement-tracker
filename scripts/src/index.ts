@@ -3,10 +3,7 @@ import { SteamScraper } from './services/steamScraper';
 import { DataStorage } from './utils/dataStorage';
 import { ScrapingConfig } from './types';
 import { ScraperApiService } from './services/scraperApi';
-<<<<<<< HEAD
-=======
 import { loadSteamApiKey } from './config/configLoader';
->>>>>>> origin/main
 
 // Load environment variables
 dotenv.config();
