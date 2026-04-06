@@ -36,6 +36,9 @@ builder.Configuration.GetSection("Auth").Bind(authSettings);
 CorsSettings corsSettings = new CorsSettings();
 builder.Configuration.GetSection("Cors").Bind(corsSettings);
 
+FrontendSettings frontendSettings = new FrontendSettings();
+builder.Configuration.GetSection("Frontend").Bind(frontendSettings);
+
 string jwtSigningKeyValue = builder.Configuration["Jwt:SigningKey"]!;
 SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(
      Encoding.UTF8.GetBytes(jwtSigningKeyValue));
@@ -43,6 +46,7 @@ SymmetricSecurityKey jwtSigningKey = new SymmetricSecurityKey(
 builder.Services.AddSingleton(jwtSettings);
 builder.Services.AddSingleton(authSettings);
 builder.Services.AddSingleton(corsSettings);
+builder.Services.AddSingleton(frontendSettings);
 builder.Services.AddSingleton(jwtSigningKey);
 
 builder.Services

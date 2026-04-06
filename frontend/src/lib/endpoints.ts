@@ -7,6 +7,7 @@ export const endpoints = {
   },
   me: {
     get: "/me",
+    socialIdentity: "/me/social-identity",
   },
   steamWebApiProxy: {
     resolveVanityUrl: "/steam/proxy/ISteamUser/ResolveVanityURL/v0001",

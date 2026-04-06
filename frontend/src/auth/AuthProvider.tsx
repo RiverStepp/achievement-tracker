@@ -9,56 +9,24 @@ import {
 import { api, setAuthToken, setupApiInterceptors } from "@/lib/api";
 import { endpoints } from "@/lib/endpoints";
 import { authService } from "@/services/auth";
+import { meService } from "@/services/me";
+import {
+  buildSteamProfileUrl,
+  buildTemporaryUserProfile,
+  loadStoredUserProfile,
+  normalizeHandle,
+  persistUserProfile,
+  removeStoredUserProfile,
+} from "@/profile/profileSetup";
 import type {
+  AuthTokenResponse,
   AuthStatus,
   MeResponse,
   SteamUser,
 } from "@/types/auth";
 import type { AppUser } from "@/types/models";
 import type { UserProfile } from "@/types/profile";
-
-type NewUserProfileDraft = {
-  displayName: string;
-  handle: string;
-  bio: string;
-  location: string;
-  timezone: string;
-  pronouns: string;
-  avatarUrl: string;
-  bannerUrl: string;
-};
-
-const PROFILE_STORAGE_KEY_PREFIX = "tempUserProfile:";
-
-const getProfileStorageKey = (steamId: string) =>
-  `${PROFILE_STORAGE_KEY_PREFIX}${steamId}`;
-
-const buildSteamProfileUrl = (steamId: string) =>
-  `https://steamcommunity.com/profiles/${steamId}`;
-
-const normalizeHandle = (value: string) =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9_]/g, "");
-
-const loadStoredUserProfile = (steamId: string): UserProfile | null => {
-  try {
-    const raw = localStorage.getItem(getProfileStorageKey(steamId));
-    if (!raw) return null;
-    return JSON.parse(raw) as UserProfile;
-  } catch {
-    return null;
-  }
-};
-
-const persistUserProfile = (steamId: string, profile: UserProfile) => {
-  localStorage.setItem(getProfileStorageKey(steamId), JSON.stringify(profile));
-};
-
-const removeStoredUserProfile = (steamId: string) => {
-  localStorage.removeItem(getProfileStorageKey(steamId));
-};
+import type { NewUserProfileDraft } from "@/profile/profileSetup";
 
 type AuthContextValue = {
   appUser: AppUser | null;
@@ -70,8 +38,8 @@ type AuthContextValue = {
   loginWithSteam: () => void;
   logout: () => Promise<void>;
   userProfile: UserProfile | null;
-  completeLoginFromCallback: (token: string) => Promise<void>;
-  createUserProfile: (draft: NewUserProfileDraft) => void;
+  completeLoginFromCallback: (response: AuthTokenResponse) => Promise<void>;
+  createUserProfile: (draft: NewUserProfileDraft) => Promise<string | null>;
   deleteUserProfile: () => void;
 };
 
@@ -175,7 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = loginUrl;
   };
 
-  const completeLoginFromCallback = async (token: string) => {
+  const completeLoginFromCallback = async (response: AuthTokenResponse) => {
     // if (USE_MOCK_AUTH) {
     //   setAppUser(mockAppUserBrandonW);
     //   setSteamUser(mockSteamUser);
@@ -187,75 +155,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     console.log("[auth] completing login from callback");
     setStatus("loading");
-    sessionStorage.setItem("authToken", token);
-    setAuthToken(token);
-    const session = await loadSession();
+    sessionStorage.setItem("authToken", response.token);
+    setAuthToken(response.token);
+
+    if (!response.steamId) {
+      await loadSession();
+      return;
+    }
+
+    const nextSteamUser: SteamUser = {
+      steamId: response.steamId,
+      profileUrl: buildSteamProfileUrl(response.steamId),
+    };
+    const storedProfile = loadStoredUserProfile(response.steamId);
+
+    setSteamUser(nextSteamUser);
+    setAppUser({
+      id: 0,
+      publicId: response.appUserPublicId,
+    });
+    setUserProfile(storedProfile);
+    setNeedsProfileSetup(
+      response.isNewUser ||
+        !response.handle ||
+        !response.displayName
+    );
+    setStatus("authenticated");
+
     console.log("[auth] auth completed", {
-      token,
-      steamId: session?.steamId ?? null,
+      steamId: response.steamId,
+      isNewUser: response.isNewUser,
     });
   };
 
-  const createUserProfile = (draft: NewUserProfileDraft) => {
-    if (!steamUser) return;
+  const createUserProfile = async (draft: NewUserProfileDraft): Promise<string | null> => {
+    if (!steamUser) return "Steam user is not available.";
 
     const normalizedHandle = normalizeHandle(draft.handle);
-    if (!normalizedHandle) return;
+    if (!normalizedHandle) return "Handle is required.";
 
-    const steamProfileUrl = steamUser.profileUrl ?? buildSteamProfileUrl(steamUser.steamId);
-    const enrichedSteamUser: SteamUser = {
-      ...steamUser,
-      personaName: steamUser.personaName ?? draft.displayName.trim(),
-      profileUrl: steamProfileUrl,
-    };
-    const nextProfile: UserProfile = {
-      user: appUser ?? {
-        id: 0,
-        roles: ["User"],
-      },
-      steam: enrichedSteamUser,
-      displayName: draft.displayName.trim(),
-      handle: normalizedHandle,
-      avatarUrl: draft.avatarUrl.trim() || steamUser.avatarFullUrl || steamUser.avatarMediumUrl || null,
-      bannerUrl: draft.bannerUrl.trim() || null,
-      bio: draft.bio.trim() || null,
-      location: draft.location.trim() || null,
-      timezone: draft.timezone.trim() || null,
-      pronouns: draft.pronouns.trim() || null,
-      joinedAt: new Date().toISOString(),
-      connections: {
-        platforms: ["steam"],
-        linkedAccounts: [
-          {
-            platform: "steam",
-            usernameOrId: enrichedSteamUser.personaName || steamUser.steamId,
-            profileUrl: steamProfileUrl,
-            accountVerified: true,
-          },
-        ],
-        socials: [],
-      },
-      summary: {
-        totalAchievements: 0,
-        gamesTracked: 0,
-        hoursPlayed: 0,
-      },
-      achievements: [],
-      feed: {
-        items: [],
-        comments: [],
-      },
-      privacy: {
-        showStats: true,
-        showRecentAchievements: true,
-        showLinkedAccounts: true,
-        showSocialLinks: true,
-        showFeed: true,
-      },
-      viewer: {
-        isSelf: true,
-      },
-    };
+    try {
+      await meService.setSocialIdentity({
+        handle: `@${normalizedHandle}`,
+        displayName: draft.displayName.trim(),
+      });
+    } catch (error: any) {
+      const message =
+        error?.response?.data?.error ||
+        error?.message ||
+        "Unable to save your profile details right now.";
+      return message;
+    }
+
+    const { enrichedSteamUser, profile: nextProfile } =
+      buildTemporaryUserProfile(appUser, steamUser, draft);
+    const steamProfileUrl =
+      enrichedSteamUser.profileUrl ?? buildSteamProfileUrl(steamUser.steamId);
 
     persistUserProfile(steamUser.steamId, nextProfile);
     setSteamUser(enrichedSteamUser);
@@ -266,6 +221,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       handle: nextProfile.handle,
       steamProfileUrl,
     });
+
+    return null;
   };
 
   const deleteUserProfile = async () => {

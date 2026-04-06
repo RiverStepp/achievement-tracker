@@ -30,6 +30,8 @@ export const CreateProfileDialog = () => {
   const [pronouns, setPronouns] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bannerUrl, setBannerUrl] = useState("");
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (!needsProfileSetup || !steamUser) return;
@@ -43,15 +45,19 @@ export const CreateProfileDialog = () => {
     setPronouns("");
     setAvatarUrl(steamUser.avatarFullUrl || steamUser.avatarMediumUrl || "");
     setBannerUrl("");
+    setErrorMessage(null);
+    setIsSubmitting(false);
   }, [needsProfileSetup, steamUser]);
 
   const normalizedHandle = toHandleSeed(handle);
   const canSubmit = displayName.trim().length > 0 && normalizedHandle.length > 0;
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!canSubmit) return;
+    setIsSubmitting(true);
+    setErrorMessage(null);
 
-    createUserProfile({
+    const error = await createUserProfile({
       displayName,
       handle: normalizedHandle,
       bio,
@@ -61,6 +67,13 @@ export const CreateProfileDialog = () => {
       avatarUrl,
       bannerUrl,
     });
+
+    if (error) {
+      setErrorMessage(error);
+      setIsSubmitting(false);
+      return;
+    }
+
     navigate(`/u/${normalizedHandle}`);
   };
 
@@ -179,9 +192,17 @@ export const CreateProfileDialog = () => {
             />
           </div>
 
+          {errorMessage ? (
+            <p className="text-sm text-red-400">{errorMessage}</p>
+          ) : null}
+
           <div className="flex justify-end pt-2">
-            <Button onClick={handleSubmit} disabled={!canSubmit} className="shadow-sm shadow-app-border">
-              Create Profile
+            <Button
+              onClick={() => void handleSubmit()}
+              disabled={!canSubmit || isSubmitting}
+              className="shadow-sm shadow-app-border"
+            >
+              {isSubmitting ? "Saving..." : "Create Profile"}
             </Button>
           </div>
         </div>

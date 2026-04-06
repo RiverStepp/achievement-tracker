@@ -21,6 +21,10 @@ export interface MeResponse {
 export interface AuthTokenResponse {
   token: string;
   steamId: string;
+  isNewUser: boolean;
+  appUserPublicId: string;
+  handle?: string | null;
+  displayName?: string | null;
 }
 
 export type AuthStatus = "loading" | "authenticated" | "guest";
