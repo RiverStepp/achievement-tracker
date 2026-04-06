@@ -7,7 +7,8 @@
     "start": "ts-node src/index.ts",
     "build": "tsc",
     "dev": "ts-node src/index.ts",
-    "test": "ts-node src/testScraper.ts"
+    "test": "ts-node src/testScraper.ts",
+    "migrate": "ts-node src/database/runMigration.ts"
   },
   "dependencies": {
     "@azure/identity": "^4.2.1",
