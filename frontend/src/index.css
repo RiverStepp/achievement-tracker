@@ -2,16 +2,129 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  color-scheme: dark;
-}
-
+/* Base typography & reset-ish things */
 body {
-  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background-color: #0f172a;
-  color: #e2e8f0;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
 }
 
-input, textarea, button {
+input,
+textarea,
+button {
   font: inherit;
+}
+
+/* === Design tokens for Shadcn + your blue-gray app === */
+@layer base {
+  :root {
+    /* We’ll just run dark theme by default to match your design */
+
+    /* App background + text */
+    --background: 218 20% 16%;   /* ~ #232a34 */
+    --foreground: 210 40% 92%;   /* ~ #e2e8f0 */
+
+    /* Panels / cards / popovers all on top of background */
+    --card: 215 14% 32%;         /* ~ #454D58 */
+    --card-foreground: 210 40% 92%;
+    --popover: 215 14% 32%;      /* same as card */
+    --popover-foreground: 210 40% 92%;
+
+    /* Primary / accent can lean on your brand blue */
+    --primary: 217 91% 60%;      /* #3b82f6-ish */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 215 14% 26%;    /* slightly darker panel */
+    --secondary-foreground: 210 40% 92%;
+
+    /* Muted / accent background surfaces */
+    --muted: 215 14% 26%;        /* ~ #3a4452-ish */
+    --muted-foreground: 215 15% 65%;  /* ~ #94a3b8 */
+
+    --accent: 215 14% 26%;
+    --accent-foreground: 210 40% 92%;
+
+    /* Status / destructive */
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+
+    /* Borders / inputs / ring */
+    --border: 218 25% 12%;       /* ~ #1b2028 */
+    --input: 218 25% 12%;
+    --ring: 217 91% 60%;
+
+    /* Charts can stay generic or tweak later */
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+
+    --radius: 0.5rem;
+  }
+
+  /* Optional: if you *ever* want a lighter theme, you can use .light or .dark.
+     For now, we just keep .dark matching root or make it slightly deeper. */
+  .dark {
+    --background: 220 19% 12%;         /* a bit deeper than root */
+    --foreground: 210 40% 92%;
+    --card: 215 14% 22%;
+    --card-foreground: 210 40% 92%;
+    --popover: 215 14% 22%;
+    --popover-foreground: 210 40% 92%;
+    --primary: 217 91% 60%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 14% 18%;
+    --secondary-foreground: 210 40% 92%;
+    --muted: 215 14% 18%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 215 14% 18%;
+    --accent-foreground: 210 40% 92%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 218 25% 10%;
+    --input: 218 25% 10%;
+    --ring: 217 91% 60%;
+    /* charts can stay the same or be tweaked */
+  }
+}
+
+/* === Apply theme tokens === */
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .app-heading {
+    @apply text-lg font-semibold tracking-tight;
+  }
+}
+
+/* App scrollbar styling (opt-in via class) */
+.app-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.55) transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.app-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.35);
+  border-radius: 999px;
+  border: 2px solid hsl(var(--background));
+}
+
+.app-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: hsl(var(--muted-foreground) / 0.6);
 }
