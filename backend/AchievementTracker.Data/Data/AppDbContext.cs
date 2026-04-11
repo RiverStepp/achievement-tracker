@@ -9,7 +9,13 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      #region DbSet 
      // Please keep these alphabetical :)
      public DbSet<AppUserPinnedAchievement> AppUserPinnedAchievements => Set<AppUserPinnedAchievement>();
+     public DbSet<AppUserSocialLink> AppUserSocialLinks => Set<AppUserSocialLink>();
      public DbSet<AppUser> AppUsers => Set<AppUser>();
+     public DbSet<IanaTimeZone> IanaTimeZones => Set<IanaTimeZone>();
+     public DbSet<LocationCity> LocationCities => Set<LocationCity>();
+     public DbSet<LocationCountry> LocationCountries => Set<LocationCountry>();
+     public DbSet<LocationStateRegion> LocationStateRegions => Set<LocationStateRegion>();
+     public DbSet<PronounOption> PronounOptions => Set<PronounOption>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<SocialPostAttachment> SocialPostAttachments => Set<SocialPostAttachment>();
      public DbSet<SocialPostComment> SocialPostComments => Set<SocialPostComment>();

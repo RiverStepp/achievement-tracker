@@ -17,6 +17,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="SeedData\Countries.sql" />
+    <EmbeddedResource Include="SeedData\IanaTimeZones.sql" />
+    <EmbeddedResource Include="SeedData\LocationCities.sql" />
+    <EmbeddedResource Include="SeedData\LocationStateRegions.sql" />
     <EmbeddedResource Include="StoredProcedures\GetUserProfile.sql" />
   </ItemGroup>
 

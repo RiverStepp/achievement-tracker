@@ -2,18 +2,17 @@ using System.Text;
 
 namespace AchievementTracker.Data.Migrations;
 
-internal static class GetUserProfileProcedureSql
+internal static class EmbeddedSeedSql
 {
-    internal static string Load()
+    internal static string Load(string fileName)
     {
-        var assembly = typeof(GetUserProfileProcedureSql).Assembly;
-        const string suffix = "GetUserProfile.sql";
+        var assembly = typeof(EmbeddedSeedSql).Assembly;
         var name = Array.Find(
             assembly.GetManifestResourceNames(),
-            n => n.EndsWith(suffix, StringComparison.Ordinal));
+            n => n.EndsWith(fileName, StringComparison.OrdinalIgnoreCase));
         if (name is null)
             throw new InvalidOperationException(
-                $"Embedded resource ending with '{suffix}' not found. Ensure StoredProcedures/GetUserProfile.sql is included as EmbeddedResource.");
+                $"Embedded resource ending with '{fileName}' not found. Ensure SeedData/{fileName} is included as EmbeddedResource.");
 
         using var stream = assembly.GetManifestResourceStream(name);
         if (stream is null)

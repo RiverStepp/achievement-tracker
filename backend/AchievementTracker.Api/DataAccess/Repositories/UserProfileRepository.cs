@@ -3,6 +3,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.Requests;
 using AchievementTracker.Api.Models.Responses.Profile;
 using AchievementTracker.Data.Data;
+using AchievementTracker.Api.DataAccess;
 using AchievementTracker.Data.Enums;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
@@ -59,9 +60,60 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
         ProfileAppUserDto? appUser = null;
         if (await reader.ReadAsync(ct))
         {
+            int ordHandle = reader.GetOrdinal("Handle");
+            int ordDisplayName = reader.GetOrdinal("DisplayName");
+            int ordBio = reader.GetOrdinal("Bio");
+            int ordPronouns = reader.GetOrdinal("Pronouns");
+            int ordLocCountryId = reader.GetOrdinal("LocationCountryId");
+            int ordCountryName = reader.GetOrdinal("CountryName");
+            int ordLocStateId = reader.GetOrdinal("LocationStateRegionId");
+            int ordStateName = reader.GetOrdinal("StateName");
+            int ordLocCityId = reader.GetOrdinal("LocationCityId");
+            int ordCityName = reader.GetOrdinal("CityName");
+            int ordTz = reader.GetOrdinal("TimeZoneDisplayName");
+            int ordJoin = reader.GetOrdinal("JoinDate");
+
+            ProfileUserLocationDto? location = null;
+            int? countryId = reader.IsDBNull(ordLocCountryId) ? null : reader.GetInt32(ordLocCountryId);
+            string? countryName = reader.IsDBNull(ordCountryName) ? null : reader.GetString(ordCountryName);
+            int? stateId = reader.IsDBNull(ordLocStateId) ? null : reader.GetInt32(ordLocStateId);
+            string? stateName = reader.IsDBNull(ordStateName) ? null : reader.GetString(ordStateName);
+            int? cityId = reader.IsDBNull(ordLocCityId) ? null : reader.GetInt32(ordLocCityId);
+            string? cityName = reader.IsDBNull(ordCityName) ? null : reader.GetString(ordCityName);
+            if (countryId.HasValue || stateId.HasValue || cityId.HasValue
+                || !string.IsNullOrEmpty(countryName) || !string.IsNullOrEmpty(stateName) || !string.IsNullOrEmpty(cityName))
+            {
+                location = new ProfileUserLocationDto(
+                    countryId,
+                    countryName,
+                    stateId,
+                    stateName,
+                    cityId,
+                    cityName);
+            }
+
             appUser = new ProfileAppUserDto(
-                reader.IsDBNull(0) ? null : reader.GetString(0),
-                reader.IsDBNull(1) ? null : reader.GetString(1));
+                reader.IsDBNull(ordHandle) ? null : reader.GetString(ordHandle),
+                reader.IsDBNull(ordDisplayName) ? null : reader.GetString(ordDisplayName),
+                reader.IsDBNull(ordBio) ? null : reader.GetString(ordBio),
+                reader.IsDBNull(ordPronouns) ? null : reader.GetString(ordPronouns),
+                location,
+                reader.IsDBNull(ordTz) ? null : reader.GetString(ordTz),
+                reader.IsDBNull(ordJoin) ? null : reader.GetDateTime(ordJoin));
+        }
+
+        var visibleSocialLinks = new List<ProfileSocialLinkItemDto>();
+        if (await reader.NextResultAsync(ct))
+        {
+            int ordPlatform = reader.GetOrdinal("Platform");
+            int ordLinkValue = reader.GetOrdinal("LinkValue");
+            while (await reader.ReadAsync(ct))
+            {
+                visibleSocialLinks.Add(
+                    new ProfileSocialLinkItemDto(
+                        (eSocialPlatform)reader.GetInt32FromNumericColumn(ordPlatform),
+                        reader.GetString(ordLinkValue)));
+            }
         }
 
         SteamProfileMetadataDto? steamProfile = null;
@@ -148,6 +200,7 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
 
         return new UserProfileResponse(
             appUser,
+            visibleSocialLinks,
             steamProfile,
             totals,
             new PagedResultDto<ProfileGameItemDto>(request.GamesPageNumber, request.GamesPageSize, gamesRecentTotal, gamesRecent),

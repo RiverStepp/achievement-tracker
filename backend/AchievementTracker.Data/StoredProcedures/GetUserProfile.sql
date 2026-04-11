@@ -31,9 +31,33 @@ INNER JOIN dbo.UserExternalLogins el ON el.UserExternalLoginId = p.UserExternalL
 WHERE p.SteamId = @SteamId AND p.IsActive = 1 AND el.IsActive = 1 AND el.AuthProvider = 1;
 
 SELECT
-    (SELECT TOP (1) u.Handle FROM dbo.AppUsers u WHERE u.AppUserId = @AppUserId AND u.IsActive = 1) AS Handle,
-    (SELECT TOP (1) u.DisplayName FROM dbo.AppUsers u WHERE u.AppUserId = @AppUserId AND u.IsActive = 1)
-        AS DisplayName;
+    u.Handle,
+    u.DisplayName,
+    u.Bio,
+    po.DisplayLabel AS Pronouns,
+    COALESCE(cDirect.LocationCountryId, cViaState.LocationCountryId, cViaCity.LocationCountryId) AS LocationCountryId,
+    COALESCE(cDirect.Name, cViaState.Name, cViaCity.Name) AS CountryName,
+    COALESCE(srDirect.LocationStateRegionId, srViaCity.LocationStateRegionId) AS LocationStateRegionId,
+    COALESCE(srDirect.Name, srViaCity.Name) AS StateName,
+    ct.LocationCityId AS LocationCityId,
+    ct.Name AS CityName,
+    tz.DisplayName AS TimeZoneDisplayName,
+    u.CreateDate AS JoinDate
+FROM dbo.AppUsers u
+LEFT JOIN dbo.PronounOptions po ON po.PronounOptionId = u.PronounOptionId
+LEFT JOIN dbo.IanaTimeZones tz ON tz.IanaTimeZoneId = u.IanaTimeZoneId
+LEFT JOIN dbo.LocationCities ct ON ct.LocationCityId = u.LocationCityId
+LEFT JOIN dbo.LocationStateRegions srViaCity ON srViaCity.LocationStateRegionId = ct.LocationStateRegionId
+LEFT JOIN dbo.LocationCountries cViaCity ON cViaCity.LocationCountryId = srViaCity.LocationCountryId
+LEFT JOIN dbo.LocationStateRegions srDirect ON srDirect.LocationStateRegionId = u.LocationStateRegionId
+LEFT JOIN dbo.LocationCountries cViaState ON cViaState.LocationCountryId = srDirect.LocationCountryId
+LEFT JOIN dbo.LocationCountries cDirect ON cDirect.LocationCountryId = u.LocationCountryId
+WHERE u.AppUserId = @AppUserId AND u.IsActive = 1;
+
+SELECT l.Platform, l.LinkValue
+FROM dbo.AppUserSocialLinks l
+WHERE l.AppUserId = @AppUserId AND l.IsActive = 1 AND l.IsVisible = 1
+ORDER BY l.Platform ASC;
 
 SELECT p.ProfileUrl, p.AvatarSmallUrl, p.LastCheckedDate, p.LastSyncedDate, p.IsPrivate
 FROM dbo.UserSteamProfiles p
