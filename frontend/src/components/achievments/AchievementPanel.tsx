@@ -1,6 +1,7 @@
-import { UserProfile } from "@/types/profile"
+import { UserProfile, ProfileAchievement } from "@/types/profile"
 import { Label } from "@/components/ui/label"
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { AchievementsGrid } from "./AchievementsGrid";
 import { AchievementIcon } from "./AchievementIcon";
 
@@ -8,6 +9,55 @@ type AchievementPanelProps = {
     profile: UserProfile;
 }
 type FilterOption = "newest" | "oldest" | "a-z" | "z-a" | "rarest" | "common" | "game";
+
+function GroupedByGameView({ profile }: { profile: UserProfile }) {
+    const grouped = (profile.achievements ?? []).reduce<
+        Record<number, { game: ProfileAchievement["game"]; items: ProfileAchievement[] }>
+    >((acc, pa) => {
+        if (!acc[pa.game.id]) acc[pa.game.id] = { game: pa.game, items: [] };
+        acc[pa.game.id].items.push(pa);
+        return acc;
+    }, {});
+ 
+    const sortedGroups = Object.values(grouped).sort((a, b) =>
+        a.game.name.localeCompare(b.game.name)
+    );
+ 
+    return (
+        <div className="space-y-5">
+            {sortedGroups.map(({ game, items }) => (
+                <div key={game.id}>
+                    <Link
+                        to={`/u/${profile.handle}/games/${game.steamAppId}/achievements`}
+                        className="flex items-center gap-2 mb-2 group w-fit"
+                    >
+                        {game.iconUrl ? (
+                            <img
+                                src={game.iconUrl}
+                                alt={game.name}
+                                className="h-5 w-5 rounded object-cover"
+                            />
+                        ) : (
+                            <FileQuestion className="h-5 w-5 text-app-muted" />
+                        )}
+                        <span className="text-sm font-medium text-app-muted group-hover:text-brand transition-colors">
+                            {game.name}
+                        </span>
+                        <span className="text-xs text-app-border group-hover:text-brand transition-colors">
+                            ({items.length})
+                        </span>
+                        <ChevronRight className="h-3.5 w-3.5 text-app-border group-hover:text-brand transition-colors" />
+                    </Link>
+                    <div className="flex flex-wrap gap-1">
+                        {items.map((pa) => (
+                            <AchievementIcon key={pa.id} achievement={pa} />
+                        ))}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
 
 export const AchievementPanel = ({profile}: AchievementPanelProps) => {
     const [filter, setFilter] = useState<FilterOption>("newest");
@@ -53,7 +103,13 @@ export const AchievementPanel = ({profile}: AchievementPanelProps) => {
                 </select>
             </div>
             <div className="max-h-[31.5rem] overflow-y-auto app-scrollbar pr-1 flex justify-center">
-                <AchievementsGrid profile={profile} filter={filter} />
+                {filter === "game" ? (
+                    <div className="w-full">
+                        <GroupedByGameView profile={profile} />
+                    </div>
+                ) : (
+                    <AchievementsGrid profile={profile} filter={filter} />
+                )}
             </div>
         </div>
         </>
