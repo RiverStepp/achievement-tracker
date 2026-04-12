@@ -7,4 +7,6 @@ public sealed record UserSettingsValuesDto(
     UserSettingsLocationResponseDto? Location,
     UserSettingsTimeZoneResponseDto? TimeZone,
     UserSettingsPronounResponseDto? Pronouns,
-    IReadOnlyList<UserSettingsSocialLinkResponseDto> SocialLinks);
+    IReadOnlyList<UserSettingsSocialLinkResponseDto> SocialLinks,
+    UserSettingsMediaAssetDto ProfileImage,
+    UserSettingsMediaAssetDto BannerImage);

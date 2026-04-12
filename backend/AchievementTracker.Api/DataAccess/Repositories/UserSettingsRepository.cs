@@ -84,6 +84,9 @@ public sealed class UserSettingsRepository(AppDbContext db) : IUserSettingsRepos
             .Select(s => new UserSettingsSocialLinkResponseDto(s.Platform, s.LinkValue, s.IsVisible))
             .ToList();
 
+        var profileMedia = new UserSettingsMediaAssetDto(u.ProfileImageFileName, u.ProfileImageUrl);
+        var bannerMedia = new UserSettingsMediaAssetDto(u.BannerImageFileName, u.BannerImageUrl);
+
         return new UserSettingsValuesDto(
             u.DisplayName,
             u.Handle,
@@ -91,7 +94,9 @@ public sealed class UserSettingsRepository(AppDbContext db) : IUserSettingsRepos
             location,
             tz,
             pronouns,
-            links);
+            links,
+            profileMedia,
+            bannerMedia);
     }
 
     public Task<AppUser?> GetTrackedUserForSettingsUpdateAsync(int appUserId, CancellationToken ct = default)

@@ -42,7 +42,9 @@ SELECT
     ct.LocationCityId AS LocationCityId,
     ct.Name AS CityName,
     tz.DisplayName AS TimeZoneDisplayName,
-    u.CreateDate AS JoinDate
+    u.CreateDate AS JoinDate,
+    u.ProfileImageUrl,
+    u.BannerImageUrl
 FROM dbo.AppUsers u
 LEFT JOIN dbo.PronounOptions po ON po.PronounOptionId = u.PronounOptionId
 LEFT JOIN dbo.IanaTimeZones tz ON tz.IanaTimeZoneId = u.IanaTimeZoneId

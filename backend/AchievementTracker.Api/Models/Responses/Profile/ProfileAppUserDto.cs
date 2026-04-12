@@ -9,4 +9,6 @@ public sealed record ProfileAppUserDto(
     string? Pronouns,
     ProfileUserLocationDto? Location,
     string? TimeZoneDisplayName,
-    [property: JsonPropertyName("joinDate")] DateTime? JoinDate);
+    [property: JsonPropertyName("joinDate")] DateTime? JoinDate,
+    string? ProfileImageUrl,
+    string? BannerImageUrl);

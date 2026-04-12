@@ -11,5 +11,7 @@ public sealed record UpdateMySettingsRequestDto
     public bool UnsetTimeZone { get; init; }
     public int? PronounOptionId { get; init; }
     public bool UnsetPronouns { get; init; }
+    public bool UnsetProfileImage { get; init; }
+    public bool UnsetBannerImage { get; init; }
     public IReadOnlyList<UserSocialLinkSettingDto>? SocialLinks { get; init; }
 }

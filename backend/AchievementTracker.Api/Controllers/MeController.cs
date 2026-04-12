@@ -35,6 +35,7 @@ public sealed class MeController(
 
      [Authorize]
      [HttpPut("/me/settings")]
+     [Consumes("application/json")]
      public async Task<IActionResult> UpdateMySettings(
           [FromBody] UpdateMySettingsRequestDto? request,
           CancellationToken ct)
@@ -48,6 +49,7 @@ public sealed class MeController(
           var outcome = await _userSettingsService.UpdateSettingsAsync(
                _currentUser.AppUserId.Value,
                request,
+               imageUploads: null,
                ct);
 
           if (!outcome.Success)
@@ -62,6 +64,77 @@ public sealed class MeController(
           }
 
           return Ok();
+     }
+
+     /// <summary>Multipart: optional <c>profileImage</c> and/or <c>bannerImage</c> only. Text settings use <c>PUT /me/settings</c>. At least one file is required.</summary>
+     [Authorize]
+     [HttpPut("/me/settings/media")]
+     [Consumes("multipart/form-data")]
+     [RequestFormLimits(MultipartBodyLengthLimit = 30 * 1024 * 1024)]
+     [RequestSizeLimit(30 * 1024 * 1024)]
+     public async Task<IActionResult> UpdateMySettingsMultipart(
+          [FromForm] UpdateMySettingsMediaForm form,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          if (form.ProfileImage is not { Length: > 0 }
+               && form.BannerImage is not { Length: > 0 })
+               return BadRequest(new { error = "Provide at least one of profileImage or bannerImage." });
+
+          MemoryStream? profileMs = null;
+          MemoryStream? bannerMs = null;
+          try
+          {
+               if (form.ProfileImage is { Length: > 0 } p)
+               {
+                    profileMs = new MemoryStream();
+                    await p.CopyToAsync(profileMs, ct);
+                    profileMs.Position = 0;
+               }
+
+               if (form.BannerImage is { Length: > 0 } b)
+               {
+                    bannerMs = new MemoryStream();
+                    await b.CopyToAsync(bannerMs, ct);
+                    bannerMs.Position = 0;
+               }
+
+               UserSettingsImageUploads? uploads = null;
+               if (profileMs != null || bannerMs != null)
+               {
+                    uploads = new UserSettingsImageUploads { Profile = profileMs, Banner = bannerMs };
+                    profileMs = null;
+                    bannerMs = null;
+               }
+
+               var outcome = await _userSettingsService.UpdateSettingsAsync(
+                    _currentUser.AppUserId.Value,
+                    new UpdateMySettingsRequestDto(),
+                    uploads,
+                    ct);
+
+               if (!outcome.Success)
+               {
+                    return outcome.FailureKind switch
+                    {
+                         UpdateUserSettingsFailureKind.NotFound => NotFound(new { error = outcome.ErrorMessage }),
+                         UpdateUserSettingsFailureKind.Conflict =>
+                              Conflict(new { error = outcome.ErrorMessage }),
+                         _ => BadRequest(new { error = outcome.ErrorMessage }),
+                    };
+               }
+
+               return Ok();
+          }
+          finally
+          {
+               if (profileMs != null)
+                    await profileMs.DisposeAsync();
+               if (bannerMs != null)
+                    await bannerMs.DisposeAsync();
+          }
      }
 
      [Authorize]

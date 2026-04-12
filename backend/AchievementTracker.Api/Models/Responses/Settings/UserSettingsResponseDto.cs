@@ -8,6 +8,8 @@ public sealed record UserSettingsResponseDto(
     UserSettingsTimeZoneResponseDto? TimeZone,
     UserSettingsPronounResponseDto? Pronouns,
     IReadOnlyList<UserSettingsSocialLinkResponseDto> SocialLinks,
+    UserSettingsMediaAssetDto ProfileImage,
+    UserSettingsMediaAssetDto BannerImage,
     IReadOnlyList<LocationCountryOptionDto> Countries,
     IReadOnlyList<IanaTimeZoneOptionDto> IanaTimeZones,
     IReadOnlyList<PronounOptionItemDto> PronounOptions);

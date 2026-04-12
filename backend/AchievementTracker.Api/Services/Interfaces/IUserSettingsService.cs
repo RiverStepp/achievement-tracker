@@ -11,5 +11,6 @@ public interface IUserSettingsService
     Task<UpdateUserSettingsResult> UpdateSettingsAsync(
         int appUserId,
         UpdateMySettingsRequestDto request,
+        UserSettingsImageUploads? imageUploads = null,
         CancellationToken ct = default);
 }

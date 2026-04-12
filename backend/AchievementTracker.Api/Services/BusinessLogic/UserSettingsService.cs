@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.Helpers;
 using AchievementTracker.Api.Models.DTOs.Settings;
 using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Models.Responses.Settings;
@@ -10,12 +11,14 @@ using AchievementTracker.Data.Enums;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using SixLabors.ImageSharp;
 
 namespace AchievementTracker.Api.Services.BusinessLogic;
 
 public sealed class UserSettingsService(
     IUserSettingsRepository userSettingsRepository,
     ILookupRepository lookupRepository,
+    IUserProfileMediaStorageService profileMediaStorage,
     IOptions<SocialOptions> socialOptions,
     IOptions<UserSettingsOptions> userSettingsOptions)
     : IUserSettingsService
@@ -38,6 +41,9 @@ public sealed class UserSettingsService(
     private const string ErrSaveGeneric = "Could not save settings. Please try again.";
     private const string ErrUniqueConflict = "This update conflicts with existing data.";
     private const string ErrFkOrReference = "The selected reference data is not valid or no longer exists.";
+    private const string ErrInvalidImageContent = "File is not a recognized image format.";
+    private const string ErrUnsupportedImageMimeType = "Unsupported image MIME type.";
+    private const string ErrMediaFileTooLargeFormat = "Image must be {0} bytes or smaller.";
 
     private static readonly Regex s_identifierChars = new(
         @"^[a-zA-Z0-9_.@#+\-]+$",
@@ -45,6 +51,7 @@ public sealed class UserSettingsService(
 
     private readonly IUserSettingsRepository _repo = userSettingsRepository;
     private readonly ILookupRepository _lookups = lookupRepository;
+    private readonly IUserProfileMediaStorageService _profileMedia = profileMediaStorage;
     private readonly SocialOptions _social = socialOptions.Value;
     private readonly UserSettingsOptions _settings = userSettingsOptions.Value;
 
@@ -67,6 +74,8 @@ public sealed class UserSettingsService(
             values.TimeZone,
             values.Pronouns,
             values.SocialLinks,
+            values.ProfileImage,
+            values.BannerImage,
             await countriesTask,
             await timeZonesTask,
             await pronounsTask);
@@ -75,126 +84,243 @@ public sealed class UserSettingsService(
     public async Task<UpdateUserSettingsResult> UpdateSettingsAsync(
         int appUserId,
         UpdateMySettingsRequestDto request,
+        UserSettingsImageUploads? imageUploads = null,
         CancellationToken ct = default)
     {
-        var user = await _repo.GetTrackedUserForSettingsUpdateAsync(appUserId, ct);
-        if (user == null)
-            return UpdateUserSettingsResult.NotFound("User was not found.");
-
-        if (request.DisplayName != null)
-        {
-            string trimmed = request.DisplayName.Trim();
-            if (trimmed.Length > _social.MaxDisplayNameLength)
-            {
-                return UpdateUserSettingsResult.ValidationFailed(
-                    string.Format(ErrDisplayNameTooLongFormat, _social.MaxDisplayNameLength));
-            }
-
-            string? normalized = trimmed.Length == 0 ? null : trimmed;
-            if (!string.Equals(user.DisplayName, normalized, StringComparison.Ordinal))
-                user.DisplayName = normalized;
-        }
-
-        if (request.Handle != null)
-        {
-            string trimmed = request.Handle.Trim();
-            string? normalized = trimmed.Length == 0 ? null : trimmed;
-            if (normalized != null)
-            {
-                if (normalized.Length > _social.MaxHandleLength)
-                {
-                    return UpdateUserSettingsResult.ValidationFailed(
-                        string.Format(ErrHandleTooLongFormat, _social.MaxHandleLength));
-                }
-
-                if (!IsValidHandle(normalized, _social.MaxHandleLength))
-                    return UpdateUserSettingsResult.ValidationFailed(ErrHandleInvalid);
-
-                if (await _repo.HandleExistsAsync(normalized, appUserId, ct))
-                    return UpdateUserSettingsResult.Conflict(ErrHandleInUse);
-            }
-
-            if (!string.Equals(user.Handle, normalized, StringComparison.Ordinal))
-                user.Handle = normalized;
-        }
-
-        if (request.Bio != null)
-        {
-            string trimmed = request.Bio.Trim();
-            if (trimmed.Length > _settings.MaxBioLength)
-            {
-                return UpdateUserSettingsResult.ValidationFailed(
-                    string.Format(ErrBioTooLongFormat, _settings.MaxBioLength));
-            }
-
-            string? normalized = trimmed.Length == 0 ? null : trimmed;
-            if (!string.Equals(user.Bio, normalized, StringComparison.Ordinal))
-                user.Bio = normalized;
-        }
-
-        if (request.UnsetLocation)
-        {
-            if (user.LocationCountryId != null || user.LocationStateRegionId != null || user.LocationCityId != null)
-            {
-                user.LocationCountryId = null;
-                user.LocationStateRegionId = null;
-                user.LocationCityId = null;
-            }
-        }
-        else if (request.Location != null)
-        {
-            var locResult = await TryApplyLocationAsync(user, request.Location, ct);
-            if (locResult != null)
-                return locResult;
-        }
-
-        if (request.UnsetTimeZone)
-        {
-            if (user.IanaTimeZoneId != null)
-                user.IanaTimeZoneId = null;
-        }
-        else if (request.IanaTimeZoneId.HasValue)
-        {
-            int tzId = request.IanaTimeZoneId.Value;
-            if (!await _repo.IanaTimeZoneExistsAsync(tzId, ct))
-                return UpdateUserSettingsResult.ValidationFailed(ErrTimeZoneUnknown);
-
-            if (user.IanaTimeZoneId != tzId)
-                user.IanaTimeZoneId = tzId;
-        }
-
-        if (request.UnsetPronouns)
-        {
-            if (user.PronounOptionId != null)
-                user.PronounOptionId = null;
-        }
-        else if (request.PronounOptionId.HasValue)
-        {
-            int pId = request.PronounOptionId.Value;
-            if (!await _repo.PronounOptionExistsAsync(pId, ct))
-                return UpdateUserSettingsResult.ValidationFailed(ErrPronounUnknown);
-
-            if (user.PronounOptionId != pId)
-                user.PronounOptionId = pId;
-        }
-
-        if (request.SocialLinks != null)
-        {
-            UpdateUserSettingsResult? linkOutcome = TryApplySocialLinks(user, request.SocialLinks, _settings);
-            if (linkOutcome != null)
-                return linkOutcome;
-        }
-
         try
         {
-            await _repo.SaveChangesAsync(ct);
+            var user = await _repo.GetTrackedUserForSettingsUpdateAsync(appUserId, ct);
+            if (user == null)
+                return UpdateUserSettingsResult.NotFound("User was not found.");
+
+            if (request.DisplayName != null)
+            {
+                string trimmed = request.DisplayName.Trim();
+                if (trimmed.Length > _social.MaxDisplayNameLength)
+                {
+                    return UpdateUserSettingsResult.ValidationFailed(
+                        string.Format(ErrDisplayNameTooLongFormat, _social.MaxDisplayNameLength));
+                }
+
+                string? normalized = trimmed.Length == 0 ? null : trimmed;
+                if (!string.Equals(user.DisplayName, normalized, StringComparison.Ordinal))
+                    user.DisplayName = normalized;
+            }
+
+            if (request.Handle != null)
+            {
+                string trimmed = request.Handle.Trim();
+                string? normalized = trimmed.Length == 0 ? null : trimmed;
+                if (normalized != null)
+                {
+                    if (normalized.Length > _social.MaxHandleLength)
+                    {
+                        return UpdateUserSettingsResult.ValidationFailed(
+                            string.Format(ErrHandleTooLongFormat, _social.MaxHandleLength));
+                    }
+
+                    if (!IsValidHandle(normalized, _social.MaxHandleLength))
+                        return UpdateUserSettingsResult.ValidationFailed(ErrHandleInvalid);
+
+                    if (await _repo.HandleExistsAsync(normalized, appUserId, ct))
+                        return UpdateUserSettingsResult.Conflict(ErrHandleInUse);
+                }
+
+                if (!string.Equals(user.Handle, normalized, StringComparison.Ordinal))
+                    user.Handle = normalized;
+            }
+
+            if (request.Bio != null)
+            {
+                string trimmed = request.Bio.Trim();
+                if (trimmed.Length > _settings.MaxBioLength)
+                {
+                    return UpdateUserSettingsResult.ValidationFailed(
+                        string.Format(ErrBioTooLongFormat, _settings.MaxBioLength));
+                }
+
+                string? normalized = trimmed.Length == 0 ? null : trimmed;
+                if (!string.Equals(user.Bio, normalized, StringComparison.Ordinal))
+                    user.Bio = normalized;
+            }
+
+            if (request.UnsetLocation)
+            {
+                if (user.LocationCountryId != null || user.LocationStateRegionId != null || user.LocationCityId != null)
+                {
+                    user.LocationCountryId = null;
+                    user.LocationStateRegionId = null;
+                    user.LocationCityId = null;
+                }
+            }
+            else if (request.Location != null)
+            {
+                var locResult = await TryApplyLocationAsync(user, request.Location, ct);
+                if (locResult != null)
+                    return locResult;
+            }
+
+            if (request.UnsetTimeZone)
+            {
+                if (user.IanaTimeZoneId != null)
+                    user.IanaTimeZoneId = null;
+            }
+            else if (request.IanaTimeZoneId.HasValue)
+            {
+                int tzId = request.IanaTimeZoneId.Value;
+                if (!await _repo.IanaTimeZoneExistsAsync(tzId, ct))
+                    return UpdateUserSettingsResult.ValidationFailed(ErrTimeZoneUnknown);
+
+                if (user.IanaTimeZoneId != tzId)
+                    user.IanaTimeZoneId = tzId;
+            }
+
+            if (request.UnsetPronouns)
+            {
+                if (user.PronounOptionId != null)
+                    user.PronounOptionId = null;
+            }
+            else if (request.PronounOptionId.HasValue)
+            {
+                int pId = request.PronounOptionId.Value;
+                if (!await _repo.PronounOptionExistsAsync(pId, ct))
+                    return UpdateUserSettingsResult.ValidationFailed(ErrPronounUnknown);
+
+                if (user.PronounOptionId != pId)
+                    user.PronounOptionId = pId;
+            }
+
+            if (request.SocialLinks != null)
+            {
+                UpdateUserSettingsResult? linkOutcome = TryApplySocialLinks(user, request.SocialLinks, _settings);
+                if (linkOutcome != null)
+                    return linkOutcome;
+            }
+
+            if (imageUploads?.Profile == null && request.UnsetProfileImage)
+            {
+                if (!string.IsNullOrWhiteSpace(user.ProfileImageFileName))
+                    await _profileMedia.DeleteBlobIfExistsAsync(user.ProfileImageFileName, ct);
+                user.ProfileImageUrl = null;
+                user.ProfileImageFileName = null;
+            }
+
+            if (imageUploads?.Banner == null && request.UnsetBannerImage)
+            {
+                if (!string.IsNullOrWhiteSpace(user.BannerImageFileName))
+                    await _profileMedia.DeleteBlobIfExistsAsync(user.BannerImageFileName, ct);
+                user.BannerImageUrl = null;
+                user.BannerImageFileName = null;
+            }
+
+            if (imageUploads?.Profile != null)
+            {
+                var imgResult = await TryApplyProfileOrBannerImageAsync(user, imageUploads.Profile, banner: false, ct);
+                if (imgResult != null)
+                    return imgResult;
+            }
+
+            if (imageUploads?.Banner != null)
+            {
+                var imgResult = await TryApplyProfileOrBannerImageAsync(user, imageUploads.Banner, banner: true, ct);
+                if (imgResult != null)
+                    return imgResult;
+            }
+
+            try
+            {
+                await _repo.SaveChangesAsync(ct);
+            }
+            catch (DbUpdateException ex)
+            {
+                return MapDbUpdateException(ex);
+            }
+
+            return UpdateUserSettingsResult.Ok();
         }
-        catch (DbUpdateException ex)
+        finally
         {
-            return MapDbUpdateException(ex);
+            if (imageUploads is not null)
+                await imageUploads.DisposeAsync();
+        }
+    }
+
+    private async Task<UpdateUserSettingsResult?> TryApplyProfileOrBannerImageAsync(
+        AppUser user,
+        MemoryStream buffer,
+        bool banner,
+        CancellationToken ct)
+    {
+        var uploadOpts = _settings.ProfileMediaUpload;
+        if (buffer.Length <= 0)
+            return UpdateUserSettingsResult.ValidationFailed(ErrInvalidImageContent);
+
+        if (buffer.Length > uploadOpts.MaxImageBytes)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(
+                string.Format(ErrMediaFileTooLargeFormat, uploadOpts.MaxImageBytes));
         }
 
-        return UpdateUserSettingsResult.Ok();
+        buffer.Position = 0;
+        if (!SocialImageFormatInspector.TryDetectImageMimeType(buffer, out string? detectedMime)
+            || string.IsNullOrEmpty(detectedMime))
+            return UpdateUserSettingsResult.ValidationFailed(ErrInvalidImageContent);
+
+        bool allowedMime = uploadOpts.AllowedImageMimeTypes
+            .Any(x => x.Equals(detectedMime, StringComparison.OrdinalIgnoreCase));
+        if (!allowedMime)
+            return UpdateUserSettingsResult.ValidationFailed(ErrUnsupportedImageMimeType);
+
+        buffer.Position = 0;
+        try
+        {
+            await using ProcessedProfileImage processed = banner
+                ? await UserProfileImageProcessor.ProcessBannerAsync(buffer, uploadOpts, ct)
+                : await UserProfileImageProcessor.ProcessProfileSquareAsync(buffer, uploadOpts, ct);
+
+            string? oldBlob = banner ? user.BannerImageFileName : user.ProfileImageFileName;
+            UserProfileMediaUploadResult uploaded = await _profileMedia.UploadProcessedImageAsync(
+                processed.Stream,
+                processed.ContentType,
+                processed.ExtensionWithDot,
+                ct);
+
+            if (!string.IsNullOrWhiteSpace(oldBlob))
+                await _profileMedia.DeleteBlobIfExistsAsync(oldBlob, ct);
+
+            if (banner)
+            {
+                user.BannerImageUrl = uploaded.Url;
+                user.BannerImageFileName = uploaded.BlobName;
+            }
+            else
+            {
+                user.ProfileImageUrl = uploaded.Url;
+                user.ProfileImageFileName = uploaded.BlobName;
+            }
+        }
+        catch (ArgumentException ex)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(ex.Message);
+        }
+        catch (UnknownImageFormatException)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(ErrInvalidImageContent);
+        }
+        catch (InvalidImageContentException)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(ErrInvalidImageContent);
+        }
+        catch (ImageFormatException)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(ErrInvalidImageContent);
+        }
+        catch (UserProfileMediaStorageException ex)
+        {
+            return UpdateUserSettingsResult.ValidationFailed(ex.Message);
+        }
+
+        return null;
     }
 
     private static UpdateUserSettingsResult MapDbUpdateException(DbUpdateException ex)
