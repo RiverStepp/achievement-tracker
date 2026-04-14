@@ -57,11 +57,12 @@ public class AuthController : ControllerBase
           if (response == null) return Unauthorized();
 
           string frontendBaseUrl = frontendSettings.BaseUrl.TrimEnd('/');
-          //if (string.IsNullOrWhiteSpace(frontendBaseUrl))
-               //throw new InvalidOperationException("Frontend:BaseUrl is missing.");
 
-          return Ok(Uri.EscapeDataString(response.Token));
-          /*
+          if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+               throw new InvalidOperationException("Frontend:BaseUrl is missing.");
+
+          // return Ok(Uri.EscapeDataString(response.Token));
+          
           string redirectUrl =
                $"{frontendBaseUrl}/auth/callback"
                + $"?token={Uri.EscapeDataString(response.Token)}"
@@ -70,7 +71,7 @@ public class AuthController : ControllerBase
                + $"&appUserPublicId={Uri.EscapeDataString(response.AppUserPublicId.ToString())}"
                + $"&handle={Uri.EscapeDataString(response.Handle ?? string.Empty)}"
                + $"&displayName={Uri.EscapeDataString(response.DisplayName ?? string.Empty)}";
-          return Redirect(redirectUrl);*/
+          return Redirect(redirectUrl);
      }
 
      [HttpPost("refresh")]
