@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Text;
 using System.Text.RegularExpressions;
 using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Api.Services.Interfaces;
+using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
 
 namespace AchievementTracker.Api.Services.BusinessLogic;
@@ -117,20 +119,38 @@ public sealed class ProfileGatheringScriptRunner(
                throw new FileNotFoundException("Profile gathering script entry is missing.");
           }
 
+          string? dbConnectionString = _configuration.GetConnectionString("DefaultConnection");
           string? dbUser = _configuration["DbConnection:DbUser"];
           string? dbPassword = _configuration["DbConnection:DbPassword"];
           string? dbHost = _configuration["DbConnection:DbHost"];
           string? dbName = _configuration["DbConnection:DbName"];
           string? steamApiKey = _configuration["Authentication:Steam:ApiKey"];
 
-          if (string.IsNullOrWhiteSpace(dbUser)
-              || string.IsNullOrWhiteSpace(dbPassword)
-              || string.IsNullOrWhiteSpace(dbHost)
-              || string.IsNullOrWhiteSpace(dbName)
+          if (string.IsNullOrWhiteSpace(dbConnectionString))
+          {
+               dbConnectionString = _configuration["DbConnection:ConnectionString"];
+          }
+
+          if (!string.IsNullOrWhiteSpace(dbConnectionString))
+          {
+               SqlConnectionStringBuilder builder = new(dbConnectionString);
+               dbHost ??= builder.DataSource;
+               dbName ??= builder.InitialCatalog;
+               dbUser ??= builder.UserID;
+               dbPassword ??= builder.Password;
+          }
+
+          bool hasDiscreteDbConfig =
+               !string.IsNullOrWhiteSpace(dbUser)
+               && !string.IsNullOrWhiteSpace(dbPassword)
+               && !string.IsNullOrWhiteSpace(dbHost)
+               && !string.IsNullOrWhiteSpace(dbName);
+
+          if ((string.IsNullOrWhiteSpace(dbConnectionString) && !hasDiscreteDbConfig)
               || string.IsNullOrWhiteSpace(steamApiKey))
           {
                throw new InvalidOperationException(
-                    "Profile script requires DbConnection and Authentication:Steam:ApiKey configuration."
+                    "Profile script requires ConnectionStrings:DefaultConnection or DbConnection settings, plus Authentication:Steam:ApiKey."
                );
           }
 
@@ -150,11 +170,25 @@ public sealed class ProfileGatheringScriptRunner(
           psi.ArgumentList.Add(steamIdOrUsernameArgument);
 
           psi.Environment["STEAM_API_KEY"] = steamApiKey;
-          psi.Environment["DB_USER"] = dbUser;
-          psi.Environment["DB_PASSWORD"] = dbPassword;
-          psi.Environment["DB_HOST"] = dbHost;
-          psi.Environment["DB_SERVER"] = dbHost;
-          psi.Environment["DB_NAME"] = dbName;
+
+          if (!string.IsNullOrWhiteSpace(dbConnectionString))
+               psi.Environment["DB_CONNECTION_STRING"] = dbConnectionString;
+
+          if (!string.IsNullOrWhiteSpace(dbUser))
+               psi.Environment["DB_USER"] = dbUser;
+
+          if (!string.IsNullOrWhiteSpace(dbPassword))
+               psi.Environment["DB_PASSWORD"] = dbPassword;
+
+          if (!string.IsNullOrWhiteSpace(dbHost))
+          {
+               psi.Environment["DB_HOST"] = dbHost;
+               psi.Environment["DB_SERVER"] = dbHost;
+          }
+
+          if (!string.IsNullOrWhiteSpace(dbName))
+               psi.Environment["DB_NAME"] = dbName;
+
           psi.Environment["STEAM_SCRAPER_INVOKED_THROUGH_API"] = "1";
 
           if (incrementalAchievementsOnly)
@@ -162,16 +196,50 @@ public sealed class ProfileGatheringScriptRunner(
           else
                psi.Environment.Remove("STEAM_INCREMENTAL_ACHIEVEMENTS_ONLY");
 
-          using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
-          process.Start();
+          _logger.LogInformation(
+               "Starting profile script for Target={Target} IncrementalOnly={IncrementalOnly}",
+               steamIdOrUsernameArgument,
+               incrementalAchievementsOnly
+          );
 
-          Task<string> readOut = process.StandardOutput.ReadToEndAsync(ct);
-          Task<string> readErr = process.StandardError.ReadToEndAsync(ct);
+          StringBuilder stdoutBuilder = new();
+          StringBuilder stderrBuilder = new();
+          TaskCompletionSource stdoutClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+          TaskCompletionSource stderrClosed = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+          using var process = new Process { StartInfo = psi, EnableRaisingEvents = true };
+          process.OutputDataReceived += (_, args) =>
+          {
+               if (args.Data is null)
+               {
+                    stdoutClosed.TrySetResult();
+                    return;
+               }
+
+               stdoutBuilder.AppendLine(args.Data);
+               _logger.LogInformation("Profile script: {Line}", args.Data);
+          };
+          process.ErrorDataReceived += (_, args) =>
+          {
+               if (args.Data is null)
+               {
+                    stderrClosed.TrySetResult();
+                    return;
+               }
+
+               stderrBuilder.AppendLine(args.Data);
+               _logger.LogWarning("Profile script stderr: {Line}", args.Data);
+          };
+
+          process.Start();
+          process.BeginOutputReadLine();
+          process.BeginErrorReadLine();
 
           await process.WaitForExitAsync(ct);
+          await Task.WhenAll(stdoutClosed.Task, stderrClosed.Task);
 
-          string stdout = await readOut;
-          string stderr = await readErr;
+          string stdout = stdoutBuilder.ToString();
+          string stderr = stderrBuilder.ToString();
 
           if (process.ExitCode != 0)
           {
@@ -186,7 +254,10 @@ public sealed class ProfileGatheringScriptRunner(
                );
           }
 
-          if (_logger.IsEnabled(LogLevel.Debug))
-               _logger.LogDebug("Profile script output: {Out}", stdout);
+          _logger.LogInformation(
+               "Profile script completed successfully for Target={Target} IncrementalOnly={IncrementalOnly}",
+               steamIdOrUsernameArgument,
+               incrementalAchievementsOnly
+          );
      }
 }

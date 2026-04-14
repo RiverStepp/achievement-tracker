@@ -9,6 +9,9 @@ export const endpoints = {
     get: "/me",
     socialIdentity: "/me/social-identity",
   },
+  profileScraping: {
+    update: "/profile-scraping/update",
+  },
   steamWebApiProxy: {
     resolveVanityUrl: "/steam/proxy/ISteamUser/ResolveVanityURL/v0001",
     getPlayerSummaries: "/steam/proxy/ISteamUser/GetPlayerSummaries/v0002",

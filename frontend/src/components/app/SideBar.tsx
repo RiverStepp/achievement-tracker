@@ -13,6 +13,7 @@ export const SideBar = () => {
   const { isAuthenticated, isLoading, logout, steamUser, userProfile } = useAuth();
   const navigate = useNavigate();
   const handle = userProfile?.handle ?? null;
+  const publicId = userProfile?.user.publicId ?? null;
   const displayName =
     userProfile?.displayName ||
     userProfile?.steam?.personaName ||
@@ -26,8 +27,9 @@ export const SideBar = () => {
     "https://placehold.co/64x64?text=U";
 
   const handleProfileClick = () => {
-    if (!handle) return;
-    navigate(`/u/${handle}`);
+    const profileKey = publicId ?? handle;
+    if (!profileKey) return;
+    navigate(`/u/${profileKey}`);
   };
 
   useEffect(() => {

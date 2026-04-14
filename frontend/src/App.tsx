@@ -9,6 +9,7 @@ import { MessagesPage } from "@/routes/MessagesPage";
 import { SideBar } from "@/components/app/SideBar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/toaster";
 import { ChevronRight } from "lucide-react";
 import { SettingsPage } from "./routes/SettingsPage";
 import { LeaderboardPage } from "./routes/LeaderboardPage";
@@ -58,7 +59,7 @@ const App: React.FC = () => {
             >
               <Routes>
                 <Route path="/" element={<HomePage />} />
-                <Route path="/u/:handle" element={<ProfilePage />} />
+                <Route path="/u/:profileKey" element={<ProfilePage />} />
                 <Route path="/auth/callback" element={<AuthCallbackPage />} />
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
@@ -70,6 +71,7 @@ const App: React.FC = () => {
         </div>
       </div>
       <CreateProfileDialog />
+      <Toaster />
     </>
   );
 };

@@ -1,9 +1,9 @@
 import type { UserProfile } from "@/types/profile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { Trophy, Gamepad2, Clock } from "lucide-react";
-import { EditProfile } from "@/components/profile/EditProfile";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { RoleBadge } from "./RoleBadge";
+import { ProfileActionsMenu } from "./ProfileActionsMenu";
 
 type ProfileBannerProps = {
   profile: UserProfile;
@@ -34,11 +34,9 @@ export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
             : undefined
         }
       >
-        {isMe && (
-          <div className="absolute right-5 top-3 z-10">
-            <EditProfile />
-          </div>
-        )}
+        <div className="absolute right-5 top-3 z-10">
+          <ProfileActionsMenu handle={profile.handle} isMe={isMe} />
+        </div>
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-app-panel/85 via-app-panel/10 to-transparent" />
       </div>
       <div className="relative p-3 pt-0">
