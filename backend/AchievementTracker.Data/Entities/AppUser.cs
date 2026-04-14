@@ -14,6 +14,10 @@ public sealed class AppUser: AuditableEntity
      public int? LocationCityId { get; set; }
      public int? IanaTimeZoneId { get; set; }
      public int? PronounOptionId { get; set; }
+     public string? ProfileImageUrl { get; set; }
+     public string? ProfileImageFileName { get; set; }
+     public string? BannerImageUrl { get; set; }
+     public string? BannerImageFileName { get; set; }
      public bool IsListedOnLeaderboards { get; set; }
      public DateTime? LastLoginDate { get; set; }
 

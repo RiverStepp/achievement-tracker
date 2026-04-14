@@ -72,6 +72,8 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
             int ordCityName = reader.GetOrdinal("CityName");
             int ordTz = reader.GetOrdinal("TimeZoneDisplayName");
             int ordJoin = reader.GetOrdinal("JoinDate");
+            int ordProfileUrl = reader.GetOrdinal("ProfileImageUrl");
+            int ordBannerUrl = reader.GetOrdinal("BannerImageUrl");
 
             ProfileUserLocationDto? location = null;
             int? countryId = reader.IsDBNull(ordLocCountryId) ? null : reader.GetInt32(ordLocCountryId);
@@ -99,7 +101,9 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
                 reader.IsDBNull(ordPronouns) ? null : reader.GetString(ordPronouns),
                 location,
                 reader.IsDBNull(ordTz) ? null : reader.GetString(ordTz),
-                reader.IsDBNull(ordJoin) ? null : reader.GetDateTime(ordJoin));
+                reader.IsDBNull(ordJoin) ? null : reader.GetDateTime(ordJoin),
+                reader.IsDBNull(ordProfileUrl) ? null : reader.GetString(ordProfileUrl),
+                reader.IsDBNull(ordBannerUrl) ? null : reader.GetString(ordBannerUrl));
         }
 
         var visibleSocialLinks = new List<ProfileSocialLinkItemDto>();

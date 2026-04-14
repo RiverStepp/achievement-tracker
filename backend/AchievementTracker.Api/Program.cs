@@ -188,6 +188,7 @@ builder.Services.AddScoped<IUserPinnedAchievementRepository, UserPinnedAchieveme
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
+builder.Services.AddScoped<IUserProfileMediaStorageService, UserProfileMediaStorageService>();
 builder.Services.AddScoped<IUserSettingsService, UserSettingsService>();
 builder.Services.AddOptions<ProfileOptions>()
     .BindConfiguration("Profile")
@@ -213,6 +214,17 @@ builder.Services
     .BindConfiguration("UserSettings")
     .Validate(o => o.MaxBioLength > 0, "UserSettings: MaxBioLength must be > 0.")
     .Validate(o => o.MaxSocialLinkValueLength > 0, "UserSettings: MaxSocialLinkValueLength must be > 0.")
+    .Validate(o => o.ProfileMediaUpload.MaxImageBytes > 0, "UserSettings:ProfileMediaUpload:MaxImageBytes must be > 0.")
+    .Validate(o => o.ProfileMediaUpload.MaxDecodeDimension > 0, "UserSettings:ProfileMediaUpload:MaxDecodeDimension must be > 0.")
+    .Validate(o => o.ProfileMediaUpload.ProfileOutputSize > 0, "UserSettings:ProfileMediaUpload:ProfileOutputSize must be > 0.")
+    .Validate(o => o.ProfileMediaUpload.BannerOutputWidth > 0, "UserSettings:ProfileMediaUpload:BannerOutputWidth must be > 0.")
+    .Validate(o => o.ProfileMediaUpload.BannerOutputHeight > 0, "UserSettings:ProfileMediaUpload:BannerOutputHeight must be > 0.")
+    .Validate(
+        o => o.ProfileMediaUpload.JpegQuality is >= 1 and <= 100,
+        "UserSettings:ProfileMediaUpload:JpegQuality must be between 1 and 100.")
+    .Validate(
+        o => o.ProfileMediaUpload.AllowedImageMimeTypes is { Length: > 0 },
+        "UserSettings:ProfileMediaUpload:AllowedImageMimeTypes must not be empty.")
     .ValidateOnStart();
 
 // Redis

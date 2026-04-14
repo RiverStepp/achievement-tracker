@@ -26,6 +26,18 @@ public sealed class AppUserConfiguration: IEntityTypeConfiguration<AppUser>
           b.Property(x => x.Bio)
               .HasMaxLength(UserSettingsConstraints.MaxBioLength);
 
+          b.Property(x => x.ProfileImageUrl)
+              .HasMaxLength(UserSettingsConstraints.MaxProfileMediaUrlLength);
+
+          b.Property(x => x.ProfileImageFileName)
+              .HasMaxLength(UserSettingsConstraints.MaxProfileMediaFileNameLength);
+
+          b.Property(x => x.BannerImageUrl)
+              .HasMaxLength(UserSettingsConstraints.MaxProfileMediaUrlLength);
+
+          b.Property(x => x.BannerImageFileName)
+              .HasMaxLength(UserSettingsConstraints.MaxProfileMediaFileNameLength);
+
           b.HasOne(x => x.LocationCountry)
               .WithMany()
               .HasForeignKey(x => x.LocationCountryId)
