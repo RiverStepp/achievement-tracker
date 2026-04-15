@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
 using AchievementTracker.Api.Services.Interfaces;
 using AchievementTracker.Data.Entities;
@@ -18,7 +18,8 @@ public sealed class AuthService(
      IRefreshTokenStore refreshTokenStore,
      IAuthBusinessLogic authBusinessLogic,
      ISteamClient steamClient,
-     IAppUserRepository appUserRepository
+     IAppUserRepository appUserRepository,
+     IProfileGatheringScriptRunner profileGatheringScriptRunner
 ): IAuthService
 {
      private readonly JwtSettings _jwtSettings = jwtSettings;
@@ -27,6 +28,7 @@ public sealed class AuthService(
      private readonly IAuthBusinessLogic _authBusinessLogic = authBusinessLogic;
      private readonly ISteamClient _steamClient = steamClient;
      private readonly IAppUserRepository _appUserRepository = appUserRepository;
+     private readonly IProfileGatheringScriptRunner _profileGatheringScriptRunner = profileGatheringScriptRunner;
 
      public async Task<AuthTokenResponse?> IssueTokensAsync(HttpContext httpContext, string steamId)
      {
@@ -41,19 +43,29 @@ public sealed class AuthService(
 
           SteamProfileDto? profile = await _steamClient.GetProfileAsync(steamId64, ct);
 
-          var (appUserId, publicId) = await _appUserRepository.UpsertSteamUserAsync(
+          var upsert = await _appUserRepository.UpsertSteamUserAsync(
                steamId64,
                canonicalSteamId,
                profile,
                ct
           );
 
+          if (upsert.IsNewUser)
+               _profileGatheringScriptRunner.ScheduleFirstTimeProfileGather(canonicalSteamId);
+
           await _refreshTokenStore.IssueAsync(httpContext, canonicalSteamId);
+
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(upsert.AppUserId, ct);
 
           return new AuthTokenResponse
           {
-               Token = MintAccessToken(canonicalSteamId, appUserId, publicId),
-               SteamId = canonicalSteamId
+               Token = MintAccessToken(canonicalSteamId, upsert.AppUserId),
+               SteamId = canonicalSteamId,
+               IsNewUser = upsert.IsNewUser,
+               AppUserPublicId = publicId,
+               Handle = handle,
+               DisplayName = displayName
           };
      }
 
@@ -65,14 +77,21 @@ public sealed class AuthService(
           if (steamId == null) 
                return null;
 
-          var user = await _appUserRepository.GetAppUserBySteamIdAsync(steamId, ct);
-          if (user == null)
+          int? appUserId = await _appUserRepository.GetAppUserIdBySteamIdAsync(steamId, ct);
+          if (appUserId == null)
                return null;
+
+          (Guid publicId, string? handle, string? displayName) =
+               await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(appUserId.Value, ct);
 
           return new AuthTokenResponse
           {
-               Token = MintAccessToken(steamId, user.Value.AppUserId, user.Value.PublicId),
-               SteamId = steamId
+               Token = MintAccessToken(steamId, appUserId.Value),
+               SteamId = steamId,
+               IsNewUser = false,
+               AppUserPublicId = publicId,
+               Handle = handle,
+               DisplayName = displayName
           };
      }
 
@@ -81,13 +100,12 @@ public sealed class AuthService(
           await _refreshTokenStore.RevokeAsync(httpContext);
      }
 
-     private string MintAccessToken(string steamId, int appUserId, Guid publicId)
+     private string MintAccessToken(string steamId, int appUserId)
      {
           Claim[] claims =
           [
                new Claim(AuthClaims.SteamId, steamId),
                new Claim(AuthClaims.AppUserId, appUserId.ToString()),
-               new Claim(AuthClaims.AppUserPublicId, publicId.ToString()),
                new Claim(AuthClaims.AuthProvider, eAuthProvider.Steam.ToString()),
                new Claim(AuthClaims.ProviderUserId, steamId),
 

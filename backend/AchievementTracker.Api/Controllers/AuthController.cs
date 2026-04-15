@@ -13,11 +13,16 @@ namespace AchievementTracker.Controllers;
 public class AuthController : ControllerBase
 {
      private readonly AuthSettings authSettings;
+     private readonly FrontendSettings frontendSettings;
      private readonly IAuthService authService;
 
-     public AuthController(AuthSettings authSettings, IAuthService authService)
+     public AuthController(
+          AuthSettings authSettings,
+          FrontendSettings frontendSettings,
+          IAuthService authService)
      {
           this.authSettings = authSettings;
+          this.frontendSettings = frontendSettings;
           this.authService = authService;
      }
 
@@ -51,7 +56,22 @@ public class AuthController : ControllerBase
           AuthTokenResponse? response = await authService.IssueTokensAsync(HttpContext, steamId);
           if (response == null) return Unauthorized();
 
-          return Ok(response);
+          string frontendBaseUrl = frontendSettings.BaseUrl.TrimEnd('/');
+
+          if (string.IsNullOrWhiteSpace(frontendBaseUrl))
+               throw new InvalidOperationException("Frontend:BaseUrl is missing.");
+
+          // return Ok(Uri.EscapeDataString(response.Token));
+          
+          string redirectUrl =
+               $"{frontendBaseUrl}/auth/callback"
+               + $"?token={Uri.EscapeDataString(response.Token)}"
+               + $"&steamId={Uri.EscapeDataString(response.SteamId)}"
+               + $"&isNewUser={response.IsNewUser}"
+               + $"&appUserPublicId={Uri.EscapeDataString(response.AppUserPublicId.ToString())}"
+               + $"&handle={Uri.EscapeDataString(response.Handle ?? string.Empty)}"
+               + $"&displayName={Uri.EscapeDataString(response.DisplayName ?? string.Empty)}";
+          return Redirect(redirectUrl);
      }
 
      [HttpPost("refresh")]
