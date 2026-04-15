@@ -12,10 +12,14 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
      // Sends a message, finding or creating the conversation atomically in the repository layer
      public async Task<MessageDto> SendMessageAsync(int senderUserId, SendMessageRequest request, CancellationToken ct = default)
      {
-          if (request.RecipientUserId == senderUserId)
+          int? recipientUserId = await _dmRepo.GetAppUserIdByPublicIdAsync(request.RecipientPublicId, ct);
+          if (!recipientUserId.HasValue)
+               throw new InvalidOperationException("Recipient user was not found.");
+
+          if (recipientUserId.Value == senderUserId)
                throw new InvalidOperationException("Cannot send a message to yourself.");
 
-          var message = await _dmRepo.SendMessageToConversationAsync(senderUserId, request.RecipientUserId, request.Content, ct);
+          var message = await _dmRepo.SendMessageToConversationAsync(senderUserId, recipientUserId.Value, request.Content, ct);
 
           return MapToMessageDto(message);
      }
@@ -37,11 +41,11 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
 
          return conversations.Select(c => new ConversationDto(
                c.ConversationId,
-               c.ParticipantUserIds,
+              c.ParticipantPublicIds,
                c.LastMessageId.HasValue ? new MessageDto(
                     c.LastMessageId.Value,
                     c.ConversationId,
-                    c.LastMessageSenderUserId!.Value,
+                    c.LastMessageSenderPublicId!.Value,
                     c.LastMessageContent!,
                     c.LastMessageSentDate!.Value
                ) : null,
@@ -66,7 +70,7 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
      private static MessageDto MapToMessageDto(DirectMessage m) => new(
           m.DirectMessageId,
           m.ConversationId,
-          m.SenderAppUserId,
+          m.Sender.PublicId,
           m.Content,
           m.SentDate
      );

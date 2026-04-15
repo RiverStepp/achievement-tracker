@@ -2,6 +2,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
 using AchievementTracker.Data.Enums;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using System.Data;
 
@@ -11,10 +12,24 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
 {
      private readonly AppDbContext _db = db;
 
-     // Finds a conversation where both users between two users and adds the message automatically. Uses a serializable transaction to prevent duplicate conversations under concurrent sends
+    // Finds a direct conversation for the participant pair and adds a message.
+    // Uses a deterministic SQL Server app lock to serialize only this participant pair.
      public async Task<DirectMessage> SendMessageToConversationAsync(int senderUserId, int recipientUserId, string content, CancellationToken ct = default)   
      {
-          await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.Serializable, ct);
+          await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
+
+          string lockResource = BuildDirectConversationLockKey(senderUserId, recipientUserId);
+          var lockResourceParameter = new SqlParameter("@lockResource", lockResource);
+          var lockTimeoutParameter = new SqlParameter("@lockTimeout", 5000);
+          var lockResult = new SqlParameter("@lockResult", SqlDbType.Int) { Direction = ParameterDirection.Output };
+          await _db.Database.ExecuteSqlRawAsync(
+               "EXEC @lockResult = sp_getapplock @Resource = @lockResource, @LockMode = 'Exclusive', @LockOwner = 'Transaction', @LockTimeout = @lockTimeout;",
+               [lockResult, lockResourceParameter, lockTimeoutParameter],
+               ct);
+
+          int lockCode = (int)(lockResult.Value ?? -999);
+          if (lockCode < 0)
+               throw new InvalidOperationException($"Unable to acquire direct-conversation lock. Result code: {lockCode}.");
 
           var conversation = await _db.Conversations
                .Where(c => c.Participants.Count == 2
@@ -59,6 +74,11 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
 
           _db.DirectMessages.Add(message);
           await _db.SaveChangesAsync(ct);
+
+          message = await _db.DirectMessages
+               .Include(m => m.Sender)
+               .FirstAsync(m => m.DirectMessageId == message.DirectMessageId, ct);
+
           await tx.CommitAsync(ct);
 
           return message;
@@ -74,6 +94,7 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                          .Where(m => !beforeMessageId.HasValue || m.DirectMessageId < beforeMessageId.Value)
                          .OrderByDescending(m => m.DirectMessageId)
                          .Take(pageSize))
+               .ThenInclude(m => m.Sender)
                .FirstOrDefaultAsync(ct);
 
          if (participant is null)
@@ -90,7 +111,7 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                .Select(p => new ConversationWithUnread
                {
                     ConversationId = p.ConversationId,
-                    ParticipantUserIds = p.Conversation.Participants.Select(x => x.AppUserId).ToList(),
+                    ParticipantPublicIds = p.Conversation.Participants.Select(x => x.AppUserPublicId).ToList(),
                     UnreadCount = p.Conversation.Messages.Count(m =>
                          m.SenderAppUserId != userId &&
                          (p.LastReadMessageId == null || m.DirectMessageId > p.LastReadMessageId.Value)),
@@ -99,9 +120,9 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                          .OrderByDescending(m => m.DirectMessageId)
                          .Select(m => (long?)m.DirectMessageId)
                          .FirstOrDefault(),
-                    LastMessageSenderUserId = p.Conversation.Messages
+                    LastMessageSenderPublicId = p.Conversation.Messages
                          .OrderByDescending(m => m.DirectMessageId)
-                         .Select(m => (int?)m.SenderAppUserId)
+                         .Select(m => (Guid?)m.Sender.PublicId)
                          .FirstOrDefault(),
                     LastMessageContent = p.Conversation.Messages
                          .OrderByDescending(m => m.DirectMessageId)
@@ -146,5 +167,20 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                .Where(u => u.AppUserId == appUserId)
                .Select(u => (Guid?)u.PublicId)
                .FirstOrDefaultAsync(ct);
+     }
+
+     public async Task<int?> GetAppUserIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)
+     {
+          return await _db.AppUsers
+               .Where(u => u.PublicId == publicId)
+               .Select(u => (int?)u.AppUserId)
+               .FirstOrDefaultAsync(ct);
+     }
+
+     private static string BuildDirectConversationLockKey(int userAId, int userBId)
+     {
+          int first = Math.Min(userAId, userBId);
+          int second = Math.Max(userAId, userBId);
+          return $"dm-conversation:{first}:{second}";
      }
 }

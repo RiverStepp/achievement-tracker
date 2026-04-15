@@ -26,29 +26,37 @@ public sealed class ChatHub(IDirectMessageService dmService, ILogger<ChatHub> lo
 
      // 10 messages per 10-second sliding window per user
      private static readonly ConcurrentDictionary<Guid, SlidingWindowRateLimiter> _rateLimiters = new();
+     private static readonly ConcurrentDictionary<Guid, int> _connectionCounts = new();
 
      public override async Task OnConnectedAsync()
      {
           Guid publicId = GetAppUserPublicId();
+          _connectionCounts.AddOrUpdate(publicId, 1, static (_, count) => count + 1);
           await Groups.AddToGroupAsync(Context.ConnectionId, UserGroupKey(publicId));
           await base.OnConnectedAsync();
      }
 
      public override async Task OnDisconnectedAsync(Exception? exception)
      {
+          string? rawPublicId = Context.User?.FindFirst(AuthClaims.AppUserPublicId)?.Value;
+          if (Guid.TryParse(rawPublicId, out Guid publicId))
+               DecrementConnectionCount(publicId);
+
           await base.OnDisconnectedAsync(exception);
      }
 
      // Client invokes this to send a DM. The message is persisted and pushed in real time to the both participants
-     public async Task SendDirectMessage(int recipientUserId, string content)
+     public async Task SendDirectMessage(Guid recipientPublicId, string content)
      {
-          if (recipientUserId <= 0)
-               throw new HubException("recipientUserId must be a positive integer.");
+          if (recipientPublicId == Guid.Empty)
+               throw new HubException("recipientPublicId is required.");
 
           if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
                throw new HubException("Content must be between 1 and 2000 characters.");
 
           Guid senderPublicId = GetAppUserPublicId();
+          if (recipientPublicId == senderPublicId)
+               throw new HubException("Cannot send a message to yourself.");
 
           if (!await TryAcquireRateLimitAsync(senderPublicId))
           {
@@ -60,20 +68,17 @@ public sealed class ChatHub(IDirectMessageService dmService, ILogger<ChatHub> lo
 
           var request = new SendMessageRequest
           {
-               RecipientUserId = recipientUserId,
+               RecipientPublicId = recipientPublicId,
                Content = content
           };
 
           MessageDto message = await _dmService.SendMessageAsync(senderUserId, request);
 
-          Guid? recipientPublicId = await _dmService.GetUserPublicIdAsync(recipientUserId);
-
           // Echo to sender so all their open clients stay in sync.
           await Clients.Group(UserGroupKey(senderPublicId)).SendAsync(ReceiveDirectMessageEvent, message);
 
           // Push to recipient if they are connected.
-          if (recipientPublicId.HasValue)
-               await Clients.Group(UserGroupKey(recipientPublicId.Value)).SendAsync(ReceiveDirectMessageEvent, message);
+          await Clients.Group(UserGroupKey(recipientPublicId)).SendAsync(ReceiveDirectMessageEvent, message);
      }
 
      // Client invokes this to mark all messages in a conversation as read
@@ -135,5 +140,31 @@ public sealed class ChatHub(IDirectMessageService dmService, ILogger<ChatHub> lo
 
           using RateLimitLease lease = await limiter.AcquireAsync(permitCount: 1);
           return lease.IsAcquired;
+     }
+
+     private static void DecrementConnectionCount(Guid publicId)
+     {
+          while (true)
+          {
+               if (!_connectionCounts.TryGetValue(publicId, out int currentCount))
+                    return;
+
+               int nextCount = currentCount - 1;
+               if (nextCount > 0)
+               {
+                    if (_connectionCounts.TryUpdate(publicId, nextCount, currentCount))
+                         return;
+
+                    continue;
+               }
+
+               if (!_connectionCounts.TryRemove(new KeyValuePair<Guid, int>(publicId, currentCount)))
+                    continue;
+
+               if (_rateLimiters.TryRemove(publicId, out SlidingWindowRateLimiter? limiter))
+                    limiter.Dispose();
+
+               return;
+          }
      }
 }

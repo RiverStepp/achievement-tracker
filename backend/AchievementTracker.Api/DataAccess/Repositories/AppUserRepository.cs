@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Api.DataAccess.Interfaces;
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
@@ -37,6 +37,14 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           return await _db.UserExternalLogins
                .Where(x => x.AuthProvider == eAuthProvider.Steam && x.ProviderUserId == canonicalSteamId)
                .Select(x => ((int AppUserId, Guid PublicId)?)new ValueTuple<int, Guid>(x.AppUserId, x.AppUser.PublicId))
+               .SingleOrDefaultAsync(ct);
+     }
+
+     public async Task<int?> GetAppUserIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)
+     {
+          return await _db.AppUsers
+               .Where(x => x.PublicId == publicId)
+               .Select(x => (int?)x.AppUserId)
                .SingleOrDefaultAsync(ct);
      }
 

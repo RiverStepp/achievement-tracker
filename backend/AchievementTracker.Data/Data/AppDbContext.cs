@@ -7,15 +7,14 @@ namespace AchievementTracker.Data.Data;
 public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(options)
 {
      public DbSet<AppUser> AppUsers => Set<AppUser>();
-     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
-     public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
-     public DbSet<Role> Roles => Set<Role>();
-     public DbSet<UserRole> UserRoles => Set<UserRole>();
      public DbSet<Conversation> Conversations => Set<Conversation>();
      public DbSet<ConversationParticipant> ConversationParticipants => Set<ConversationParticipant>();
      public DbSet<DirectMessage> DirectMessages => Set<DirectMessage>();
      public DbSet<MessageEmbed> MessageEmbeds => Set<MessageEmbed>();
-     public DbSet<Notification> Notifications => Set<Notification>();
+     public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
+     public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();
+     public DbSet<Role> Roles => Set<Role>();
+     public DbSet<UserRole> UserRoles => Set<UserRole>();
 
      protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
      {

@@ -6,12 +6,12 @@ namespace AchievementTracker.Api.DataAccess.Interfaces;
 public sealed class ConversationWithUnread
 {
      public int ConversationId { get; init; }
-     public List<int> ParticipantUserIds { get; init; } = [];
+     public List<Guid> ParticipantPublicIds { get; init; } = [];
      public int UnreadCount { get; init; }
      public DateTime CreateDate { get; init; }
      // The most recent message's details (null when the conversation has no messages yet)
      public long? LastMessageId { get; init; }
-     public int? LastMessageSenderUserId { get; init; }
+     public Guid? LastMessageSenderPublicId { get; init; }
      public string? LastMessageContent { get; init; }
      public DateTime? LastMessageSentDate { get; init; }
 }
@@ -25,4 +25,5 @@ public interface IDirectMessageRepository
      Task<List<ConversationWithUnread>> GetUserConversationsAsync(int userId, CancellationToken ct = default);
      Task<List<Guid>?> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default);
      Task<Guid?> GetUserPublicIdAsync(int appUserId, CancellationToken ct = default);
+     Task<int?> GetAppUserIdByPublicIdAsync(Guid publicId, CancellationToken ct = default);
 }
