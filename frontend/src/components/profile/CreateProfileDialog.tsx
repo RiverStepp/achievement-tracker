@@ -21,7 +21,7 @@ const toHandleSeed = (value: string) =>
 
 export const CreateProfileDialog = () => {
   const navigate = useNavigate();
-  const { needsProfileSetup, steamUser, createUserProfile } = useAuth();
+  const { needsProfileSetup, steamUser, createUserProfile, appUser } = useAuth();
   const [displayName, setDisplayName] = useState("");
   const [handle, setHandle] = useState("");
   const [bio, setBio] = useState("");
@@ -74,7 +74,7 @@ export const CreateProfileDialog = () => {
       return;
     }
 
-    navigate(`/u/${normalizedHandle}`);
+    navigate(`/u/${appUser?.publicId ?? normalizedHandle}`);
   };
 
   return (

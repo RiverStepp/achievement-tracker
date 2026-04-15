@@ -54,10 +54,38 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
 
+  const attachPublicIdToProfile = (
+    profile: UserProfile | null,
+    publicId?: string | null
+  ): UserProfile | null => {
+    if (!profile || !publicId) {
+      return profile;
+    }
+
+    if (profile.user.publicId === publicId) {
+      return profile;
+    }
+
+    return {
+      ...profile,
+      user: {
+        ...profile.user,
+        publicId,
+      },
+    };
+  };
+
   const loadSession = async (): Promise<MeResponse | null> => {
     try {
       console.log("[auth] loading session");
       const res = await api.get<MeResponse>(endpoints.me.get);
+      console.log("[auth] /me response", {
+        steamId: res.data.steamId,
+        appUser: res.data.appUser ?? null,
+        hasUserProfile: Boolean(res.data.userProfile),
+        userProfilePublicId: res.data.userProfile?.user?.publicId ?? null,
+        userProfileHandle: res.data.userProfile?.handle ?? null,
+      });
       const nextSteamUser: SteamUser = {
         steamId: res.data.steamId,
         profileUrl: buildSteamProfileUrl(res.data.steamId),
@@ -66,6 +94,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAppUser(res.data.appUser ?? null);
 
       let profile = res.data.userProfile ?? loadStoredUserProfile(res.data.steamId);
+      profile = attachPublicIdToProfile(profile, res.data.appUser?.publicId);
+      console.log("[auth] resolved session profile source", {
+        fromApi: Boolean(res.data.userProfile),
+        fromLocalStorage: Boolean(!res.data.userProfile && profile),
+        loadedProfilePublicId: profile?.user?.publicId ?? null,
+        loadedProfileHandle: profile?.handle ?? null,
+      });
       if (profile) {
         profile = {
           ...profile,
@@ -79,7 +114,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(profile);
       setNeedsProfileSetup(!profile);
       setStatus("authenticated");
-      console.log("[auth] session loaded");
+      console.log("[auth] session loaded", {
+        appUserPublicId: res.data.appUser?.publicId ?? null,
+        stateProfilePublicId: profile?.user?.publicId ?? null,
+        stateProfileHandle: profile?.handle ?? null,
+      });
+
+      if (profile?.user.publicId && !res.data.userProfile) {
+        persistUserProfile(res.data.steamId, profile);
+      }
+
       return res.data;
     } catch {
       console.log("[auth] session load failed");
@@ -139,7 +183,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //   return;
     // }
     const loginUrl = `${api.defaults.baseURL}${authService.getSteamLoginUrl()}`;
-    console.log("[auth] starting Steam login", loginUrl);
+    console.log("[auth] starting Steam login", {
+      loginUrl,
+      apiBaseUrl: api.defaults.baseURL,
+      endpoint: authService.getSteamLoginUrl(),
+    });
     window.location.href = loginUrl;
   };
 
@@ -153,7 +201,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     //   return;
     // }
 
-    console.log("[auth] completing login from callback");
+    console.log("[auth] completing login from callback", {
+      steamId: response.steamId,
+      appUserPublicId: response.appUserPublicId,
+      handle: response.handle ?? null,
+      displayName: response.displayName ?? null,
+      isNewUser: response.isNewUser,
+    });
     setStatus("loading");
     sessionStorage.setItem("authToken", response.token);
     setAuthToken(response.token);
@@ -167,7 +221,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       steamId: response.steamId,
       profileUrl: buildSteamProfileUrl(response.steamId),
     };
-    const storedProfile = loadStoredUserProfile(response.steamId);
+    const storedProfile = attachPublicIdToProfile(
+      loadStoredUserProfile(response.steamId),
+      response.appUserPublicId
+    );
+    console.log("[auth] callback stored profile lookup", {
+      steamId: response.steamId,
+      foundStoredProfile: Boolean(storedProfile),
+      storedProfilePublicId: storedProfile?.user?.publicId ?? null,
+      storedProfileHandle: storedProfile?.handle ?? null,
+    });
 
     setSteamUser(nextSteamUser);
     setAppUser({
@@ -185,7 +248,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     console.log("[auth] auth completed", {
       steamId: response.steamId,
       isNewUser: response.isNewUser,
+      appUserPublicId: response.appUserPublicId,
+      stateAppUserPublicId: response.appUserPublicId,
+      stateProfilePublicId: storedProfile?.user?.publicId ?? null,
+      stateProfileHandle: storedProfile?.handle ?? null,
     });
+
+    if (storedProfile?.user.publicId) {
+      persistUserProfile(response.steamId, storedProfile);
+    }
   };
 
   const createUserProfile = async (draft: NewUserProfileDraft): Promise<string | null> => {
@@ -218,6 +289,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNeedsProfileSetup(false);
     console.log("[auth] temporary profile created", {
       steamId: steamUser.steamId,
+      publicId: nextProfile.user.publicId ?? null,
       handle: nextProfile.handle,
       steamProfileUrl,
     });

@@ -5,6 +5,7 @@
 *.user
 *.sln.docstates
 
+
 .env
 .env.*
 !*.example
@@ -20,7 +21,7 @@ backend/**/*.pdb
 backend/**/*.exe
 
 /backend/AchievementTracker.Api/Logs/**
-
+artifacts/
 backend/**/appsettings.json
 backend/**/appsettings.*.json
 !backend/**/appsettings.example.json

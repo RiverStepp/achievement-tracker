@@ -18,28 +18,13 @@ let pool: sql.ConnectionPool | null = null;
 
 // Load configuration with proper priority order
 async function loadConfig(): Promise<sql.config> {
-    // First priority: Load from Azure Key Vault if available
-    const keyVaultUri = process.env.KEY_VAULT_URI || process.env.AZURE_KEY_VAULT_URI;
-    if (keyVaultUri) {
-        try {
-            console.log('Loading database connection string from Azure Key Vault...');
-            const keyVaultConfig = await loadConfigFromKeyVault();
-            if (keyVaultConfig.dbConnectionString) {
-                console.log('Successfully loaded connection string from Key Vault');
-                // Use the library's built-in parser
-                return sql.ConnectionPool.parseConnectionString(keyVaultConfig.dbConnectionString);
-            }
-        } catch (error) {
-            console.warn('Failed to load connection string from Key Vault, trying environment variables:', error);
-        }
+    // First priority: DB_CONNECTION_STRING environment variable (from env or .env file)
+    const connectionString = process.env.DB_CONNECTION_STRING?.trim();
+    if (connectionString) {
+        return sql.ConnectionPool.parseConnectionString(connectionString);
     }
 
-    // Second priority: DB_CONNECTION_STRING environment variable (from env or .env file)
-    if (process.env.DB_CONNECTION_STRING) {
-        return sql.ConnectionPool.parseConnectionString(process.env.DB_CONNECTION_STRING);
-    }
-
-    // Third priority: Individual environment variables (from env or .env file)
+    // Second priority: Individual environment variables (from env or .env file)
     // Use DB_USER consistently
     const user = process.env.DB_USER || process.env.DB_USERNAME;
     const password = process.env.DB_PASSWORD;
@@ -53,6 +38,38 @@ async function loadConfig(): Promise<sql.config> {
     const poolMaxStr = process.env.DB_POOL_MAX;
     const poolMinStr = process.env.DB_POOL_MIN;
     const poolIdleTimeoutStr = process.env.DB_POOL_IDLE_TIMEOUT;
+    const keyVaultDisabled = process.env.DISABLE_KEY_VAULT === 'true';
+
+    if (server && database && user && password) {
+        return buildSqlConfig({
+            user,
+            password,
+            server,
+            database,
+            portStr,
+            encryptStr,
+            trustCertStr,
+            poolMaxStr,
+            poolMinStr,
+            poolIdleTimeoutStr,
+        });
+    }
+
+    // Third priority: Azure Key Vault, unless explicitly disabled
+    const keyVaultUri = process.env.KEY_VAULT_URI || process.env.AZURE_KEY_VAULT_URI;
+    if (!keyVaultDisabled && keyVaultUri) {
+        try {
+            console.log('Loading database connection string from Azure Key Vault...');
+            const keyVaultConfig = await loadConfigFromKeyVault();
+            if (keyVaultConfig.dbConnectionString) {
+                console.log('Successfully loaded connection string from Key Vault');
+                // Use the library's built-in parser
+                return sql.ConnectionPool.parseConnectionString(keyVaultConfig.dbConnectionString);
+            }
+        } catch (error) {
+            console.warn('Failed to load connection string from Key Vault, trying remaining environment variables:', error);
+        }
+    }
 
     // Validate required fields - throw error if missing
     if (!user) {
@@ -68,6 +85,43 @@ async function loadConfig(): Promise<sql.config> {
         throw new Error('DB_NAME or DB_DATABASE environment variable is required');
     }
 
+    return buildSqlConfig({
+        user,
+        password,
+        server,
+        database,
+        portStr,
+        encryptStr,
+        trustCertStr,
+        poolMaxStr,
+        poolMinStr,
+        poolIdleTimeoutStr,
+    });
+}
+
+function buildSqlConfig({
+    user,
+    password,
+    server,
+    database,
+    portStr,
+    encryptStr,
+    trustCertStr,
+    poolMaxStr,
+    poolMinStr,
+    poolIdleTimeoutStr,
+}: {
+    user: string;
+    password: string;
+    server: string;
+    database: string;
+    portStr?: string;
+    encryptStr?: string;
+    trustCertStr?: string;
+    poolMaxStr?: string;
+    poolMinStr?: string;
+    poolIdleTimeoutStr?: string;
+}): sql.config {
     // Parse port using Number() and validate
     let port: number | undefined;
     if (portStr) {

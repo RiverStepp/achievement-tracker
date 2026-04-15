@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,13 +9,19 @@ import {
 } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button";
 
-export const EditProfile = () => {
+type EditProfileProps = {
+  trigger?: ReactNode;
+};
+
+export const EditProfile = ({ trigger }: EditProfileProps) => {
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <Button variant="default" size="lg" className="p-4">
-          Edit Profile
-        </Button>
+        {trigger ?? (
+          <Button variant="default" size="lg" className="p-4">
+            Edit Profile
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

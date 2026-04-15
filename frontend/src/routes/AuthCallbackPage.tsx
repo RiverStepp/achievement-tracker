@@ -21,7 +21,14 @@ export const AuthCallbackPage = () => {
       (params.get("isNewUser") || "").toLowerCase() === "true";
 
     if (token) {
-      console.log("[auth] callback auth payload received");
+      console.log("[auth] callback auth payload received", {
+        steamId,
+        appUserPublicId,
+        handle,
+        displayName,
+        isNewUser,
+        hasToken: Boolean(token),
+      });
 
       (async () => {
         await completeLoginFromCallback({
@@ -32,6 +39,7 @@ export const AuthCallbackPage = () => {
           handle,
           displayName,
         });
+        console.log("[auth] callback navigation to home");
         navigate("/", { replace: true });
       })();
 
