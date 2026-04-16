@@ -6,6 +6,7 @@ public interface ICurrentUser
 {
      bool IsAuthenticated { get; }
      int? AppUserId { get; }
+     Guid? AppUserPublicId { get; }
      eAuthProvider? AuthProvider { get; }
      string? ProviderUserId { get; }
      string? SteamId { get; }

@@ -106,9 +106,5 @@ if (require.main === module) {
   main().catch(console.error);
 }
 
-<<<<<<< HEAD
-export { SteamScraper, DataStorage, ScraperApiService };
-=======
 export { SteamScraper, DataStorage, ScraperApiService };
 export { PointsService } from './services/pointsService';
->>>>>>> origin/main

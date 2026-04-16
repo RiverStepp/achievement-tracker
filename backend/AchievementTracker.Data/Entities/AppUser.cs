@@ -25,8 +25,9 @@ public sealed class AppUser: AuditableEntity
      public List<UserExternalLogin> ExternalLogins { get; set; } = [];
      public List<AppUserPinnedAchievement> PinnedAchievements { get; set; } = [];
      public List<SocialPost> SocialPosts { get; set; } = [];
-     public List<UserRole> UserRoles { get; set; } = [];
      public List<AppUserSocialLink> SocialLinks { get; set; } = [];
+     public List<UserRole> UserRoles { get; set; } = [];
+     public List<ConversationParticipant> ConversationParticipants { get; set; } = [];
      public LocationCountry? LocationCountry { get; set; }
      public LocationStateRegion? LocationStateRegion { get; set; }
      public LocationCity? LocationCity { get; set; }
