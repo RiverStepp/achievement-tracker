@@ -21,7 +21,7 @@ public sealed class ConversationWithUnread
 public interface IDirectMessageRepository
 {
      Task<DirectMessage> SendMessageToConversationAsync(int senderUserId, int recipientUserId, string content, CancellationToken ct = default);
-     Task<List<DirectMessage>?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default);
+     Task<(List<DirectMessage> Messages, long? LastReadMessageId)?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default);
      Task<List<ConversationWithUnread>> GetUserConversationsAsync(int userId, CancellationToken ct = default);
      Task<List<Guid>?> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default);
      Task<Guid?> GetUserPublicIdAsync(int appUserId, CancellationToken ct = default);

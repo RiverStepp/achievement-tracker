@@ -85,7 +85,7 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
      }
 
      // Returns null if the user is not a participant; fetches participant membership and messages in a single DB trip
-     public async Task<List<DirectMessage>?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default)    
+     public async Task<(List<DirectMessage> Messages, long? LastReadMessageId)?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default)
      {
            var participant = await _db.ConversationParticipants
                .Where(p => p.ConversationId == conversationId && p.AppUserId == userId)
@@ -99,8 +99,13 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
 
          if (participant is null)
                return null;
-               
-          return [.. participant.Conversation.Messages.OrderBy(m => m.DirectMessageId)];
+
+          long? lastReadMessageId = await _db.ConversationParticipants
+               .Where(p => p.ConversationId == conversationId && p.AppUserId != userId)
+               .Select(p => p.LastReadMessageId)
+               .FirstOrDefaultAsync(ct);
+
+          return ([.. participant.Conversation.Messages.OrderBy(m => m.DirectMessageId)], lastReadMessageId);
      }
 
       // Fetches all conversations for a user with per-conversation unread counts in a single query

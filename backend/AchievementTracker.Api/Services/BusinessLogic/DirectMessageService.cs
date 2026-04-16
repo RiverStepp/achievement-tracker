@@ -25,13 +25,16 @@ public sealed class DirectMessageService(IDirectMessageRepository dmRepo) : IDir
      }
 
      // Retrieves message history for a conversation after verifying the user is a participant
-     public async Task<List<MessageDto>> GetMessageHistoryAsync(int conversationId, int userId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)
+     public async Task<ConversationMessageHistoryDto> GetMessageHistoryAsync(int conversationId, int userId, int pageSize, long? beforeMessageId = null, CancellationToken ct = default)
      {
-          var messages = await _dmRepo.GetMessagesIfParticipantAsync(conversationId, userId, pageSize, beforeMessageId, ct);
-          if (messages is null)
+          var history = await _dmRepo.GetMessagesIfParticipantAsync(conversationId, userId, pageSize, beforeMessageId, ct);
+          if (history is null)
                throw new UnauthorizedAccessException("You are not a participant in this conversation.");
 
-          return messages.Select(MapToMessageDto).ToList();
+          return new ConversationMessageHistoryDto(
+               history.Value.Messages.Select(MapToMessageDto).ToList(),
+               history.Value.LastReadMessageId
+          );
      }
 
      // Gets all conversations for a user with unread counts and the most recent message for each
