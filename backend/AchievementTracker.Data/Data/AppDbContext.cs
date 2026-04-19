@@ -46,7 +46,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      public DbSet<SteamTag> SteamTags => Set<SteamTag>();
      public DbSet<SteamUserAchievement> SteamUserAchievements => Set<SteamUserAchievement>();
      public DbSet<SteamUserGame> SteamUserGames => Set<SteamUserGame>();
-     public DbSet<UserAchievementSummary> UserAchievementSummaries => Set<UserAchievementSummary>();
      public DbSet<UserExternalLogin> UserExternalLogins => Set<UserExternalLogin>();
      public DbSet<UserRole> UserRoles => Set<UserRole>();
      public DbSet<UserSteamProfile> UserSteamProfiles => Set<UserSteamProfile>();

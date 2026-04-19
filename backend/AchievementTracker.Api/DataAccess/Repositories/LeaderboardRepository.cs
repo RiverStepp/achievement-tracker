@@ -2,6 +2,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Leaderboard;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
+using AchievementTracker.Data.Enums;
 using Microsoft.EntityFrameworkCore;
 
 namespace AchievementTracker.Api.DataAccess.Repositories;
@@ -10,149 +11,178 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
 {
      private readonly AppDbContext _db = db;
 
-     public async Task UpsertAchievementSummaryAsync(
-          int appUserId,
-          int totalAchievementsUnlocked,
-          int totalGamesTracked,
-          int perfectGamesCount,
-          int totalPoints,
-          CancellationToken ct = default
-     )
-     {
-          // Try to find an existing summary row for this user
-          var summary = await _db.UserAchievementSummaries
-               .SingleOrDefaultAsync(x => x.AppUserId == appUserId, ct);
-
-          // If none exists, create a new entity and track it for insertion
-          if (summary == null)
-          {
-               summary = new UserAchievementSummary { AppUserId = appUserId };
-               _db.UserAchievementSummaries.Add(summary);
-          }
-
-          summary.TotalAchievementsUnlocked = totalAchievementsUnlocked;
-          summary.TotalGamesTracked = totalGamesTracked;
-          summary.PerfectGamesCount = perfectGamesCount;
-          summary.TotalPoints = totalPoints;
-          summary.LastSyncedDate = DateTime.UtcNow;
-
-          await _db.SaveChangesAsync(ct);
-     }
-
-     // Private result types for raw SQL projections
-     private sealed class UserStatsResult
-     {
-          public int TotalUnlocked { get; init; }
-          public int TotalPoints { get; init; }
-          public int TotalGamesTracked { get; init; }
-     }
- 
-     private sealed class PerfectGamesResult
-     {
-          public int PerfectGames { get; init; }
-     }
- 
      public async Task<(int TotalUnlocked, int TotalPoints, int TotalGamesTracked, int PerfectGames)> ComputeUserStatsAsync(
           long steamId64,
-          CancellationToken ct = default
-     )
+          CancellationToken ct = default)
      {
-          // Sum points and count unlocked achievements and distinct games for this Steam user
-          var stats = await _db.Database.SqlQuery<UserStatsResult>(
-               $"""
-               SELECT
-                    COUNT(sua.Id)             AS TotalUnlocked,
-                    ISNULL(SUM(sa.Points), 0) AS TotalPoints,
-                    COUNT(DISTINCT sa.GameId) AS TotalGamesTracked
-               FROM SteamUserAchievements sua
-               JOIN SteamAchievements sa ON sua.AchievementId = sa.Id
-               WHERE sua.SteamId   = {steamId64}
-                 AND sua.IsActive  = 1
-                 AND sa.IsActive   = 1
-               """
-          ).FirstOrDefaultAsync(ct);
- 
-          // A perfect game = user has unlocked every active achievement in that game
-          var perfect = await _db.Database.SqlQuery<PerfectGamesResult>(
-               $"""
-               SELECT COUNT(*) AS PerfectGames
-               FROM (
-                    SELECT sa.GameId
-                    FROM SteamAchievements sa
-                    LEFT JOIN SteamUserAchievements sua
-                         ON  sa.Id          = sua.AchievementId
-                         AND sua.SteamId    = {steamId64}
-                         AND sua.IsActive   = 1
-                    WHERE sa.IsActive = 1
-                    GROUP BY sa.GameId
-                    HAVING COUNT(sa.Id) > 0
-                       AND COUNT(sa.Id) = SUM(CASE WHEN sua.Id IS NOT NULL THEN 1 ELSE 0 END)
-               ) g
-               """
-          ).FirstOrDefaultAsync(ct);
- 
-          return (
-               stats?.TotalUnlocked     ?? 0,
-               stats?.TotalPoints       ?? 0,
-               stats?.TotalGamesTracked ?? 0,
-               perfect?.PerfectGames    ?? 0
-          );
+          IQueryable<SteamAchievement> unlockedJoin = ActiveUnlockedAchievementsForSteam(steamId64);
+
+          int totalUnlocked = await unlockedJoin.CountAsync(ct);
+          int totalPoints = await unlockedJoin.SumAsync(sa => sa.Points, ct);
+          int totalGamesTracked = await unlockedJoin.Select(sa => sa.GameId).Distinct().CountAsync(ct);
+
+          int perfectGames = await _db.SteamAchievements
+               .Where(sa => sa.IsActive)
+               .GroupBy(sa => sa.GameId)
+               .Select(g => new
+               {
+                    Total = g.Count(),
+                    Unlocked = g.Count(sa => sa.UserAchievements.Any(sua =>
+                         sua.SteamId == steamId64 && sua.IsActive)),
+               })
+               .Where(x => x.Total > 0 && x.Total == x.Unlocked)
+               .CountAsync(ct);
+
+          return (totalUnlocked, totalPoints, totalGamesTracked, perfectGames);
      }
- 
+
      public async Task<AchievementSummaryDto?> GetAchievementSummaryAsync(int appUserId, CancellationToken ct = default)
      {
-          return await _db.UserAchievementSummaries
-               .Where(x => x.AppUserId == appUserId && x.IsActive)
-               .Select(x => new AchievementSummaryDto(
-                    x.TotalAchievementsUnlocked,
-                    x.TotalGamesTracked,
-                    x.PerfectGamesCount,
-                    x.TotalPoints,
-                    x.LastSyncedDate
-               ))
-               .SingleOrDefaultAsync(ct);
+          long? steamId64 = await TryGetSteamId64ForAppUserAsync(appUserId, ct);
+          if (steamId64 is null)
+               return null;
+
+          long sid = steamId64.Value;
+
+          (int totalUnlocked, int totalPoints, int totalGamesTracked, int perfectGames) =
+               await ComputeUserStatsAsync(sid, ct);
+
+          DateTime? lastUnlocked = await _db.SteamUserAchievements
+               .AsNoTracking()
+               .Where(sua => sua.SteamId == sid && sua.IsActive)
+               .OrderByDescending(sua => sua.UnlockedAt)
+               .Select(sua => (DateTime?)sua.UnlockedAt)
+               .FirstOrDefaultAsync(ct);
+
+          return new AchievementSummaryDto(
+               totalUnlocked,
+               totalGamesTracked,
+               perfectGames,
+               totalPoints,
+               lastUnlocked);
      }
 
      public async Task<LeaderboardPageDto> GetLeaderboardPageAsync(int page, int pageSize, CancellationToken ct = default)
      {
-          // Build ranked query: users opted-in with synced achievement data, joined to their Steam profile
-          var query =
-               from summary in _db.UserAchievementSummaries
-               where summary.IsActive // Exclude soft-deleted summaries
-               join appUser in _db.AppUsers on summary.AppUserId equals appUser.AppUserId
-               where appUser.IsListedOnLeaderboards && appUser.IsActive
-               join login in _db.UserExternalLogins on appUser.AppUserId equals login.AppUserId
-               join profile in _db.UserSteamProfiles
-                    on (int?)login.UserExternalLoginId equals profile.UserExternalLoginId
-                    into profileGroup
-               from profile in profileGroup.DefaultIfEmpty() // Left join: Steam profile may not exist yet
-               orderby summary.TotalPoints descending,             // Primary rank: highest points first
-                       summary.PerfectGamesCount descending,         // Tiebreak: favour 100% completionists
-                       summary.TotalAchievementsUnlocked descending  // Final tiebreak: most achievements wins
+          var eligibleRows = await (
+               from au in _db.AppUsers.AsNoTracking()
+               where au.IsListedOnLeaderboards && au.IsActive
+               join login in _db.UserExternalLogins.AsNoTracking() on au.AppUserId equals login.AppUserId
+               where login.AuthProvider == eAuthProvider.Steam && login.IsActive
+               join profile in _db.UserSteamProfiles.AsNoTracking() on login.UserExternalLoginId equals profile.UserExternalLoginId
+               where profile.IsActive
                select new
                {
-                    appUser.PublicId,
-                    summary.TotalAchievementsUnlocked,
-                    summary.TotalGamesTracked,
-                    summary.PerfectGamesCount,
-                    summary.TotalPoints,
-                    summary.LastSyncedDate,
-                    PersonaName = profile != null ? profile.PersonaName : null,
-                    AvatarUrl = profile != null ? profile.AvatarMediumUrl : null,
-                    ProfileUrl = profile != null ? profile.ProfileUrl : null
-               };
+                    au.PublicId,
+                    profile.SteamId,
+                    profile.PersonaName,
+                    AvatarUrl = profile.AvatarMediumUrl,
+                    profile.ProfileUrl,
+               }).ToListAsync(ct);
 
-          int totalCount = await query.CountAsync(ct);
+          if (eligibleRows.Count == 0)
+               return new LeaderboardPageDto([], 0, page, pageSize);
 
-          // Fetch only the requested page of results
-          var rawEntries = await query
-               .Skip((page - 1) * pageSize)
-               .Take(pageSize)
-               .ToListAsync(ct);
+          HashSet<long> eligibleSteamIds = eligibleRows.Select(r => r.SteamId).ToHashSet();
 
-          // Calculate the rank offset so rank 1 stays correct across pages
-          int baseRank = (page - 1) * pageSize + 1;
-          var entries = rawEntries
+          var unlockedCounts = await (
+               from sua in _db.SteamUserAchievements.AsNoTracking()
+               where sua.IsActive && eligibleSteamIds.Contains(sua.SteamId)
+               join sa in _db.SteamAchievements.AsNoTracking() on sua.AchievementId equals sa.Id
+               where sa.IsActive
+               group sa by sua.SteamId into g
+               select new
+               {
+                    SteamId = g.Key,
+                    TotalAchievementsUnlocked = g.Count(),
+                    TotalPoints = g.Sum(x => x.Points),
+               }).ToListAsync(ct);
+
+          var distinctGames = await (
+               from sua in _db.SteamUserAchievements.AsNoTracking()
+               where sua.IsActive && eligibleSteamIds.Contains(sua.SteamId)
+               join sa in _db.SteamAchievements.AsNoTracking() on sua.AchievementId equals sa.Id
+               where sa.IsActive
+               group sa.GameId by sua.SteamId into g
+               select new { SteamId = g.Key, TotalGamesTracked = g.Distinct().Count() }).ToListAsync(ct);
+
+          var gamesBySteam = distinctGames.ToDictionary(x => x.SteamId, x => x.TotalGamesTracked);
+          var statsDict = new Dictionary<long, (int Unlocked, int Points, int Games)>();
+          foreach (var row in unlockedCounts)
+          {
+               gamesBySteam.TryGetValue(row.SteamId, out int games);
+               statsDict[row.SteamId] = (row.TotalAchievementsUnlocked, row.TotalPoints, games);
+          }
+
+          var unlockedBySteamGame = await (
+               from sua in _db.SteamUserAchievements.AsNoTracking()
+               where sua.IsActive && eligibleSteamIds.Contains(sua.SteamId)
+               join sa in _db.SteamAchievements.AsNoTracking() on sua.AchievementId equals sa.Id
+               where sa.IsActive
+               group sua by new { sua.SteamId, sa.GameId } into g
+               select new { g.Key.SteamId, g.Key.GameId, Unlocked = g.Count() }).ToListAsync(ct);
+
+          Dictionary<int, int> totalsByGame;
+          if (unlockedBySteamGame.Count == 0)
+               totalsByGame = new Dictionary<int, int>();
+          else
+          {
+               HashSet<int> gameIds = unlockedBySteamGame.Select(x => x.GameId).ToHashSet();
+               totalsByGame = await _db.SteamAchievements
+                    .AsNoTracking()
+                    .Where(sa => sa.IsActive && gameIds.Contains(sa.GameId))
+                    .GroupBy(sa => sa.GameId)
+                    .Select(g => new { GameId = g.Key, Total = g.Count() })
+                    .ToDictionaryAsync(x => x.GameId, x => x.Total, ct);
+          }
+
+          var perfectBySteam = new Dictionary<long, int>();
+          foreach (var row in unlockedBySteamGame)
+          {
+               if (!totalsByGame.TryGetValue(row.GameId, out int totalInGame) || totalInGame <= 0 || row.Unlocked != totalInGame)
+                    continue;
+
+               perfectBySteam.TryGetValue(row.SteamId, out int n);
+               perfectBySteam[row.SteamId] = n + 1;
+          }
+
+          var lastUnlockedBySteam = await _db.SteamUserAchievements
+               .AsNoTracking()
+               .Where(sua => sua.IsActive && eligibleSteamIds.Contains(sua.SteamId))
+               .GroupBy(sua => sua.SteamId)
+               .Select(g => new { SteamId = g.Key, Last = g.Max(sua => sua.UnlockedAt) })
+               .ToDictionaryAsync(x => x.SteamId, x => (DateTime?)x.Last, ct);
+
+          var ranked = eligibleRows
+               .Select(eu =>
+               {
+                    (int unlocked, int points, int games) = statsDict.GetValueOrDefault(eu.SteamId);
+                    perfectBySteam.TryGetValue(eu.SteamId, out int perfect);
+                    lastUnlockedBySteam.TryGetValue(eu.SteamId, out DateTime? last);
+                    return new
+                    {
+                         eu.PublicId,
+                         eu.PersonaName,
+                         eu.AvatarUrl,
+                         eu.ProfileUrl,
+                         TotalAchievementsUnlocked = unlocked,
+                         TotalGamesTracked = games,
+                         PerfectGamesCount = perfect,
+                         TotalPoints = points,
+                         LastSyncedDate = last,
+                    };
+               })
+               .OrderByDescending(x => x.TotalPoints)
+               .ThenByDescending(x => x.PerfectGamesCount)
+               .ThenByDescending(x => x.TotalAchievementsUnlocked)
+               .ToList();
+
+          int totalCount = ranked.Count;
+          int skip = (page - 1) * pageSize;
+          var pageRows = ranked.Skip(skip).Take(pageSize).ToList();
+
+          int baseRank = skip + 1;
+          var entries = pageRows
                .Select((e, i) => new LeaderboardEntryDto(
                     Rank: baseRank + i,
                     PublicId: e.PublicId,
@@ -163,10 +193,32 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     TotalGamesTracked: e.TotalGamesTracked,
                     PerfectGamesCount: e.PerfectGamesCount,
                     TotalPoints: e.TotalPoints,
-                    LastSyncedDate: e.LastSyncedDate
-               ))
+                    LastSyncedDate: e.LastSyncedDate))
                .ToList();
 
           return new LeaderboardPageDto(entries, totalCount, page, pageSize);
+     }
+
+     private async Task<long?> TryGetSteamId64ForAppUserAsync(int appUserId, CancellationToken ct)
+     {
+          long steamId = await (
+               from login in _db.UserExternalLogins.AsNoTracking()
+               join profile in _db.UserSteamProfiles.AsNoTracking() on login.UserExternalLoginId equals profile.UserExternalLoginId
+               where login.AppUserId == appUserId
+                    && login.AuthProvider == eAuthProvider.Steam
+                    && login.IsActive
+                    && profile.IsActive
+               select profile.SteamId).FirstOrDefaultAsync(ct);
+
+          return steamId == 0 ? null : steamId;
+     }
+
+     private IQueryable<SteamAchievement> ActiveUnlockedAchievementsForSteam(long steamId64)
+     {
+          return from sua in _db.SteamUserAchievements.AsNoTracking()
+                 where sua.SteamId == steamId64 && sua.IsActive
+                 join sa in _db.SteamAchievements.AsNoTracking() on sua.AchievementId equals sa.Id
+                 where sa.IsActive
+                 select sa;
      }
 }
