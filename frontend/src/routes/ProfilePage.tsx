@@ -1,108 +1,154 @@
-import React from 'react';
-import { useParams } from 'react-router-dom';
-import { Banner } from '@/components/Banner';
-import { AboutCard } from '@/components/AboutCard';
-import { PinnedGrid } from '@/components/PinnedGrid';
-import { FavoritesGrid } from '@/components/FavoritesGrid';
-import { ActivityFeed } from '@/components/ActivityFeed';
-import { AchievementsPreview } from '@/components/AchievementsPreview';
-import { EditProfileModal } from '@/components/EditProfileModal';
-import { getMockUser } from '@/data/mockUser';
-import { UserProfile } from '@/types/user';
+import { useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import type { UserProfile } from "@/types/profile";
+import { useAuth } from "@/auth/AuthProvider";
+import { ProfileBanner } from "@/components/profile/ProfileBanner";
+import { mockUserProfile } from "@/data/mockUser";
+import { AboutPanel } from "@/components/profile/AboutPanel";
+import { LatestActivities } from "@/components/profile/LatestActivities";
+import { ProfileTabs } from "@/components/profile/ProfileTabs";
+import { profileService } from "@/services/profile";
 
-interface EditState {
-  open: boolean;
-  tab: 'profile' | 'accounts' | 'privacy';
-  focus?: 'pins' | 'profile';
-}
+const guidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-let toastId = 0;
+export function ProfilePage() {
+  const { profileKey } = useParams<{ profileKey: string }>();
+  const { userProfile: currentUserProfile, isLoading: isAuthLoading } = useAuth();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [loading, setLoading] = useState(true);
 
-export const ProfilePage: React.FC = () => {
-  
+  const USE_MOCK_PROFILE = import.meta.env.DEV;
 
-  const params = useParams<{ handle: string }>();
-  const [profile, setProfile] = React.useState<UserProfile | undefined>(() =>
-    params.handle ? getMockUser(params.handle) : undefined
-  );
-  const [editState, setEditState] = React.useState<EditState>({ open: false, tab: 'profile' });
-  const [toasts, setToasts] = React.useState<Array<{ id: number; message: string }>>([]);
-
-  React.useEffect(() => {
-    if (params.handle) {
-      setProfile(getMockUser(params.handle));
+  useEffect(() => {
+    if (!profileKey) {
+      console.log("[profile-page] no profile key in route");
+      setProfile(null);
+      setLoading(false);
+      return;
     }
-  }, [params.handle]);
 
-  const showToast = React.useCallback((message: string) => {
-    const id = ++toastId;
-    setToasts((prev) => [...prev, { id, message }]);
-    window.setTimeout(() => {
-      setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    }, 3200);
-  }, []);
+    if (isAuthLoading) {
+      console.log("[profile-page] auth still loading", { profileKey });
+      setLoading(true);
+      return;
+    }
 
-  if (!profile) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-200">
-        <div className="text-center">
-          <h1 className="text-3xl font-semibold">User not found</h1>
-          <p className="mt-2 text-sm text-slate-400">This profile hasn\'t been created yet.</p>
-        </div>
-      </main>
-    );
-  }
+    const normalizedKey = profileKey.toLowerCase();
+    const currentHandle = currentUserProfile?.handle?.toLowerCase();
+    const currentPublicId = currentUserProfile?.user.publicId?.toLowerCase();
+    const isCurrentUsersProfile =
+      currentUserProfile &&
+      (normalizedKey === currentHandle || normalizedKey === currentPublicId);
+    const fallbackProfile =
+      isCurrentUsersProfile
+        ? currentUserProfile
+        : USE_MOCK_PROFILE &&
+            (normalizedKey === mockUserProfile.handle.toLowerCase() ||
+              normalizedKey === mockUserProfile.user.publicId?.toLowerCase())
+          ? mockUserProfile
+          : null;
+    const resolvedPublicId =
+      guidPattern.test(profileKey)
+        ? profileKey
+        : isCurrentUsersProfile
+          ? currentUserProfile?.user.publicId
+          : null;
 
-  return (
-    <main className="min-h-screen bg-slate-950 pb-16 text-slate-100">
-      <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10 text-blue-100 sm:px-6 lg:px-10">
-        <Banner
-          user={profile}
-          onNotify={showToast}
-          onEdit={(opts) =>
-            setEditState({ open: true, tab: opts?.tab ?? 'profile', focus: opts?.focus })
+    console.log("[profile-page] route resolution", {
+      profileKey,
+      currentHandle,
+      currentPublicId,
+      isCurrentUsersProfile: Boolean(isCurrentUsersProfile),
+      fallbackHandle: fallbackProfile?.handle ?? null,
+      fallbackPublicId: fallbackProfile?.user.publicId ?? null,
+      resolvedPublicId: resolvedPublicId ?? null,
+      currentUserProfileSnapshot: currentUserProfile
+        ? {
+            handle: currentUserProfile.handle,
+            publicId: currentUserProfile.user.publicId ?? null,
+            achievementCount: currentUserProfile.achievements?.length ?? 0,
           }
-        />
+        : null,
+    });
 
-        <div className="grid gap-6 lg:grid-cols-[2fr,1fr]">
-          <AboutCard user={profile} />
-          <AchievementsPreview activity={profile.activity} />
+    if (!resolvedPublicId) {
+      console.log("[profile-page] no resolvable publicId, using fallback profile only", {
+        profileKey,
+        fallbackHandle: fallbackProfile?.handle ?? null,
+      });
+      setProfile(fallbackProfile);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+
+    profileService
+      .getProfile(resolvedPublicId, undefined, fallbackProfile, {
+        steamId: isCurrentUsersProfile ? currentUserProfile?.steam?.steamId : fallbackProfile?.steam?.steamId,
+        isSelf: Boolean(isCurrentUsersProfile),
+      })
+      .then((res) => {
+        console.log("[profile-page] profile fetch succeeded", {
+          profileKey,
+          resolvedPublicId,
+          handle: res.handle,
+          achievementCount: res.achievements?.length ?? 0,
+          summary: res.summary,
+        });
+        setProfile(res);
+      })
+      .catch((error) => {
+        console.log("[profile-page] profile fetch failed", {
+          profileKey,
+          resolvedPublicId,
+          error,
+          fallbackHandle: fallbackProfile?.handle ?? null,
+        });
+        setProfile(fallbackProfile);
+      })
+      .finally(() => setLoading(false));
+  }, [profileKey, USE_MOCK_PROFILE, currentUserProfile, isAuthLoading]);
+
+  if (loading) return <div>Loading...</div>;
+  if (!profile) return <div>Profile not found.</div>;
+
+  console.log("[profile-page] rendering profile", {
+    routeKey: profileKey,
+    handle: profile.handle,
+    publicId: profile.user.publicId,
+    achievementCount: profile.achievements?.length ?? 0,
+    pinnedCount: profile.achievements?.filter((item) => item.isPinned).length ?? 0,
+    summary: profile.summary,
+  });
+
+  // isMe = logged-in user route matches either handle or public id
+  let isMe =
+    !!currentUserProfile &&
+    !!profileKey &&
+    (currentUserProfile.handle.toLowerCase() === profileKey.toLowerCase() ||
+      currentUserProfile.user.publicId?.toLowerCase() === profileKey.toLowerCase());
+  if (isMe) {
+    console.log("Viewing own profile:", currentUserProfile);
+    isMe = true;
+  }
+  return (
+    <div className="w-full flex justify-center min-h-0">
+      <div className="w-full max-w-[1100px] relative grid grid-cols-1 lg:grid-cols-3 gap-4 min-h-0">
+        <div className="lg:col-span-3">
+          <ProfileBanner profile={profile} isMe={isMe} />
         </div>
-
-        <PinnedGrid
-          pins={profile.pins}
-          onEditPins={() => setEditState({ open: true, tab: 'profile', focus: 'pins' })}
-        />
-
-        <FavoritesGrid favoriteGames={profile.favoriteGames} favoriteGenres={profile.favoriteGenres} />
-
-        {profile.privacy.showActivity && (
-          <ActivityFeed activity={profile.activity} />
-        )}
+        <div className="lg:col-span-2 min-w-0 min-h-0">
+          <ProfileTabs profile={profile} />
+        </div>
+        <div className="hidden lg:block lg:col-span-1 min-w-0 min-h-0 space-y-4">
+          <AboutPanel profile={profile} />
+          <LatestActivities profile={profile} />
+        </div>
       </div>
-
-      <EditProfileModal
-        user={profile}
-        open={editState.open}
-        initialTab={editState.tab}
-        focusSection={editState.focus}
-        onNotify={showToast}
-        onOpenChange={(open) => setEditState((prev) => ({ ...prev, open }))}
-        onSave={(next) => setProfile(next)}
-      />
-
-      <div className="pointer-events-none fixed bottom-6 right-6 flex flex-col gap-2">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className="pointer-events-auto rounded-2xl border border-brand/40 bg-slate-950/90 px-4 py-3 text-sm text-blue-100 shadow-lg shadow-slate-950/50"
-          >
-            {toast.message}
-          </div>
-        ))}
-      </div>
-    </main>
+    </div>
   );
-};
+}
 
 export default ProfilePage;

@@ -1,0 +1,30 @@
+# Ensemble Learning System - Complete ML Dependencies
+# High-accuracy achievement points calculation using multiple ML models
+
+# Core dependencies
+pyodbc>=4.0.39
+pandas>=2.0.0
+numpy>=1.24.0
+python-dotenv>=1.0.0
+scikit-learn>=1.3.0
+
+# Azure Key Vault integration
+azure-identity>=1.12.0
+azure-keyvault-secrets>=4.7.0
+
+# Gradient boosting models (high accuracy tree-based models)
+xgboost>=2.0.0
+lightgbm>=4.0.0
+catboost>=1.2.0
+
+# Deep learning for tabular data
+torch>=2.0.0
+pytorch-tabnet>=4.0.0
+
+# Natural language processing (BERT embeddings)
+transformers>=4.30.0
+sentencepiece>=0.1.99
+
+# Utilities
+tqdm>=4.65.0
+

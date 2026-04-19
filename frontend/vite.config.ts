@@ -9,9 +9,13 @@ export default defineConfig({
     }
   },
   server: {
+    watch: {
+      usePolling: true,
+      interval: 100,
+    },  
     proxy: {
       // proxy the controller directly
-      '/WeatherForecast': {
+      '/api': {
         target: 'https://localhost:7111',   // or 'http://localhost:5111'
         changeOrigin: true,
         secure: false,                       // allow self-signed https in dev

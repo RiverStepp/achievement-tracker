@@ -5,6 +5,7 @@
 *.user
 *.sln.docstates
 
+
 .env
 .env.*
 !*.example
@@ -13,12 +14,14 @@ backend/**/bin/
 backend/**/obj/
 backend/**/[Pp]ublish/
 
+scripts/node_modules
+
 backend/**/*.dll
 backend/**/*.pdb
 backend/**/*.exe
 
 /backend/AchievementTracker.Api/Logs/**
-
+artifacts/
 backend/**/appsettings.json
 backend/**/appsettings.*.json
 !backend/**/appsettings.example.json
@@ -29,6 +32,8 @@ backend/**/*.sqlite3
 backend/**/*.db
 backend/**/*.db-shm
 backend/**/*.db-wal
+
+scripts/node_modules
 
 .DS_Store
 Thumbs.db

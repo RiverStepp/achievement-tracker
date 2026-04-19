@@ -1,18 +1,145 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using AchievementTracker.Models.Auth;
 using AchievementTracker.Api.Models.DTOs.Leaderboard;
+using AchievementTracker.Api.Models.DTOs.Settings;
+using AchievementTracker.Api.Models.DTOs.Social;
+using AchievementTracker.Api.Models.Requests;
+using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Models.Auth;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 
 namespace AchievementTracker.Controllers;
 
 [ApiController]
-public class MeController(ILeaderboardService leaderboardService) : ControllerBase
+public sealed class MeController(
+     ICurrentUser currentUser,
+     IMeService meService,
+     IUserSettingsService userSettingsService,
+     ILeaderboardService leaderboardService) : ControllerBase
 {
-     [Authorize]
+     private readonly ICurrentUser _currentUser = currentUser;
+     private readonly IMeService _meService = meService;
+     private readonly IUserSettingsService _userSettingsService = userSettingsService;
      private readonly ILeaderboardService _leaderboardService = leaderboardService;
 
-     // Endpoint to return the SteamID of the user that is currently logged in. 
+     [Authorize]
+     [HttpGet("/me/settings")]
+     public async Task<IActionResult> GetMySettings(CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          var settings = await _userSettingsService.GetSettingsAsync(_currentUser.AppUserId.Value, ct);
+          if (settings is null)
+               return NotFound();
+
+          return Ok(settings);
+     }
+
+     [Authorize]
+     [HttpPut("/me/settings")]
+     [Consumes("application/json")]
+     public async Task<IActionResult> UpdateMySettings(
+          [FromBody] UpdateMySettingsRequestDto? request,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          if (request is null)
+               return BadRequest();
+
+          var outcome = await _userSettingsService.UpdateSettingsAsync(
+               _currentUser.AppUserId.Value,
+               request,
+               imageUploads: null,
+               ct);
+
+          if (!outcome.Success)
+          {
+               return outcome.FailureKind switch
+               {
+                    UpdateUserSettingsFailureKind.NotFound => NotFound(new { error = outcome.ErrorMessage }),
+                    UpdateUserSettingsFailureKind.Conflict =>
+                         Conflict(new { error = outcome.ErrorMessage }),
+                    _ => BadRequest(new { error = outcome.ErrorMessage }),
+               };
+          }
+
+          return Ok();
+     }
+
+     /// <summary>Multipart: optional <c>profileImage</c> and/or <c>bannerImage</c> only. Text settings use <c>PUT /me/settings</c>. At least one file is required.</summary>
+     [Authorize]
+     [HttpPut("/me/settings/media")]
+     [Consumes("multipart/form-data")]
+     [RequestFormLimits(MultipartBodyLengthLimit = 30 * 1024 * 1024)]
+     [RequestSizeLimit(30 * 1024 * 1024)]
+     public async Task<IActionResult> UpdateMySettingsMultipart(
+          [FromForm] UpdateMySettingsMediaForm form,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          if (form.ProfileImage is not { Length: > 0 }
+               && form.BannerImage is not { Length: > 0 })
+               return BadRequest(new { error = "Provide at least one of profileImage or bannerImage." });
+
+          MemoryStream? profileMs = null;
+          MemoryStream? bannerMs = null;
+          try
+          {
+               if (form.ProfileImage is { Length: > 0 } p)
+               {
+                    profileMs = new MemoryStream();
+                    await p.CopyToAsync(profileMs, ct);
+                    profileMs.Position = 0;
+               }
+
+               if (form.BannerImage is { Length: > 0 } b)
+               {
+                    bannerMs = new MemoryStream();
+                    await b.CopyToAsync(bannerMs, ct);
+                    bannerMs.Position = 0;
+               }
+
+               UserSettingsImageUploads? uploads = null;
+               if (profileMs != null || bannerMs != null)
+               {
+                    uploads = new UserSettingsImageUploads { Profile = profileMs, Banner = bannerMs };
+                    profileMs = null;
+                    bannerMs = null;
+               }
+
+               var outcome = await _userSettingsService.UpdateSettingsAsync(
+                    _currentUser.AppUserId.Value,
+                    new UpdateMySettingsRequestDto(),
+                    uploads,
+                    ct);
+
+               if (!outcome.Success)
+               {
+                    return outcome.FailureKind switch
+                    {
+                         UpdateUserSettingsFailureKind.NotFound => NotFound(new { error = outcome.ErrorMessage }),
+                         UpdateUserSettingsFailureKind.Conflict =>
+                              Conflict(new { error = outcome.ErrorMessage }),
+                         _ => BadRequest(new { error = outcome.ErrorMessage }),
+                    };
+               }
+
+               return Ok();
+          }
+          finally
+          {
+               if (profileMs != null)
+                    await profileMs.DisposeAsync();
+               if (bannerMs != null)
+                    await bannerMs.DisposeAsync();
+          }
+     }
+
      [HttpGet("/me")]
      public IActionResult GetMe()
      {
@@ -20,52 +147,108 @@ public class MeController(ILeaderboardService leaderboardService) : ControllerBa
           return Ok(new { steamId });
      }
 
-     // Returns the current user's cached achievement summary. Returns 404 if no sync has been performed yet.
+     [Authorize]
+     [HttpPost("/me/social-identity")]
+     public async Task<IActionResult> SetSocialIdentity(
+          [FromBody] SetMySocialIdentityRequestDto request,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          SetSocialIdentityResult outcome = await _meService.SetSocialIdentityAsync(
+               _currentUser.AppUserId.Value,
+               request,
+               ct);
+
+          if (!outcome.Success)
+               return BadRequest(new { error = outcome.ErrorMessage });
+
+          return Ok();
+     }
+
+     [Authorize]
+     [HttpPost("/me/pin-achievement")]
+     public async Task<IActionResult> PinAchievement(
+          [FromBody] PinMyAchievementRequestDto? request,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          if (request is null)
+               return BadRequest();
+
+          PinAchievementResult outcome = await _meService.PinAchievementAsync(
+               _currentUser.AppUserId.Value,
+               request,
+               ct);
+
+          if (!outcome.Success)
+               return BadRequest(new { error = outcome.ErrorMessage });
+
+          return Ok();
+     }
+
+     [Authorize]
+     [HttpPut("/me/pinned-achievement/{pinnedAchievementId:int}/display-order")]
+     public async Task<IActionResult> UpdatePinnedAchievementDisplayOrder(
+          int pinnedAchievementId,
+          [FromBody] UpdatePinnedAchievementDisplayOrderRequestDto? request,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          if (request is null)
+               return BadRequest();
+
+          UpdatePinnedDisplayOrderResult outcome =
+               await _meService.UpdatePinnedAchievementDisplayOrderAsync(
+                    _currentUser.AppUserId.Value,
+                    pinnedAchievementId,
+                    request,
+                    ct);
+
+          if (!outcome.Success)
+               return BadRequest(new { error = outcome.ErrorMessage });
+
+          return Ok();
+     }
+
+     [Authorize]
      [HttpGet("/me/achievements/summary")]
      [ProducesResponseType(typeof(AchievementSummaryDto), StatusCodes.Status200OK)]
      [ProducesResponseType(StatusCodes.Status404NotFound)]
      public async Task<IActionResult> GetAchievementSummary(CancellationToken ct)
      {
-          if (!TryGetUserIds(out int appUserId, out _))
+          if (_currentUser.AppUserId is null)
                return Unauthorized();
 
-          AchievementSummaryDto? summary = await _leaderboardService.GetUserSummaryAsync(appUserId, ct);
-          if (summary == null)
+          AchievementSummaryDto? summary =
+               await _leaderboardService.GetUserSummaryAsync(_currentUser.AppUserId.Value, ct);
+          if (summary is null)
                return NotFound(new { message = "No achievement data found. Trigger a sync first." });
 
           return Ok(summary);
      }
 
-     // Triggers a full sync of the current user's Steam achievements. Fetches data from the Steam Web API and updates the leaderboard cache.
+     [Authorize]
      [HttpPost("/me/achievements/sync")]
      [ProducesResponseType(typeof(AchievementSummaryDto), StatusCodes.Status200OK)]
      [ProducesResponseType(StatusCodes.Status400BadRequest)]
      public async Task<IActionResult> SyncAchievements(CancellationToken ct)
      {
-          if (!TryGetUserIds(out int appUserId, out long steamId64))
+          if (_currentUser.AppUserId is null)
                return Unauthorized();
 
-          if (steamId64 == 0)
+          if (!long.TryParse(_currentUser.SteamId, out long steamId64) || steamId64 == 0)
                return BadRequest(new { message = "Steam account not linked." });
 
-          await _leaderboardService.SyncUserAchievementsAsync(appUserId, steamId64, ct);
+          await _leaderboardService.SyncUserAchievementsAsync(_currentUser.AppUserId.Value, steamId64, ct);
 
-          AchievementSummaryDto? summary = await _leaderboardService.GetUserSummaryAsync(appUserId, ct);
+          AchievementSummaryDto? summary =
+               await _leaderboardService.GetUserSummaryAsync(_currentUser.AppUserId.Value, ct);
           return Ok(summary);
      }
-
-     private bool TryGetUserIds(out int appUserId, out long steamId64)
-     {
-          appUserId = 0;
-          steamId64 = 0;
-
-          string? appUserIdStr = User.FindFirst(AuthClaims.AppUserId)?.Value;
-          string? steamIdStr = User.FindFirst(AuthClaims.SteamId)?.Value;
-
-          if (!int.TryParse(appUserIdStr, out appUserId))
-               return false;
-
-          long.TryParse(steamIdStr, out steamId64);
-          return true;
-     } 
 }

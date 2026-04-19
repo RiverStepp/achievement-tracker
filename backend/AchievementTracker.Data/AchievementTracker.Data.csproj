@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -14,6 +14,14 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="SeedData\Countries.sql" />
+    <EmbeddedResource Include="SeedData\IanaTimeZones.sql" />
+    <EmbeddedResource Include="SeedData\LocationCities.sql" />
+    <EmbeddedResource Include="SeedData\LocationStateRegions.sql" />
+    <EmbeddedResource Include="StoredProcedures\GetUserProfile.sql" />
   </ItemGroup>
 
 </Project>
