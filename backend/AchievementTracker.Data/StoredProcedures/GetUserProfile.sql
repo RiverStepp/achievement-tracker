@@ -30,6 +30,52 @@ FROM dbo.UserSteamProfiles p
 INNER JOIN dbo.UserExternalLogins el ON el.UserExternalLoginId = p.UserExternalLoginId
 WHERE p.SteamId = @SteamId AND p.IsActive = 1 AND el.IsActive = 1 AND el.AuthProvider = 1;
 
+CREATE TABLE #UserProfile (
+    Handle NVARCHAR(15) NULL,
+    DisplayName NVARCHAR(20) NULL,
+    Bio NVARCHAR(500) NULL,
+    Pronouns NVARCHAR(120) NULL,
+    LocationCountryId INT NULL,
+    CountryName NVARCHAR(120) NULL,
+    LocationStateRegionId INT NULL,
+    StateName NVARCHAR(120) NULL,
+    LocationCityId INT NULL,
+    CityName NVARCHAR(120) NULL,
+    TimeZoneDisplayName NVARCHAR(200) NULL,
+    JoinDate DATETIME2 NOT NULL,
+    ProfileImageUrl NVARCHAR(2048) NULL,
+    BannerImageUrl NVARCHAR(2048) NULL
+);
+
+DECLARE @ProfileImageColumnExpr NVARCHAR(128) =
+    CASE
+        WHEN COL_LENGTH('dbo.AppUsers', 'ProfileImageUrl') IS NOT NULL THEN N'u.ProfileImageUrl'
+        ELSE N'CAST(NULL AS NVARCHAR(2048))'
+    END;
+
+DECLARE @BannerImageColumnExpr NVARCHAR(128) =
+    CASE
+        WHEN COL_LENGTH('dbo.AppUsers', 'BannerImageUrl') IS NOT NULL THEN N'u.BannerImageUrl'
+        ELSE N'CAST(NULL AS NVARCHAR(2048))'
+    END;
+
+DECLARE @UserProfileSql NVARCHAR(MAX) =
+N'INSERT INTO #UserProfile (
+    Handle,
+    DisplayName,
+    Bio,
+    Pronouns,
+    LocationCountryId,
+    CountryName,
+    LocationStateRegionId,
+    StateName,
+    LocationCityId,
+    CityName,
+    TimeZoneDisplayName,
+    JoinDate,
+    ProfileImageUrl,
+    BannerImageUrl
+)
 SELECT
     u.Handle,
     u.DisplayName,
@@ -43,8 +89,8 @@ SELECT
     ct.Name AS CityName,
     tz.DisplayName AS TimeZoneDisplayName,
     u.CreateDate AS JoinDate,
-    u.ProfileImageUrl,
-    u.BannerImageUrl
+    ' + @ProfileImageColumnExpr + N' AS ProfileImageUrl,
+    ' + @BannerImageColumnExpr + N' AS BannerImageUrl
 FROM dbo.AppUsers u
 LEFT JOIN dbo.PronounOptions po ON po.PronounOptionId = u.PronounOptionId
 LEFT JOIN dbo.IanaTimeZones tz ON tz.IanaTimeZoneId = u.IanaTimeZoneId
@@ -54,7 +100,26 @@ LEFT JOIN dbo.LocationCountries cViaCity ON cViaCity.LocationCountryId = srViaCi
 LEFT JOIN dbo.LocationStateRegions srDirect ON srDirect.LocationStateRegionId = u.LocationStateRegionId
 LEFT JOIN dbo.LocationCountries cViaState ON cViaState.LocationCountryId = srDirect.LocationCountryId
 LEFT JOIN dbo.LocationCountries cDirect ON cDirect.LocationCountryId = u.LocationCountryId
-WHERE u.AppUserId = @AppUserId AND u.IsActive = 1;
+WHERE u.AppUserId = @AppUserId AND u.IsActive = 1;';
+
+EXEC sp_executesql @UserProfileSql, N'@AppUserId INT', @AppUserId;
+
+SELECT
+    Handle,
+    DisplayName,
+    Bio,
+    Pronouns,
+    LocationCountryId,
+    CountryName,
+    LocationStateRegionId,
+    StateName,
+    LocationCityId,
+    CityName,
+    TimeZoneDisplayName,
+    JoinDate,
+    ProfileImageUrl,
+    BannerImageUrl
+FROM #UserProfile;
 
 SELECT l.Platform, l.LinkValue
 FROM dbo.AppUserSocialLinks l

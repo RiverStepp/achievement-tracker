@@ -1,6 +1,7 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.DataAccess.Redis;
 using AchievementTracker.Api.DataAccess.Repositories;
+using AchievementTracker.Api.Hubs;
 using AchievementTracker.Api.Models.Options;
 using AchievementTracker.Api.Services.BusinessLogic;
 using AchievementTracker.Api.Services.Interfaces;
@@ -9,11 +10,13 @@ using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StackExchange.Redis;
 using System.Text;
+using System.Threading.RateLimiting;
 using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -103,6 +106,22 @@ builder.Services.AddAuthentication(options =>
           ValidateLifetime = true,
           ClockSkew = TimeSpan.FromMinutes(1)
      };
+
+     // SignalR WebSocket connections cannot set Authorization headers, so the token is sent via query string.
+     options.Events = new JwtBearerEvents
+     {
+          OnMessageReceived = context =>
+          {
+               var accessToken = context.Request.Query["access_token"];
+               if (!string.IsNullOrEmpty(accessToken) &&
+                   context.HttpContext.Request.Path.StartsWithSegments("/chat"))
+               {
+                    context.Token = accessToken;
+               }
+
+               return Task.CompletedTask;
+          }
+     };
 })
 .AddCookie(authSettings.ExternalScheme, options =>
 {
@@ -119,6 +138,22 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Rate limiting (applied to REST API controllers). ChatHub rates are limited inside the hub.
+builder.Services.AddRateLimiter(options =>
+{
+     options.AddSlidingWindowLimiter("chat-api", configure =>
+     {
+          configure.Window = TimeSpan.FromSeconds(10);
+          configure.SegmentsPerWindow = 5;
+          configure.PermitLimit = 20;
+          configure.QueueProcessingOrder = QueueProcessingOrder.OldestFirst;
+          configure.QueueLimit = 0;
+     });
+     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+});
+
+builder.Services.AddSignalR();
+
 builder.Services.AddScoped<IAuthBusinessLogic, AuthBusinessLogic>();
 builder.Services.AddScoped<IRefreshTokenStore, DistributedCacheRefreshTokenStore>();
 builder.Services.AddScoped<IAuthService, AuthService>();
@@ -133,6 +168,8 @@ builder.Services
 
 builder.Services.AddControllers();
 builder.Services.AddDataAccess(builder.Configuration);
+builder.Services.AddScoped<IDirectMessageRepository, DirectMessageRepository>();
+builder.Services.AddScoped<IDirectMessageService, DirectMessageService>();
 
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>
@@ -184,8 +221,10 @@ builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ISocialAttachmentStorageService, SocialAttachmentStorageService>();
 builder.Services.AddScoped<ISocialService, SocialService>();
 builder.Services.AddScoped<IUserProfileRepository, UserProfileRepository>();
+builder.Services.AddScoped<IGameDetailsRepository, GameDetailsRepository>();
 builder.Services.AddScoped<IUserPinnedAchievementRepository, UserPinnedAchievementRepository>();
 builder.Services.AddScoped<IUserProfileService, UserProfileService>();
+builder.Services.AddScoped<IGameDetailsService, GameDetailsService>();
 builder.Services.AddScoped<ILookupRepository, LookupRepository>();
 builder.Services.AddScoped<IUserSettingsRepository, UserSettingsRepository>();
 builder.Services.AddScoped<IUserProfileMediaStorageService, UserProfileMediaStorageService>();
@@ -285,7 +324,9 @@ app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
+app.UseRateLimiter();
 
 app.MapControllers();
+app.MapHub<ChatHub>("/chat");
 
 app.Run();

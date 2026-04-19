@@ -65,6 +65,15 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .SingleOrDefaultAsync(ct);
      }
 
+     public async Task<long?> GetSteamId64ByAppUserIdAsync(int appUserId, CancellationToken ct = default)
+     {
+          return await _db.UserExternalLogins
+               .AsNoTracking()
+               .Where(x => x.AppUserId == appUserId && x.AuthProvider == eAuthProvider.Steam && x.IsActive)
+               .Select(x => x.SteamProfile != null ? (long?)x.SteamProfile.SteamId : null)
+               .SingleOrDefaultAsync(ct);
+     }
+
      public async Task<bool> HandleExistsAsync(string handle, int? excludingAppUserId = null, CancellationToken ct = default)
      {
           IQueryable<AppUser> query = _db.AppUsers.Where(x => x.Handle == handle);

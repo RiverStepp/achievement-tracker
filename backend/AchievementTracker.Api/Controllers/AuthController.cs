@@ -61,7 +61,7 @@ public class AuthController : ControllerBase
           if (string.IsNullOrWhiteSpace(frontendBaseUrl))
                throw new InvalidOperationException("Frontend:BaseUrl is missing.");
 
-          // return Ok(Uri.EscapeDataString(response.Token));
+          //return Ok(Uri.EscapeDataString(response.Token));
           
           string redirectUrl =
                $"{frontendBaseUrl}/auth/callback"
