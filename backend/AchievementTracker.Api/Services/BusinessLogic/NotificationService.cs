@@ -9,9 +9,11 @@ namespace AchievementTracker.Api.Services.BusinessLogic;
 
 public sealed class NotificationService(
      INotificationRepository notificationRepo,
+     IAppUserRepository appUserRepository,
      IHubContext<ChatHub> hubContext) : INotificationService
 {
      private readonly INotificationRepository _notificationRepo = notificationRepo;
+     private readonly IAppUserRepository _appUserRepository = appUserRepository;
      private readonly IHubContext<ChatHub> _hubContext = hubContext;
 
      public async Task<NotificationDto?> CreateAndDispatchAsync(int recipientUserId, int actorUserId, eNotificationType type, string? referenceId = null, CancellationToken ct = default)
@@ -23,9 +25,13 @@ public sealed class NotificationService(
 
           var dto = MapToDto(notification);
 
-          // Push to the recipient in real time via their SignalR user group
+          (Guid recipientPublicId, _, _) = await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(recipientUserId, ct);
+          if (recipientPublicId == Guid.Empty)
+               return dto;
+
+          // Push to the recipient in real time via their SignalR user group (same key as ChatHub)
           await _hubContext.Clients
-               .Group($"user-{recipientUserId}")
+               .Group($"user-{recipientPublicId}")
                .SendAsync("ReceiveNotification", dto, ct);
 
           return dto;

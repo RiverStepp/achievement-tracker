@@ -1,7 +1,7 @@
 using AchievementTracker.Data.Enums;
- 
+
 namespace AchievementTracker.Data.Entities;
- 
+
 public sealed class MessageEmbed
 {
      public long MessageEmbedId { get; set; }
@@ -11,7 +11,7 @@ public sealed class MessageEmbed
      public string? Title { get; set; }
      public string? Description { get; set; }
      public string? ThumbnailUrl { get; set; }
- 
+
      #region navigation
      public DirectMessage DirectMessage { get; set; } = null!;
      #endregion

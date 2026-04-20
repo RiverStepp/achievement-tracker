@@ -1,4 +1,4 @@
-﻿using AchievementTracker.Data.Entities.Common;
+using AchievementTracker.Data.Entities.Common;
 
 namespace AchievementTracker.Data.Entities;
 
@@ -23,5 +23,6 @@ public sealed class UserSteamProfile: AuditableEntity
 
      #region navigation
      public UserExternalLogin? ExternalLogin { get; set; }
+     public List<SteamUserGame> UserGames { get; set; } = [];
      #endregion
 }

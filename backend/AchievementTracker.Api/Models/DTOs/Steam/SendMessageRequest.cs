@@ -5,7 +5,7 @@ namespace AchievementTracker.Api.Models.DTOs.DirectMessages;
 public sealed class SendMessageRequest
 {
      [Required]
-     public int RecipientUserId { get; set; }
+     public Guid RecipientPublicId { get; set; }
 
      [Required]
      [MaxLength(2000)]

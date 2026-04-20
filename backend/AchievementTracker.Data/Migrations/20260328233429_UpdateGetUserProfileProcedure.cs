@@ -1,0 +1,21 @@
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace AchievementTracker.Data.Migrations
+{
+    /// <inheritdoc />
+    public partial class UpdateGetUserProfileProcedure : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.Sql(GetUserProfileProcedureSql.Load());
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+        }
+    }
+}

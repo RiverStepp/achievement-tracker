@@ -13,8 +13,8 @@ public sealed class DirectMessageConfiguration : IEntityTypeConfiguration<Direct
           b.Property(x => x.Content).HasMaxLength(2000).IsRequired();
           b.Property(x => x.SentDate).HasDefaultValueSql("SYSUTCDATETIME()");
 
-          b.HasIndex(x => new { x.ConversationId, x.SentDate });
-
+          b.HasIndex(x => new { x.ConversationId, x.DirectMessageId });
+          
           b.HasOne(x => x.Sender)
                .WithMany()
                .HasForeignKey(x => x.SenderAppUserId)

@@ -14,13 +14,13 @@ public sealed class ConversationConfiguration : IEntityTypeConfiguration<Convers
           b.Property(x => x.ConversationTitle).HasMaxLength(200);
           b.Property(x => x.ConversationImageUrl).HasMaxLength(500);
           b.Property(x => x.LastMessageDate);
-          
+
           b.Property(x => x.IsActive).HasDefaultValue(true);
           b.Property(x => x.CreateDate).HasDefaultValueSql("SYSUTCDATETIME()");
           b.Property(x => x.UpdateDate).HasDefaultValueSql("SYSUTCDATETIME()");
 
           b.HasIndex(x => new { x.CreatedByAppUserId, x.LastMessageDate });
- 
+
           b.HasOne(x => x.CreatedBy)
                .WithMany()
                .HasForeignKey(x => x.CreatedByAppUserId)

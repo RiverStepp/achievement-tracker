@@ -9,7 +9,6 @@ public class DirectMessage : AuditableEntity
      public int SenderAppUserId { get; set; }
      public required string Content { get; set; }
      public DateTime SentDate { get; set; }
-     public DateTime? ReadDate { get; set; }
 
      #region navigation
      public Conversation Conversation { get; set; } = null!;
