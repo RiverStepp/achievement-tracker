@@ -2,6 +2,7 @@ using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Hubs;
 using AchievementTracker.Api.Models.DTOs.Notifications;
 using AchievementTracker.Api.Services.Interfaces;
+using AchievementTracker.Data.Entities;
 using AchievementTracker.Data.Enums;
 using Microsoft.AspNetCore.SignalR;
 
@@ -21,15 +22,15 @@ public sealed class NotificationService(
           if (recipientUserId == actorUserId)
                return null;
 
-          var notification = await _notificationRepo.CreateAsync(recipientUserId, actorUserId, type, referenceId, ct);
+          Notification notification = await _notificationRepo.CreateAsync(recipientUserId, actorUserId, type, referenceId, ct);
 
-          var dto = MapToDto(notification);
+          (Guid actorPublicId, _, _) = await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(actorUserId, ct);
+          NotificationDto dto = ToDto(notification, actorPublicId);
 
           (Guid recipientPublicId, _, _) = await _appUserRepository.GetPublicIdHandleAndDisplayNameAsync(recipientUserId, ct);
           if (recipientPublicId == Guid.Empty)
                return dto;
 
-          // Push to the recipient in real time via their SignalR user group (same key as ChatHub)
           await _hubContext.Clients
                .Group($"user-{recipientPublicId}")
                .SendAsync("ReceiveNotification", dto, ct);
@@ -39,9 +40,9 @@ public sealed class NotificationService(
 
      public async Task<List<NotificationDto>> GetNotificationsAsync(int userId, int pageSize, long? beforeNotificationId = null, CancellationToken ct = default)
      {
-          var notifications = await _notificationRepo.GetForUserAsync(userId, pageSize, beforeNotificationId, ct);
+          List<Notification> notifications = await _notificationRepo.GetForUserAsync(userId, pageSize, beforeNotificationId, ct);
 
-          return notifications.Select(MapToDto).ToList();
+          return notifications.Select(n => ToDto(n, n.Actor.PublicId)).ToList();
      }
 
      public async Task<int> GetUnreadCountAsync(int userId, CancellationToken ct = default)
@@ -59,12 +60,12 @@ public sealed class NotificationService(
           await _notificationRepo.MarkAllAsReadAsync(userId, ct);
      }
 
-     private static NotificationDto MapToDto(Data.Entities.Notification n)
+     private static NotificationDto ToDto(Notification n, Guid actorPublicId)
      {
           return new NotificationDto
           {
                NotificationId = n.NotificationId,
-               ActorAppUserId = n.ActorAppUserId,
+               ActorPublicId = actorPublicId,
                NotificationType = n.NotificationType,
                ReferenceId = n.ReferenceId,
                CreateDate = n.CreateDate,

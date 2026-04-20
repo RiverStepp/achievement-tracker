@@ -1,8 +1,5 @@
-using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.DirectMessages;
 using AchievementTracker.Api.Services.Interfaces;
-using AchievementTracker.Data.Data;
-using AchievementTracker.Data.Enums;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -13,22 +10,14 @@ namespace AchievementTracker.Api.Controllers;
 [Authorize]
 public class DirectMessagesController(
      IDirectMessageService dmService,
-     IDirectMessageRepository directMessageRepository,
-     INotificationService notificationService,
-     ICurrentUser currentUser,
-     AppDbContext db) : ControllerBase
+     ICurrentUser currentUser) : ControllerBase
 {
      private const int MinPageSize = 1;
      private const int MaxPageSize = 100;
-     
+
      private readonly IDirectMessageService _dmService = dmService;
-     private readonly IDirectMessageRepository _dmRepository = directMessageRepository;
-     private readonly INotificationService _notificationService = notificationService;
      private readonly ICurrentUser _currentUser = currentUser;
-     private readonly AppDbContext _db = db;
 
-
-     // Get all conversations for the current user
      [HttpGet("conversations")]
      public async Task<IActionResult> GetConversations(CancellationToken ct)
      {
@@ -37,7 +26,6 @@ public class DirectMessagesController(
           return Ok(conversations);
      }
 
-     // Get message history for a specific conversation with cursor-based pagination
      [HttpGet("conversations/{conversationId:int}/messages")]
      public async Task<IActionResult> GetMessages(
           int conversationId,
@@ -54,31 +42,14 @@ public class DirectMessagesController(
           return Ok(messages);
      }
 
-     // Send a direct message via REST 
      [HttpPost("send")]
      public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request, CancellationToken ct)
      {
           int userId = RequireUserId();
-          await using var transaction = await _db.Database.BeginTransactionAsync(ct);
           var message = await _dmService.SendMessageAsync(userId, request, ct);
-
-          int? recipientUserId = await _dmRepository.GetAppUserIdByPublicIdAsync(request.RecipientPublicId, ct);
-          if (recipientUserId.HasValue)
-          {
-               await _notificationService.CreateAndDispatchAsync(
-                    recipientUserId.Value,
-                    userId,
-                    eNotificationType.DirectMessage,
-                    message.ConversationId.ToString(),
-                    ct);
-          }
-
-          await transaction.CommitAsync(ct);
-          
           return Ok(message);
      }
 
-     // Mark all messages in a conversation as read
      [HttpPost("conversations/{conversationId:int}/read")]
      public async Task<IActionResult> MarkAsRead(int conversationId, CancellationToken ct)
      {

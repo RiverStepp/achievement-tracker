@@ -12,14 +12,14 @@ public class NotificationsController(INotificationService notificationService, I
      private readonly INotificationService _notificationService = notificationService;
      private readonly ICurrentUser _currentUser = currentUser;
 
-     // Get notifications for the current user with cursor-based pagination
      [HttpGet]
      public async Task<IActionResult> GetNotifications(
           [FromQuery] int pageSize = 20,
           [FromQuery] long? before = null,
           CancellationToken ct = default)
      {
-          int userId = _currentUser.AppUserId!.Value;
+          if (!TryGetAuthenticatedUserId(out int userId))
+               return Unauthorized();
 
           if (pageSize is < 1 or > 100)
                return BadRequest("pageSize must be between 1 and 100.");
@@ -28,30 +28,45 @@ public class NotificationsController(INotificationService notificationService, I
           return Ok(notifications);
      }
 
-     // Get the unread notification count for the current user
      [HttpGet("unread-count")]
      public async Task<IActionResult> GetUnreadCount(CancellationToken ct)
      {
-          int userId = _currentUser.AppUserId!.Value;
+          if (!TryGetAuthenticatedUserId(out int userId))
+               return Unauthorized();
+
           int count = await _notificationService.GetUnreadCountAsync(userId, ct);
           return Ok(new { UnreadCount = count });
      }
 
-     // Mark a single notification as read
      [HttpPost("{notificationId:long}/read")]
      public async Task<IActionResult> MarkAsRead(long notificationId, CancellationToken ct)
      {
-          int userId = _currentUser.AppUserId!.Value;
+          if (!TryGetAuthenticatedUserId(out int userId))
+               return Unauthorized();
+
           await _notificationService.MarkAsReadAsync(notificationId, userId, ct);
           return NoContent();
      }
 
-     // Mark all notifications as read for the current user
      [HttpPost("read-all")]
      public async Task<IActionResult> MarkAllAsRead(CancellationToken ct)
      {
-          int userId = _currentUser.AppUserId!.Value;
+          if (!TryGetAuthenticatedUserId(out int userId))
+               return Unauthorized();
+
           await _notificationService.MarkAllAsReadAsync(userId, ct);
           return NoContent();
+     }
+
+     private bool TryGetAuthenticatedUserId(out int userId)
+     {
+          if (_currentUser.AppUserId is int id && id > 0)
+          {
+               userId = id;
+               return true;
+          }
+
+          userId = default;
+          return false;
      }
 }

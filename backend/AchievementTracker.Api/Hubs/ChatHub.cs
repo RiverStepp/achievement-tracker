@@ -1,7 +1,5 @@
-using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.DirectMessages;
 using AchievementTracker.Api.Services.Interfaces;
-using AchievementTracker.Data.Enums;
 using AchievementTracker.Models.Auth;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
@@ -13,32 +11,27 @@ namespace AchievementTracker.Api.Hubs;
 [Authorize]
 public sealed class ChatHub(
      IDirectMessageService dmService,
-     IDirectMessageRepository dmRepository,
-     INotificationService notificationService,
+     ICurrentUser currentUser,
      ILogger<ChatHub> logger) : Hub
 {
      private readonly IDirectMessageService _dmService = dmService;
-     private readonly IDirectMessageRepository _dmRepository = dmRepository;
-     private readonly INotificationService _notificationService = notificationService;
+     private readonly ICurrentUser _currentUser = currentUser;
      private readonly ILogger<ChatHub> _logger = logger;
 
-     // Client-to-server event names (for documentation purposes)
      public const string SendDirectMessageMethod = "SendDirectMessage";
      public const string MarkAsReadMethod = "MarkAsRead";
 
-     // Server-to-client event names
      public const string ReceiveDirectMessageEvent = "ReceiveDirectMessage";
      public const string MessagesReadEvent = "MessagesRead";
 
      private const string UserGroupPrefix = "user-";
 
-     // 10 messages per 10-second sliding window per user
      private static readonly ConcurrentDictionary<Guid, SlidingWindowRateLimiter> _rateLimiters = new();
      private static readonly ConcurrentDictionary<Guid, int> _connectionCounts = new();
 
      public override async Task OnConnectedAsync()
      {
-          Guid publicId = GetAppUserPublicId();
+          Guid publicId = RequireAppUserPublicId();
           _connectionCounts.AddOrUpdate(publicId, 1, static (_, count) => count + 1);
           await Groups.AddToGroupAsync(Context.ConnectionId, UserGroupKey(publicId));
           await base.OnConnectedAsync();
@@ -53,7 +46,6 @@ public sealed class ChatHub(
           await base.OnDisconnectedAsync(exception);
      }
 
-     // Client invokes this to send a DM. The message is persisted and pushed in real time to the both participants
      public async Task SendDirectMessage(Guid recipientPublicId, string content)
      {
           if (recipientPublicId == Guid.Empty)
@@ -62,7 +54,7 @@ public sealed class ChatHub(
           if (string.IsNullOrWhiteSpace(content) || content.Length > 2000)
                throw new HubException("Content must be between 1 and 2000 characters.");
 
-          Guid senderPublicId = GetAppUserPublicId();
+          Guid senderPublicId = RequireAppUserPublicId();
           if (recipientPublicId == senderPublicId)
                throw new HubException("Cannot send a message to yourself.");
 
@@ -72,7 +64,7 @@ public sealed class ChatHub(
                throw new HubException("Rate limit exceeded. Please slow down.");
           }
 
-          int senderUserId = GetAppUserId();
+          int senderUserId = RequireAppUserId();
 
           var request = new SendMessageRequest
           {
@@ -80,33 +72,20 @@ public sealed class ChatHub(
                Content = content
           };
 
-          MessageDto message = await _dmService.SendMessageAsync(senderUserId, request);
+          CancellationToken ct = Context.ConnectionAborted;
+          MessageDto message = await _dmService.SendMessageAsync(senderUserId, request, ct);
 
-          // Echo to sender so all their open clients stay in sync.
-          await Clients.Group(UserGroupKey(senderPublicId)).SendAsync(ReceiveDirectMessageEvent, message);
+          await Clients.Group(UserGroupKey(senderPublicId)).SendAsync(ReceiveDirectMessageEvent, message, ct);
 
-          // Push to recipient if they are connected.
-          await Clients.Group(UserGroupKey(recipientPublicId)).SendAsync(ReceiveDirectMessageEvent, message);
-
-          int? recipientUserId = await _dmRepository.GetAppUserIdByPublicIdAsync(recipientPublicId);
-          if (recipientUserId.HasValue)
-          {
-               await _notificationService.CreateAndDispatchAsync(
-                    recipientUserId.Value,
-                    senderUserId,
-                    eNotificationType.DirectMessage,
-                    message.ConversationId.ToString());
-          }
+          await Clients.Group(UserGroupKey(recipientPublicId)).SendAsync(ReceiveDirectMessageEvent, message, ct);
      }
 
-     // Client invokes this to mark all messages in a conversation as read
-     // Notifies the other participants so they can update their read-receipt UI
      public async Task MarkAsRead(int conversationId)
      {
           if (conversationId <= 0)
                throw new HubException("conversationId must be a positive integer.");
 
-          int userId = GetAppUserId();
+          int userId = RequireAppUserId();
           List<Guid> otherPublicIds;
           try
           {
@@ -114,30 +93,29 @@ public sealed class ChatHub(
           }
           catch (UnauthorizedAccessException ex)
           {
-               _logger.LogWarning(ex, "User {UserId} attempted MarkAsRead on conversation {ConversationId} without being a participant.", userId, conversationId);
+               _logger.LogWarning(ex, "MarkAsRead denied for conversation {ConversationId}.", conversationId);
                throw new HubException("You are not a participant in this conversation.");
           }
 
+          CancellationToken ct = Context.ConnectionAborted;
           foreach (Guid publicId in otherPublicIds)
-               await Clients.Group(UserGroupKey(publicId)).SendAsync(MessagesReadEvent, conversationId);
+               await Clients.Group(UserGroupKey(publicId)).SendAsync(MessagesReadEvent, conversationId, ct);
      }
 
      private static string UserGroupKey(Guid publicId) => $"{UserGroupPrefix}{publicId}";
 
-     private int GetAppUserId()
+     private int RequireAppUserId()
      {
-          string? raw = Context.User?.FindFirst(AuthClaims.AppUserId)?.Value;
-          if (int.TryParse(raw, out int id))
+          if (_currentUser.AppUserId is int id && id > 0)
                return id;
 
           _logger.LogError("Missing or invalid AppUserId claim for connection {ConnectionId}.", Context.ConnectionId);
           throw new HubException("User is not authenticated.");
      }
 
-     private Guid GetAppUserPublicId()
+     private Guid RequireAppUserPublicId()
      {
-          string? raw = Context.User?.FindFirst(AuthClaims.AppUserPublicId)?.Value;
-          if (Guid.TryParse(raw, out Guid id))
+          if (_currentUser.AppUserPublicId is Guid id && id != Guid.Empty)
                return id;
 
           _logger.LogError("Missing or invalid AppUserPublicId claim for connection {ConnectionId}.", Context.ConnectionId);
