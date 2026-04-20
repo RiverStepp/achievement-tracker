@@ -3,6 +3,7 @@ import { endpoints } from "@/lib/endpoints";
 import type { UserProfile } from "@/types/profile";
 import type { AppUser } from "@/types/models";
 import type { SteamUser } from "@/types/auth";
+import type { SocialKind } from "@/types/profile";
 
 export type GetUserProfileRequest = {
   gamesPageNumber?: number;
@@ -25,6 +26,25 @@ type PagedResultDto<T> = {
 type ProfileAppUserDto = {
   handle: string | null;
   displayName: string | null;
+  bio: string | null;
+  pronouns: string | null;
+  location: {
+    countryId: number | null;
+    countryName: string | null;
+    stateRegionId: number | null;
+    stateName: string | null;
+    cityId: number | null;
+    cityName: string | null;
+  } | null;
+  timeZoneDisplayName: string | null;
+  joinDate: string | null;
+  profileImageUrl: string | null;
+  bannerImageUrl: string | null;
+};
+
+type ProfileSocialLinkItemDto = {
+  platform: number;
+  linkValue: string;
 };
 
 type SteamProfileMetadataDto = {
@@ -73,6 +93,7 @@ type ProfilePinnedAchievementDto = {
 
 type UserProfileResponse = {
   appUser: ProfileAppUserDto | null;
+  visibleSocialLinks: ProfileSocialLinkItemDto[];
   steamProfile: SteamProfileMetadataDto | null;
   totals: UserTotalsDto;
   gamesByRecentAchievement: PagedResultDto<unknown>;
@@ -80,6 +101,12 @@ type UserProfileResponse = {
   achievementsByPoints: PagedResultDto<ProfileAchievementItemDto>;
   pinnedAchievements: ProfilePinnedAchievementDto[];
   latestActivity: PagedResultDto<unknown>;
+};
+
+const SOCIAL_KIND_BY_PLATFORM: Record<number, SocialKind> = {
+  1: "youtube",
+  2: "twitch",
+  3: "discord",
 };
 
 const DEFAULT_REQUEST: GetUserProfileRequest = {
@@ -111,6 +138,15 @@ function synthesizeId(seed: string) {
 
 function mergePlatforms(base: UserProfile["connections"]["platforms"], extra: UserProfile["connections"]["platforms"]) {
   return Array.from(new Set([...base, ...extra]));
+}
+
+function buildLocationLabel(location: ProfileAppUserDto["location"] | undefined) {
+  if (!location) {
+    return null;
+  }
+
+  const parts = [location.cityName, location.stateName, location.countryName].filter(Boolean);
+  return parts.length > 0 ? parts.join(", ") : null;
 }
 
 export function mapUserProfileResponse(
@@ -232,6 +268,7 @@ export function mapUserProfileResponse(
   console.log("[profile] raw backend response", {
     publicId: options?.publicId,
     appUser: response.appUser,
+    visibleSocialLinks: response.visibleSocialLinks,
     steamProfile: response.steamProfile,
     totals: response.totals,
     recentAchievementsCount: response.recentAchievements.items.length,
@@ -252,13 +289,18 @@ export function mapUserProfileResponse(
     steam,
     displayName,
     handle: normalizedHandle,
-    avatarUrl: fallback?.avatarUrl ?? response.steamProfile?.avatarSmallUrl ?? null,
-    bannerUrl: fallback?.bannerUrl ?? null,
-    bio: fallback?.bio ?? null,
-    location: fallback?.location ?? null,
-    timezone: fallback?.timezone ?? null,
-    pronouns: fallback?.pronouns ?? null,
+    avatarUrl:
+      response.appUser?.profileImageUrl ??
+      fallback?.avatarUrl ??
+      response.steamProfile?.avatarSmallUrl ??
+      null,
+    bannerUrl: response.appUser?.bannerImageUrl ?? fallback?.bannerUrl ?? null,
+    bio: response.appUser?.bio ?? fallback?.bio ?? null,
+    location: buildLocationLabel(response.appUser?.location) ?? fallback?.location ?? null,
+    timezone: response.appUser?.timeZoneDisplayName ?? fallback?.timezone ?? null,
+    pronouns: response.appUser?.pronouns ?? fallback?.pronouns ?? null,
     joinedAt:
+      response.appUser?.joinDate ??
       fallback?.joinedAt ??
       response.steamProfile?.lastSyncedDate ??
       response.steamProfile?.lastCheckedDate ??
@@ -266,7 +308,15 @@ export function mapUserProfileResponse(
     connections: {
       platforms: mergedPlatforms.length > 0 ? mergedPlatforms : ["steam"],
       linkedAccounts,
-      socials: fallback?.connections.socials ?? [],
+      socials:
+        response.visibleSocialLinks.length > 0
+          ? response.visibleSocialLinks
+              .map((item) => {
+                const kind = SOCIAL_KIND_BY_PLATFORM[item.platform];
+                return kind ? { kind, url: item.linkValue } : null;
+              })
+              .filter((item): item is NonNullable<typeof item> => item !== null)
+          : fallback?.connections.socials ?? [],
     },
     summary: {
       totalAchievements: response.totals.totalAchievements,

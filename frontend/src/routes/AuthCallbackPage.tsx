@@ -1,5 +1,5 @@
 // src/routes/AuthCallbackPage.tsx
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import type { AuthTokenResponse } from "@/types/auth";
@@ -8,8 +8,13 @@ export const AuthCallbackPage = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { completeLoginFromCallback } = useAuth();
+  const hasHandledCallback = useRef(false);
 
   useEffect(() => {
+    if (hasHandledCallback.current) {
+      return;
+    }
+
     const params = new URLSearchParams(location.search);
     const token =
       params.get("token") || params.get("accessToken") || params.get("jwt");
@@ -21,6 +26,7 @@ export const AuthCallbackPage = () => {
       (params.get("isNewUser") || "").toLowerCase() === "true";
 
     if (token) {
+      hasHandledCallback.current = true;
       console.log("[auth] callback auth payload received", {
         steamId,
         appUserPublicId,
@@ -47,6 +53,7 @@ export const AuthCallbackPage = () => {
     }
 
     if (!token) {
+      hasHandledCallback.current = true;
       console.log("[auth] callback reached without auth payload or token");
       // No token? Just boot them home.
       navigate("/", { replace: true });

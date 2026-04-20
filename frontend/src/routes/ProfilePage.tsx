@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import type { UserProfile } from "@/types/profile";
 import { useAuth } from "@/auth/AuthProvider";
 import { ProfileBanner } from "@/components/profile/ProfileBanner";
-import { mockUserProfile } from "@/data/mockUser";
 import { AboutPanel } from "@/components/profile/AboutPanel";
 import { LatestActivities } from "@/components/profile/LatestActivities";
 import { ProfileTabs } from "@/components/profile/ProfileTabs";
@@ -17,8 +16,6 @@ export function ProfilePage() {
   const { userProfile: currentUserProfile, isLoading: isAuthLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const USE_MOCK_PROFILE = import.meta.env.DEV;
 
   useEffect(() => {
     if (!profileKey) {
@@ -43,11 +40,7 @@ export function ProfilePage() {
     const fallbackProfile =
       isCurrentUsersProfile
         ? currentUserProfile
-        : USE_MOCK_PROFILE &&
-            (normalizedKey === mockUserProfile.handle.toLowerCase() ||
-              normalizedKey === mockUserProfile.user.publicId?.toLowerCase())
-          ? mockUserProfile
-          : null;
+        : null;
     const resolvedPublicId =
       guidPattern.test(profileKey)
         ? profileKey
@@ -109,7 +102,7 @@ export function ProfilePage() {
         setProfile(fallbackProfile);
       })
       .finally(() => setLoading(false));
-  }, [profileKey, USE_MOCK_PROFILE, currentUserProfile, isAuthLoading]);
+  }, [profileKey, currentUserProfile, isAuthLoading]);
 
   if (loading) return <div>Loading...</div>;
   if (!profile) return <div>Profile not found.</div>;

@@ -12,7 +12,7 @@ export interface LinkedAccount {
   accountVerified?: boolean;
 }
 
-export type SocialKind = "discord" | "x" | "twitch" | "github" | "website";
+export type SocialKind = "discord" | "youtube" | "x" | "twitch" | "github" | "website";
 
 export interface SocialLink {
   kind: SocialKind;

@@ -8,6 +8,17 @@ export const endpoints = {
   me: {
     get: "/me",
     socialIdentity: "/me/social-identity",
+    settings: "/me/settings",
+    settingsMedia: "/me/settings/media",
+  },
+  settingsLookup: {
+    countries: "/settings/lookup/countries",
+    stateRegions: (countryId: number) =>
+      `/settings/lookup/countries/${countryId}/state-regions`,
+    cities: (stateRegionId: number) =>
+      `/settings/lookup/state-regions/${stateRegionId}/cities`,
+    ianaTimeZones: "/settings/lookup/iana-time-zones",
+    pronouns: "/settings/lookup/pronouns",
   },
   profileScraping: {
     update: "/profile-scraping/update",

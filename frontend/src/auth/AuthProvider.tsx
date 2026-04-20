@@ -12,12 +12,15 @@ import { authService } from "@/services/auth";
 import { meService } from "@/services/me";
 import {
   buildSteamProfileUrl,
-  buildTemporaryUserProfile,
   loadStoredUserProfile,
   normalizeHandle,
   persistUserProfile,
-  removeStoredUserProfile,
 } from "@/profile/profileSetup";
+import { profileService } from "@/services/profile";
+import {
+  mapUserSettingsToUserProfile,
+  userSettingsService,
+} from "@/services/userSettings";
 import type {
   AuthTokenResponse,
   AuthStatus,
@@ -27,6 +30,8 @@ import type {
 import type { AppUser } from "@/types/models";
 import type { UserProfile } from "@/types/profile";
 import type { NewUserProfileDraft } from "@/profile/profileSetup";
+
+const PENDING_PROFILE_SETUP_KEY = "pendingProfileSetup";
 
 type AuthContextValue = {
   appUser: AppUser | null;
@@ -40,7 +45,7 @@ type AuthContextValue = {
   userProfile: UserProfile | null;
   completeLoginFromCallback: (response: AuthTokenResponse) => Promise<void>;
   createUserProfile: (draft: NewUserProfileDraft) => Promise<string | null>;
-  deleteUserProfile: () => void;
+  refreshCurrentUserProfile: () => Promise<UserProfile | null>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -53,6 +58,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [needsProfileSetup, setNeedsProfileSetup] = useState(false);
   const isLoading = status === "loading";
   const isAuthenticated = status === "authenticated";
+
+  const setPendingProfileSetup = (value: boolean) => {
+    if (value) {
+      sessionStorage.setItem(PENDING_PROFILE_SETUP_KEY, "1");
+    } else {
+      sessionStorage.removeItem(PENDING_PROFILE_SETUP_KEY);
+    }
+  };
+
+  const hasPendingProfileSetup = () =>
+    sessionStorage.getItem(PENDING_PROFILE_SETUP_KEY) === "1";
+
+  const persistCurrentProfile = (steamId: string | null | undefined, profile: UserProfile | null) => {
+    setUserProfile(profile);
+    if (!steamId || !profile) {
+      return;
+    }
+
+    persistUserProfile(steamId, profile);
+  };
 
   const attachPublicIdToProfile = (
     profile: UserProfile | null,
@@ -75,6 +100,70 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const loadStoredAppUser = (): AppUser | null => {
+    const publicId = sessionStorage.getItem("appUserPublicId");
+    if (!publicId) {
+      return null;
+    }
+
+    return {
+      id: 0,
+      publicId,
+    };
+  };
+
+  const refreshCurrentUserProfile = async (): Promise<UserProfile | null> => {
+    if (!steamUser) {
+      return null;
+    }
+
+    let fallbackProfile = attachPublicIdToProfile(userProfile, appUser?.publicId);
+
+    try {
+      const settings = await userSettingsService.get();
+      fallbackProfile = mapUserSettingsToUserProfile(settings, {
+        appUser,
+        steamUser,
+        fallback: fallbackProfile,
+      });
+      const resolvedHandle = settings.handle ?? fallbackProfile?.handle ?? null;
+      const resolvedDisplayName = settings.displayName ?? fallbackProfile?.displayName ?? null;
+      const shouldRequireProfileSetup =
+        hasPendingProfileSetup() || !resolvedHandle || !resolvedDisplayName;
+      setNeedsProfileSetup(shouldRequireProfileSetup);
+    } catch (error) {
+      console.log("[auth] failed to load user settings during profile refresh", { error });
+    }
+
+    if (appUser?.publicId) {
+      try {
+        const freshProfile = await profileService.getProfile(
+          appUser.publicId,
+          undefined,
+          fallbackProfile,
+          {
+            steamId: steamUser.steamId,
+            isSelf: true,
+          }
+        );
+        persistCurrentProfile(steamUser.steamId, freshProfile);
+        return freshProfile;
+      } catch (error) {
+        console.log("[auth] failed to load current user profile", {
+          publicId: appUser.publicId,
+          error,
+        });
+      }
+    }
+
+    if (fallbackProfile) {
+      persistCurrentProfile(steamUser.steamId, fallbackProfile);
+      return fallbackProfile;
+    }
+
+    return null;
+  };
+
   const loadSession = async (): Promise<MeResponse | null> => {
     try {
       console.log("[auth] loading session");
@@ -90,11 +179,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         steamId: res.data.steamId,
         profileUrl: buildSteamProfileUrl(res.data.steamId),
       };
+      const nextAppUser = res.data.appUser ?? loadStoredAppUser();
       setSteamUser(nextSteamUser);
-      setAppUser(res.data.appUser ?? null);
+      setAppUser(nextAppUser);
 
       let profile = res.data.userProfile ?? loadStoredUserProfile(res.data.steamId);
-      profile = attachPublicIdToProfile(profile, res.data.appUser?.publicId);
+      profile = attachPublicIdToProfile(profile, nextAppUser?.publicId);
       console.log("[auth] resolved session profile source", {
         fromApi: Boolean(res.data.userProfile),
         fromLocalStorage: Boolean(!res.data.userProfile && profile),
@@ -111,17 +201,54 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      setUserProfile(profile);
-      setNeedsProfileSetup(!profile);
+      let settingsHandle: string | null = null;
+      let settingsDisplayName: string | null = null;
+
+      try {
+        const settings = await userSettingsService.get();
+        settingsHandle = settings.handle;
+        settingsDisplayName = settings.displayName;
+        profile = mapUserSettingsToUserProfile(settings, {
+          appUser: nextAppUser,
+          steamUser: nextSteamUser,
+          fallback: profile,
+        });
+      } catch (error) {
+        console.log("[auth] settings load during session failed", { error });
+      }
+
+      persistCurrentProfile(res.data.steamId, profile);
+      const resolvedHandle = settingsHandle ?? profile?.handle ?? res.data.handle ?? null;
+      const resolvedDisplayName = settingsDisplayName ?? profile?.displayName ?? null;
+      const shouldRequireProfileSetup =
+        hasPendingProfileSetup() || !resolvedHandle || !resolvedDisplayName;
+      setNeedsProfileSetup(shouldRequireProfileSetup);
       setStatus("authenticated");
       console.log("[auth] session loaded", {
-        appUserPublicId: res.data.appUser?.publicId ?? null,
+        appUserPublicId: nextAppUser?.publicId ?? null,
         stateProfilePublicId: profile?.user?.publicId ?? null,
         stateProfileHandle: profile?.handle ?? null,
       });
 
-      if (profile?.user.publicId && !res.data.userProfile) {
-        persistUserProfile(res.data.steamId, profile);
+      if (nextAppUser?.publicId) {
+        sessionStorage.setItem("appUserPublicId", nextAppUser.publicId);
+      }
+
+      if (nextAppUser?.publicId && settingsHandle && settingsDisplayName) {
+        try {
+          const freshProfile = await profileService.getProfile(
+            nextAppUser.publicId,
+            undefined,
+            profile,
+            {
+              steamId: nextSteamUser.steamId,
+              isSelf: true,
+            }
+          );
+          persistCurrentProfile(res.data.steamId, freshProfile);
+        } catch (error) {
+          console.log("[auth] profile refresh after session load failed", { error });
+        }
       }
 
       return res.data;
@@ -131,6 +258,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSteamUser(null);
       setUserProfile(null);
       sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("appUserPublicId");
+      sessionStorage.removeItem(PENDING_PROFILE_SETUP_KEY);
       setAuthToken(null);
       setNeedsProfileSetup(false);
       setStatus("guest");
@@ -144,6 +273,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSteamUser(null);
       setUserProfile(null);
       sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("appUserPublicId");
+      sessionStorage.removeItem(PENDING_PROFILE_SETUP_KEY);
       setAuthToken(null);
       setStatus("guest");
     });
@@ -211,6 +342,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setStatus("loading");
     sessionStorage.setItem("authToken", response.token);
     setAuthToken(response.token);
+    sessionStorage.setItem("appUserPublicId", response.appUserPublicId);
 
     if (!response.steamId) {
       await loadSession();
@@ -233,16 +365,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     setSteamUser(nextSteamUser);
-    setAppUser({
+    const nextAppUser = {
       id: 0,
       publicId: response.appUserPublicId,
-    });
-    setUserProfile(storedProfile);
-    setNeedsProfileSetup(
-      response.isNewUser ||
-        !response.handle ||
-        !response.displayName
-    );
+    };
+    setAppUser(nextAppUser);
+    persistCurrentProfile(response.steamId, storedProfile);
+    const resolvedHandle = response.handle ?? storedProfile?.handle ?? null;
+    const resolvedDisplayName = response.displayName ?? storedProfile?.displayName ?? null;
+    const shouldRequireProfileSetup =
+      response.isNewUser || !resolvedHandle || !resolvedDisplayName;
+    setPendingProfileSetup(shouldRequireProfileSetup);
+    setNeedsProfileSetup(shouldRequireProfileSetup);
     setStatus("authenticated");
 
     console.log("[auth] auth completed", {
@@ -254,8 +388,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       stateProfileHandle: storedProfile?.handle ?? null,
     });
 
-    if (storedProfile?.user.publicId) {
-      persistUserProfile(response.steamId, storedProfile);
+    if (!response.isNewUser && response.handle && response.displayName) {
+      try {
+        const settings = await userSettingsService.get();
+        const baseProfile = mapUserSettingsToUserProfile(settings, {
+          appUser: nextAppUser,
+          steamUser: nextSteamUser,
+          fallback: storedProfile,
+        });
+        persistCurrentProfile(response.steamId, baseProfile);
+
+        const freshProfile = await profileService.getProfile(
+          response.appUserPublicId,
+          undefined,
+          baseProfile,
+          {
+            steamId: response.steamId,
+            isSelf: true,
+          }
+        );
+        persistCurrentProfile(response.steamId, freshProfile);
+      } catch (error) {
+        console.log("[auth] callback profile hydration failed", { error });
+      }
     }
   };
 
@@ -278,33 +433,77 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return message;
     }
 
-    const { enrichedSteamUser, profile: nextProfile } =
-      buildTemporaryUserProfile(appUser, steamUser, draft);
-    const steamProfileUrl =
-      enrichedSteamUser.profileUrl ?? buildSteamProfileUrl(steamUser.steamId);
+    const hasSettingsPayload =
+      Boolean(draft.bio.trim()) ||
+      draft.countryId !== null ||
+      draft.stateRegionId !== null ||
+      draft.cityId !== null ||
+      draft.ianaTimeZoneId !== null ||
+      draft.pronounOptionId !== null ||
+      draft.socials.some((item) => item.linkValue.trim().length > 0);
 
-    persistUserProfile(steamUser.steamId, nextProfile);
-    setSteamUser(enrichedSteamUser);
-    setUserProfile(nextProfile);
+    if (hasSettingsPayload) {
+      try {
+        await userSettingsService.update({
+          bio: draft.bio.trim() || null,
+          location:
+            draft.countryId !== null || draft.stateRegionId !== null || draft.cityId !== null
+              ? {
+                  countryId: draft.countryId,
+                  stateRegionId: draft.stateRegionId,
+                  cityId: draft.cityId,
+                }
+              : null,
+          unsetLocation:
+            draft.countryId === null &&
+            draft.stateRegionId === null &&
+            draft.cityId === null,
+          ianaTimeZoneId: draft.ianaTimeZoneId,
+          unsetTimeZone: draft.ianaTimeZoneId === null,
+          pronounOptionId: draft.pronounOptionId,
+          unsetPronouns: draft.pronounOptionId === null,
+          socialLinks: draft.socials
+            .map((item) => ({
+              platform: item.platform,
+              linkValue: item.linkValue.trim() || null,
+              isVisible: item.isVisible && item.linkValue.trim().length > 0,
+            }))
+            .filter((item) => Boolean(item.linkValue)),
+        });
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          "Unable to save your profile details right now.";
+        return message;
+      }
+    }
+
+    if (draft.profileImageFile || draft.bannerImageFile) {
+      try {
+        await userSettingsService.updateMedia({
+          profileImage: draft.profileImageFile,
+          bannerImage: draft.bannerImageFile,
+        });
+      } catch (error: any) {
+        const message =
+          error?.response?.data?.error ||
+          error?.message ||
+          "Unable to save your profile details right now.";
+        return message;
+      }
+    }
+
+    setPendingProfileSetup(false);
     setNeedsProfileSetup(false);
-    console.log("[auth] temporary profile created", {
+    const nextProfile = await refreshCurrentUserProfile();
+    console.log("[auth] profile created through backend", {
       steamId: steamUser.steamId,
-      publicId: nextProfile.user.publicId ?? null,
-      handle: nextProfile.handle,
-      steamProfileUrl,
+      publicId: nextProfile?.user.publicId ?? appUser?.publicId ?? null,
+      handle: nextProfile?.handle ?? normalizedHandle,
     });
 
     return null;
-  };
-
-  const deleteUserProfile = async () => {
-    if (!steamUser) return;
-
-    removeStoredUserProfile(steamUser.steamId);
-    console.log("[auth] temporary profile deleted", {
-      steamId: steamUser.steamId,
-    });
-    await logout();
   };
 
   const logout = async () => {
@@ -326,6 +525,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUserProfile(null);
       setStatus("guest");
       sessionStorage.removeItem("authToken");
+      sessionStorage.removeItem("appUserPublicId");
+      sessionStorage.removeItem(PENDING_PROFILE_SETUP_KEY);
       setAuthToken(null);
       setNeedsProfileSetup(false);
       console.log("[auth] logout complete");
@@ -345,9 +546,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       logout,
       completeLoginFromCallback,
       createUserProfile,
-      deleteUserProfile,
+      refreshCurrentUserProfile,
     }),
-    [appUser, steamUser, status, isLoading, isAuthenticated, needsProfileSetup, userProfile]
+    [
+      appUser,
+      steamUser,
+      status,
+      isLoading,
+      isAuthenticated,
+      needsProfileSetup,
+      userProfile,
+    ]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
