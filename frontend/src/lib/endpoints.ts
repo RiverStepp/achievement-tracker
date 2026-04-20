@@ -25,4 +25,7 @@ export const endpoints = {
   userProfiles: {
     getProfile: (publicId: string) => `/users/${publicId}/profile`,
   },
+  steamGames: {
+    getDetails: (gameId: number) => `/steam/games/${gameId}`,
+  },
 } as const;
