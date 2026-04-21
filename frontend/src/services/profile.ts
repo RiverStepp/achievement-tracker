@@ -42,6 +42,10 @@ type ProfileAppUserDto = {
   bannerImageUrl: string | null;
 };
 
+type PublicIdByHandleResponse = {
+  publicId: string;
+};
+
 type ProfileSocialLinkItemDto = {
   platform: number;
   linkValue: string;
@@ -91,6 +95,24 @@ type ProfilePinnedAchievementDto = {
   points: number;
 };
 
+type ProfileLatestActivityItemDto = {
+  activityType: 1 | 2 | 3;
+  activityAt: string;
+  gameId?: number | null;
+  gameName?: string | null;
+  achievementName?: string | null;
+  iconUrl?: string | null;
+  description?: string | null;
+  rarity?: number | null;
+  points?: number | null;
+  achievementId?: number | null;
+  postPublicId?: string | null;
+  postContent?: string | null;
+  commentPublicId?: string | null;
+  commentPostPublicId?: string | null;
+  commentBody?: string | null;
+};
+
 type UserProfileResponse = {
   appUser: ProfileAppUserDto | null;
   visibleSocialLinks: ProfileSocialLinkItemDto[];
@@ -100,7 +122,7 @@ type UserProfileResponse = {
   recentAchievements: PagedResultDto<ProfileAchievementItemDto>;
   achievementsByPoints: PagedResultDto<ProfileAchievementItemDto>;
   pinnedAchievements: ProfilePinnedAchievementDto[];
-  latestActivity: PagedResultDto<unknown>;
+  latestActivity: PagedResultDto<ProfileLatestActivityItemDto>;
 };
 
 const SOCIAL_KIND_BY_PLATFORM: Record<number, SocialKind> = {
@@ -149,6 +171,55 @@ function buildLocationLabel(location: ProfileAppUserDto["location"] | undefined)
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+function buildActivityKey(item: ProfileLatestActivityItemDto) {
+  return [
+    item.activityType,
+    item.activityAt,
+    item.achievementId ?? "",
+    item.postPublicId ?? "",
+    item.commentPublicId ?? "",
+  ].join("|");
+}
+
+function mapLatestActivityItem(item: ProfileLatestActivityItemDto) {
+  switch (item.activityType) {
+    case 1:
+      return {
+        id: `achievement-${buildActivityKey(item)}`,
+        kind: "achievement" as const,
+        occurredAt: item.activityAt,
+        title: item.achievementName
+          ? `Unlocked: ${item.achievementName}`
+          : "Unlocked an achievement",
+        detail: item.gameName ?? item.description ?? "Achievement activity",
+        postPublicId: null,
+        commentPublicId: null,
+      };
+    case 2:
+      return {
+        id: `post-${buildActivityKey(item)}`,
+        kind: "post" as const,
+        occurredAt: item.activityAt,
+        title: "Posted an update",
+        detail: item.postContent?.trim() || "Shared a new post",
+        postPublicId: item.postPublicId ?? null,
+        commentPublicId: null,
+      };
+    case 3:
+      return {
+        id: `comment-${buildActivityKey(item)}`,
+        kind: "comment" as const,
+        occurredAt: item.activityAt,
+        title: "Left a comment",
+        detail: item.commentBody?.trim() || "Replied in a discussion",
+        postPublicId: item.commentPostPublicId ?? null,
+        commentPublicId: item.commentPublicId ?? null,
+      };
+    default:
+      return null;
+  }
+}
+
 export function mapUserProfileResponse(
   response: UserProfileResponse,
   fallback?: UserProfile | null,
@@ -171,6 +242,8 @@ export function mapUserProfileResponse(
 
   const pinnedAchievements = response.pinnedAchievements.map((item) => ({
     id: item.appUserPinnedAchievementId,
+    steamAchievementId: item.steamAchievementId,
+    pinnedAchievementId: item.appUserPinnedAchievementId,
     unlockedAt: item.unlockDate,
     isPinned: true,
     achievement: {
@@ -192,8 +265,9 @@ export function mapUserProfileResponse(
     },
   }));
 
-  const recentAchievements = response.recentAchievements.items.map((item) => ({
+  const recentAchievements: UserProfile["achievements"] = response.recentAchievements.items.map((item) => ({
     id: synthesizeId(toAchievementKey(item.gameId, item.achievementName, item.unlockDate)),
+    steamAchievementId: undefined,
     unlockedAt: item.unlockDate,
     isPinned: pinnedKeys.has(toAchievementKey(item.gameId, item.achievementName, item.unlockDate)),
     achievement: {
@@ -214,6 +288,26 @@ export function mapUserProfileResponse(
       headerImageUrl: undefined,
     },
   }));
+
+  const achievementIdsByKey = new Map(
+    response.latestActivity.items
+      .filter((item) => item.activityType === 1 && item.achievementId)
+      .map((item) => [
+        toAchievementKey(
+          item.gameId ?? 0,
+          item.achievementName ?? "",
+          item.activityAt
+        ),
+        item.achievementId as number,
+      ])
+  );
+
+  for (const item of recentAchievements) {
+    item.steamAchievementId =
+      achievementIdsByKey.get(
+        toAchievementKey(item.game.id, item.achievement.name, item.unlockedAt)
+      ) ?? item.steamAchievementId;
+  }
 
   const achievementMap = new Map<number, (typeof recentAchievements)[number]>();
   for (const item of pinnedAchievements) {
@@ -326,6 +420,13 @@ export function mapUserProfileResponse(
     achievements: Array.from(achievementMap.values()).sort(
       (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime()
     ),
+    latestActivity: response.latestActivity.items
+      .map(mapLatestActivityItem)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
+      .sort(
+        (left, right) =>
+          new Date(right.occurredAt).getTime() - new Date(left.occurredAt).getTime()
+      ),
     feed: fallback?.feed ?? { items: [], comments: [] },
     privacy:
       fallback?.privacy ?? {
@@ -354,6 +455,26 @@ export function mapUserProfileResponse(
 }
 
 export const profileService = {
+  resolvePublicIdByHandle: async (handle: string): Promise<string | null> => {
+    console.log("[profile] resolvePublicIdByHandle request", { handle });
+
+    try {
+      const response = await api.get<PublicIdByHandleResponse>(
+        endpoints.userProfiles.getPublicIdByHandle(handle)
+      );
+
+      console.log("[profile] resolvePublicIdByHandle response", {
+        handle,
+        publicId: response.data.publicId,
+      });
+
+      return response.data.publicId;
+    } catch (error) {
+      console.log("[profile] resolvePublicIdByHandle failed", { handle, error });
+      return null;
+    }
+  },
+
   getProfile: async (
     publicId: string,
     request?: GetUserProfileRequest,
@@ -383,5 +504,16 @@ export const profileService = {
       steamId: options?.steamId,
       isSelf: options?.isSelf,
     });
+  },
+
+  pinAchievement: async (steamAchievementId: number): Promise<void> => {
+    console.log("[profile] pinAchievement request", { steamAchievementId });
+
+    await api.post(endpoints.me.pinAchievement, {
+      steamAchievementId,
+      platformId: 1,
+    });
+
+    console.log("[profile] pinAchievement success", { steamAchievementId });
   },
 } as const;

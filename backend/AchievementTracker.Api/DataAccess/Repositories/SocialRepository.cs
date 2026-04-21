@@ -130,6 +130,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorPublicId = x.AppUser.PublicId,
                     AuthorHandle = x.AppUser.Handle,
                     AuthorDisplayName = x.AppUser.DisplayName,
+                    AuthorAvatarUrl = x.AppUser.ProfileImageUrl,
                     Body = x.Body,
                     CreateDate = x.CreateDate,
                     ParentCommentPublicId = x.ParentComment != null ? x.ParentComment.PublicId : null
@@ -190,6 +191,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorPublicId = x.AppUser.PublicId,
                     AuthorHandle = x.AppUser.Handle,
                     AuthorDisplayName = x.AppUser.DisplayName,
+                    AuthorAvatarUrl = x.AppUser.ProfileImageUrl,
                     ReactionType = x.ReactionType
                })
                .ToListAsync(ct);
@@ -304,6 +306,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorPublicId = entity.AppUser.PublicId,
                     AuthorHandle = entity.AppUser.Handle,
                     AuthorDisplayName = entity.AppUser.DisplayName,
+                    AuthorAvatarUrl = entity.AppUser.ProfileImageUrl,
                     Body = entity.Body,
                     CreateDate = entity.CreateDate,
                     ParentCommentPublicId = parentPublicId
@@ -409,6 +412,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorPublicId = x.AppUser.PublicId,
                     AuthorHandle = x.AppUser.Handle,
                     AuthorDisplayName = x.AppUser.DisplayName,
+                    AuthorAvatarUrl = x.AppUser.ProfileImageUrl,
                     Body = x.Body,
                     CreateDate = x.CreateDate,
                     ParentCommentPublicId = x.ParentComment != null ? x.ParentComment.PublicId : null
@@ -434,7 +438,8 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AppUserId = x.AppUserId,
                     PublicId = x.PublicId,
                     Handle = x.Handle,
-                    DisplayName = x.DisplayName
+                    DisplayName = x.DisplayName,
+                    AvatarUrl = x.ProfileImageUrl
                })
                .ToDictionaryAsync(x => x.AppUserId, ct);
 
@@ -486,6 +491,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                     AuthorPublicId = author.PublicId,
                     AuthorHandle = author.Handle,
                     AuthorDisplayName = author.DisplayName,
+                    AuthorAvatarUrl = author.AvatarUrl,
                     CreateDate = post.CreateDate,
                     Content = post.Content,
                     Attachments = attachmentsByPost.TryGetValue(
@@ -504,6 +510,7 @@ public sealed class SocialRepository(AppDbContext db) : ISocialRepository
                               AuthorPublicId = topComment.AuthorPublicId,
                               AuthorHandle = topComment.AuthorHandle,
                               AuthorDisplayName = topComment.AuthorDisplayName,
+                              AuthorAvatarUrl = topComment.AuthorAvatarUrl,
                               Body = topComment.Body,
                               CreateDate = topComment.CreateDate,
                               ParentCommentPublicId = topComment.ParentCommentPublicId

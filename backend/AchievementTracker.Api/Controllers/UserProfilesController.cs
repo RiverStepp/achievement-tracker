@@ -10,6 +10,20 @@ namespace AchievementTracker.Api.Controllers;
 public sealed class UserProfilesController(IUserProfileService userProfileService) : ControllerBase
 {
     [AllowAnonymous]
+    [HttpGet("handles/{handle}/public-id")]
+    public async Task<IActionResult> GetPublicIdByHandle(string handle, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(handle))
+            return BadRequest();
+
+        Guid? publicId = await userProfileService.GetPublicIdByHandleAsync(handle, ct);
+        if (!publicId.HasValue)
+            return NotFound();
+
+        return Ok(new { publicId });
+    }
+
+    [AllowAnonymous]
     [HttpGet("{publicId:guid}/profile")]
     public async Task<IActionResult> GetProfile(Guid publicId, [FromQuery] GetUserProfileRequest request, CancellationToken ct)
     {

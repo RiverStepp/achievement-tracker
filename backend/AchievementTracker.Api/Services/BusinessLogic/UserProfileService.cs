@@ -21,8 +21,6 @@ public sealed class UserProfileService(
             return null;
 
         var steamId = await appUserRepository.GetSteamIdByPublicIdAsync(publicId, ct);
-        if (steamId == null)
-            return null;
 
         var options = profileOptions.Value;
         var gamesPageSize =
@@ -55,6 +53,18 @@ public sealed class UserProfileService(
             LatestActivityPageSize = latestActivityPageSize
         };
 
+        if (steamId == null)
+            return await userProfileRepository.GetBasicProfileByPublicIdAsync(publicId, normalizedRequest, ct);
+
         return await userProfileRepository.GetProfileAsync(steamId.Value, normalizedRequest, ct);
+    }
+
+    public Task<Guid?> GetPublicIdByHandleAsync(string handle, CancellationToken ct = default)
+    {
+        string normalizedHandle = handle.Trim();
+        if (!normalizedHandle.StartsWith("@"))
+            normalizedHandle = $"@{normalizedHandle}";
+
+        return appUserRepository.GetPublicIdByHandleAsync(normalizedHandle, ct);
     }
 }

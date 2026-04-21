@@ -16,8 +16,12 @@ export function ProfilePage() {
   const { userProfile: currentUserProfile, isLoading: isAuthLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileRefreshKey, setProfileRefreshKey] = useState(0);
 
   useEffect(() => {
+    let cancelled = false;
+
+    const loadProfile = async () => {
     if (!profileKey) {
       console.log("[profile-page] no profile key in route");
       setProfile(null);
@@ -41,12 +45,16 @@ export function ProfilePage() {
       isCurrentUsersProfile
         ? currentUserProfile
         : null;
-    const resolvedPublicId =
+    let resolvedPublicId =
       guidPattern.test(profileKey)
         ? profileKey
         : isCurrentUsersProfile
           ? currentUserProfile?.user.publicId
           : null;
+
+    if (!resolvedPublicId && !isCurrentUsersProfile) {
+      resolvedPublicId = await profileService.resolvePublicIdByHandle(profileKey);
+    }
 
     console.log("[profile-page] route resolution", {
       profileKey,
@@ -63,6 +71,7 @@ export function ProfilePage() {
             achievementCount: currentUserProfile.achievements?.length ?? 0,
           }
         : null,
+      profileRefreshKey,
     });
 
     if (!resolvedPublicId) {
@@ -70,39 +79,58 @@ export function ProfilePage() {
         profileKey,
         fallbackHandle: fallbackProfile?.handle ?? null,
       });
-      setProfile(fallbackProfile);
-      setLoading(false);
+      if (!cancelled) {
+        setProfile(fallbackProfile);
+        setLoading(false);
+      }
       return;
     }
 
-    setLoading(true);
+    try {
+      if (!cancelled) {
+        setLoading(true);
+      }
 
-    profileService
-      .getProfile(resolvedPublicId, undefined, fallbackProfile, {
+      const res = await profileService.getProfile(resolvedPublicId, undefined, fallbackProfile, {
         steamId: isCurrentUsersProfile ? currentUserProfile?.steam?.steamId : fallbackProfile?.steam?.steamId,
         isSelf: Boolean(isCurrentUsersProfile),
-      })
-      .then((res) => {
-        console.log("[profile-page] profile fetch succeeded", {
-          profileKey,
-          resolvedPublicId,
-          handle: res.handle,
-          achievementCount: res.achievements?.length ?? 0,
-          summary: res.summary,
-        });
+      });
+
+      console.log("[profile-page] profile fetch succeeded", {
+        profileKey,
+        resolvedPublicId,
+        handle: res.handle,
+        achievementCount: res.achievements?.length ?? 0,
+        latestActivityCount: res.latestActivity?.length ?? 0,
+        summary: res.summary,
+      });
+
+      if (!cancelled) {
         setProfile(res);
-      })
-      .catch((error) => {
-        console.log("[profile-page] profile fetch failed", {
-          profileKey,
-          resolvedPublicId,
-          error,
-          fallbackHandle: fallbackProfile?.handle ?? null,
-        });
+      }
+    } catch (error) {
+      console.log("[profile-page] profile fetch failed", {
+        profileKey,
+        resolvedPublicId,
+        error,
+        fallbackHandle: fallbackProfile?.handle ?? null,
+      });
+      if (!cancelled) {
         setProfile(fallbackProfile);
-      })
-      .finally(() => setLoading(false));
-  }, [profileKey, currentUserProfile, isAuthLoading]);
+      }
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
+      }
+    }
+    };
+
+    void loadProfile();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileKey, currentUserProfile, isAuthLoading, profileRefreshKey]);
 
   if (loading) return <div>Loading...</div>;
   if (!profile) return <div>Profile not found.</div>;
@@ -133,7 +161,16 @@ export function ProfilePage() {
           <ProfileBanner profile={profile} isMe={isMe} />
         </div>
         <div className="lg:col-span-2 min-w-0 min-h-0">
-          <ProfileTabs profile={profile} />
+          <ProfileTabs
+            profile={profile}
+            isMe={isMe}
+            onPinnedAchievementsSaved={() => {
+              console.log("[profile-page] refreshing profile after pinned achievement save", {
+                publicId: profile.user.publicId ?? null,
+              });
+              setProfileRefreshKey((current) => current + 1);
+            }}
+          />
         </div>
         <div className="hidden lg:block lg:col-span-1 min-w-0 min-h-0 space-y-4">
           <AboutPanel profile={profile} />

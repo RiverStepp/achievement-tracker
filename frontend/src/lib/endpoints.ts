@@ -5,9 +5,19 @@ export const endpoints = {
     refresh: "/auth/refresh",
     logout: "/auth/logout",
   },
+  social: {
+    feed: "/social/feed",
+    feedByUser: (authorPublicId: string) => `/social/feed/users/${authorPublicId}`,
+    createPost: "/social/post",
+    uploadImage: "/social/upload/image",
+    postComments: (postPublicId: string) => `/social/posts/${postPublicId}/comments`,
+    createComment: (postPublicId: string) => `/social/posts/${postPublicId}/comment`,
+    setReaction: (postPublicId: string) => `/social/posts/${postPublicId}/reaction`,
+  },
   me: {
     get: "/me",
     socialIdentity: "/me/social-identity",
+    pinAchievement: "/me/pin-achievement",
     settings: "/me/settings",
     settingsMedia: "/me/settings/media",
   },
@@ -35,5 +45,7 @@ export const endpoints = {
   },
   userProfiles: {
     getProfile: (publicId: string) => `/users/${publicId}/profile`,
+    getPublicIdByHandle: (handle: string) =>
+      `/users/handles/${encodeURIComponent(handle.replace(/^@/, ""))}/public-id`,
   },
 } as const;
