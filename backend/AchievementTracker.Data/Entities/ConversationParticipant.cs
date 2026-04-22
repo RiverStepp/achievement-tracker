@@ -13,7 +13,6 @@ public class ConversationParticipant : AuditableEntity
      public bool IsMuted { get; set; }
      public long? LastReadMessageId { get; set; }
 
-
      #region navigation
      public Conversation Conversation { get; set; } = null!;
      public AppUser AppUser { get; set; } = null!;
