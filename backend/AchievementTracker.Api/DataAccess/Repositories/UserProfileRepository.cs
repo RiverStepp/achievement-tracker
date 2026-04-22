@@ -14,6 +14,108 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
 {
     private readonly AppDbContext _db = db;
 
+    public async Task<UserProfileResponse?> GetBasicProfileByPublicIdAsync(
+        Guid publicId,
+        GetUserProfileRequest request,
+        CancellationToken ct = default)
+    {
+        var row = await _db.AppUsers
+            .AsNoTracking()
+            .Where(x => x.PublicId == publicId && x.IsActive)
+            .Select(x => new
+            {
+                x.Handle,
+                x.DisplayName,
+                x.Bio,
+                Pronouns = x.PronounOption != null ? x.PronounOption.DisplayLabel : null,
+                Location = x.LocationCity != null
+                    ? new ProfileUserLocationDto(
+                        x.LocationCity.StateRegion.LocationCountryId,
+                        x.LocationCity.StateRegion.Country.Name,
+                        x.LocationCity.LocationStateRegionId,
+                        x.LocationCity.StateRegion.Name,
+                        x.LocationCityId,
+                        x.LocationCity.Name)
+                    : x.LocationStateRegion != null
+                        ? new ProfileUserLocationDto(
+                            x.LocationStateRegion.LocationCountryId,
+                            x.LocationStateRegion.Country.Name,
+                            x.LocationStateRegionId,
+                            x.LocationStateRegion.Name,
+                            null,
+                            null)
+                        : x.LocationCountry != null
+                            ? new ProfileUserLocationDto(
+                                x.LocationCountryId,
+                                x.LocationCountry.Name,
+                                null,
+                                null,
+                                null,
+                                null)
+                            : null,
+                TimeZoneDisplayName = x.IanaTimeZone != null ? x.IanaTimeZone.DisplayName : null,
+                JoinDate = (DateTime?)x.CreateDate,
+                x.ProfileImageUrl,
+                x.BannerImageUrl,
+                VisibleSocialLinks = x.SocialLinks
+                    .Where(link => link.IsActive && link.IsVisible)
+                    .OrderBy(link => link.Platform)
+                    .Select(link => new ProfileSocialLinkItemDto(link.Platform, link.LinkValue))
+                    .ToList(),
+                SteamProfile = x.ExternalLogins
+                    .Where(login => login.IsActive && login.AuthProvider == eAuthProvider.Steam)
+                    .Select(login => login.SteamProfile)
+                    .Where(profile => profile != null && profile.IsActive)
+                    .Select(profile => new SteamProfileMetadataDto(
+                        profile!.ProfileUrl,
+                        profile.AvatarSmallUrl,
+                        profile.LastCheckedDate,
+                        profile.LastSyncedDate,
+                        profile.IsPrivate))
+                    .SingleOrDefault()
+            })
+            .SingleOrDefaultAsync(ct);
+
+        if (row == null)
+            return null;
+
+        return new UserProfileResponse(
+            new ProfileAppUserDto(
+                row.Handle,
+                row.DisplayName,
+                row.Bio,
+                row.Pronouns,
+                row.Location,
+                row.TimeZoneDisplayName,
+                row.JoinDate,
+                row.ProfileImageUrl,
+                row.BannerImageUrl),
+            row.VisibleSocialLinks,
+            row.SteamProfile,
+            new UserTotalsDto(0, 0, 0, 0, 0, 0, null),
+            new PagedResultDto<ProfileGameItemDto>(
+                request.GamesPageNumber,
+                request.GamesPageSize,
+                0,
+                []),
+            new PagedResultDto<ProfileAchievementItemDto>(
+                request.AchievementsPageNumber,
+                request.AchievementsPageSize,
+                0,
+                []),
+            new PagedResultDto<ProfileAchievementItemDto>(
+                request.AchievementsByPointsPageNumber,
+                request.AchievementsByPointsPageSize,
+                0,
+                []),
+            [],
+            new PagedResultDto<ProfileLatestActivityItemDto>(
+                request.LatestActivityPageNumber,
+                request.LatestActivityPageSize,
+                0,
+                []));
+    }
+
     public async Task<UserProfileResponse?> GetProfileAsync(long steamId, GetUserProfileRequest request, CancellationToken ct = default)
     {
         await using var connection = (SqlConnection)_db.Database.GetDbConnection();

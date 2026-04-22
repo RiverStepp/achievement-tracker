@@ -108,6 +108,9 @@ export function setupApiInterceptors(onUnauthorized: () => void) {
             console.log("[auth] refresh succeeded");
             setAuthToken(newToken);
             sessionStorage.setItem("authToken", newToken);
+            if (res.data.appUserPublicId) {
+              sessionStorage.setItem("appUserPublicId", res.data.appUserPublicId);
+            }
             isRefreshing = false;
             return newToken;
           } catch (e) {

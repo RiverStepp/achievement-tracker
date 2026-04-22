@@ -12,9 +12,15 @@ import { AchievementPanel } from "../achievments/AchievementPanel";
 
 type ProfileTabsProps = {
     profile: UserProfile;
+    isMe?: boolean;
+    onPinnedAchievementsSaved?: () => void;
 };
 
-export const ProfileTabs: React.FC<ProfileTabsProps> = ({ profile }) => {
+export const ProfileTabs: React.FC<ProfileTabsProps> = ({
+  profile,
+  isMe = false,
+  onPinnedAchievementsSaved,
+}) => {
   return (
     <Tabs defaultValue="achievements" className="w-full">
         <TabsList className="bg-app-panel h-full min-h-full rounded-xl  shadow-md shadow-app-border">
@@ -29,7 +35,11 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({ profile }) => {
             </TabsTrigger>
         </TabsList>
         <TabsContent value="achievements">
-            <AchievementPanel profile={profile} />
+            <AchievementPanel
+              profile={profile}
+              isMe={isMe}
+              onPinnedAchievementsSaved={onPinnedAchievementsSaved}
+            />
         </TabsContent>
         <TabsContent value="Feed">
             <Feed variant="profile" userProfile={profile} />    

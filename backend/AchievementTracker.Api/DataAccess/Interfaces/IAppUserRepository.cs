@@ -16,6 +16,7 @@ public interface IAppUserRepository
      Task<(Guid PublicId, string? Handle, string? DisplayName)> GetPublicIdHandleAndDisplayNameAsync(
           int appUserId,
           CancellationToken ct = default);
+     Task<Guid?> GetPublicIdByHandleAsync(string handle, CancellationToken ct = default);
      Task<bool> HandleExistsAsync(string handle, int? excludingAppUserId = null, CancellationToken ct = default);
      Task<bool> SetSocialIdentityAsync(int appUserId, string? handle, string? displayName, CancellationToken ct = default);
      Task<bool> HasCompleteSocialIdentityAsync(int appUserId, CancellationToken ct = default);

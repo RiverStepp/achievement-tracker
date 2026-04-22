@@ -12,7 +12,7 @@ export interface LinkedAccount {
   accountVerified?: boolean;
 }
 
-export type SocialKind = "discord" | "x" | "twitch" | "github" | "website";
+export type SocialKind = "discord" | "youtube" | "x" | "twitch" | "github" | "website";
 
 export interface SocialLink {
   kind: SocialKind;
@@ -52,10 +52,24 @@ export interface ProfileEditPayload {
 }
 export interface ProfileAchievement {
   id: number;
+  steamAchievementId?: number;
+  pinnedAchievementId?: number;
   unlockedAt: string;
   isPinned?: boolean;
   achievement: Achievement;
   game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl" | "iconUrl">;
+}
+
+export type ProfileLatestActivityKind = "achievement" | "post" | "comment";
+
+export interface ProfileLatestActivityItem {
+  id: string;
+  kind: ProfileLatestActivityKind;
+  occurredAt: string;
+  title: string;
+  detail: string;
+  postPublicId?: string | null;
+  commentPublicId?: string | null;
 }
 export interface ProfileSummaryStats {
   totalAchievements: number;
@@ -81,6 +95,7 @@ export interface UserProfile extends ProfileIdentity {
   connections: ProfileConnections;
   summary?: ProfileSummaryStats; 
   achievements?: ProfileAchievement[];
+  latestActivity?: ProfileLatestActivityItem[];
   feed?: {
     items: Post[];
     comments?: Comment[];

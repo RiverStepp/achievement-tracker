@@ -6,4 +6,5 @@ internal sealed record FeedAuthorProjection
      public Guid PublicId { get; init; }
      public string? Handle { get; init; }
      public string? DisplayName { get; init; }
+     public string? AvatarUrl { get; init; }
 }

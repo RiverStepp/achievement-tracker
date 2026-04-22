@@ -55,6 +55,15 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
           return row == null ? (Guid.Empty, null, null) : (row.PublicId, row.Handle, row.DisplayName);
      }
 
+     public async Task<Guid?> GetPublicIdByHandleAsync(string handle, CancellationToken ct = default)
+     {
+          return await _db.AppUsers
+               .AsNoTracking()
+               .Where(x => x.IsActive && x.Handle == handle)
+               .Select(x => (Guid?)x.PublicId)
+               .SingleOrDefaultAsync(ct);
+     }
+
      public async Task<long?> GetSteamIdByPublicIdAsync(Guid publicId, CancellationToken ct = default)
      {
           return await _db.UserExternalLogins
@@ -192,4 +201,3 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
      }
      #endregion
 }
-
