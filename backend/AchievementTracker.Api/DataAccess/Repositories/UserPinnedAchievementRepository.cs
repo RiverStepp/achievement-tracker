@@ -140,4 +140,32 @@ public sealed class UserPinnedAchievementRepository(AppDbContext db) : IUserPinn
             return UpdatePinnedDisplayOrderResult.Failed("Unable to update display order.");
         }
     }
+
+    public async Task<UnpinAchievementResult> TryUnpinAsync(
+        int appUserId,
+        int appUserPinnedAchievementId,
+        CancellationToken ct = default)
+    {
+        AppUserPinnedAchievement? row = await _db.AppUserPinnedAchievements
+            .SingleOrDefaultAsync(
+                x => x.AppUserPinnedAchievementId == appUserPinnedAchievementId
+                    && x.AppUserId == appUserId
+                    && x.IsActive,
+                ct);
+
+        if (row == null)
+            return UnpinAchievementResult.Failed("Pinned achievement was not found.");
+
+        row.IsActive = false;
+
+        try
+        {
+            await _db.SaveChangesAsync(ct);
+            return UnpinAchievementResult.Ok();
+        }
+        catch (DbUpdateException)
+        {
+            return UnpinAchievementResult.Failed("Unable to unpin achievement.");
+        }
+    }
 }

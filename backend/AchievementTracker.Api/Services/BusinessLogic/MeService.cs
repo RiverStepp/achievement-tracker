@@ -146,4 +146,18 @@ public sealed class MeService(
                _profile.PinnedAchievementDisplayOrderStep,
                ct);
      }
+
+    public Task<UnpinAchievementResult> UnpinAchievementAsync(
+         int appUserId,
+         int appUserPinnedAchievementId,
+         CancellationToken ct = default)
+    {
+         if (appUserPinnedAchievementId <= 0)
+              return Task.FromResult(UnpinAchievementResult.Failed("Pinned achievement id must be positive."));
+
+         return _pinnedAchievementRepository.TryUnpinAsync(
+              appUserId,
+              appUserPinnedAchievementId,
+              ct);
+    }
 }
