@@ -48,4 +48,7 @@ export const endpoints = {
     getPublicIdByHandle: (handle: string) =>
       `/users/handles/${encodeURIComponent(handle.replace(/^@/, ""))}/public-id`,
   },
+  steamGames: {
+    getDetails: (gameId: number) => `/steam/games/${gameId}`,
+  },
 } as const;

@@ -5,6 +5,7 @@ import ProfilePage from "@/routes/ProfilePage";
 import { HomePage } from "@/routes/HomePage";
 import { AuthCallbackPage } from "@/routes/AuthCallbackPage";
 import { MessagesPage } from "@/routes/MessagesPage";
+import { GamePage } from "@/routes/GamePage";
 
 import { SideBar } from "@/components/app/SideBar";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
@@ -64,6 +65,7 @@ const App: React.FC = () => {
                 <Route path="/leaderboard" element={<LeaderboardPage />} />
                 <Route path="/messages" element={<MessagesPage />} />
                 <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/games/:gameId" element={<GamePage />} />
 
               </Routes>
             </main>
