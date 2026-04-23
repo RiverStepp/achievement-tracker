@@ -51,4 +51,10 @@ export const endpoints = {
   steamGames: {
     getDetails: (gameId: number) => `/steam/games/${gameId}`,
   },
+  dm: {
+    conversations: "/dm/conversations",
+    messages: (conversationId: number) => `/dm/conversations/${conversationId}/messages`,
+    send: "/dm/send",
+    markRead: (conversationId: number) => `/dm/conversations/${conversationId}/read`,
+  },
 } as const;
