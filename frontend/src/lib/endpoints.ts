@@ -18,6 +18,8 @@ export const endpoints = {
     get: "/me",
     socialIdentity: "/me/social-identity",
     pinAchievement: "/me/pin-achievement",
+    unpinAchievement: (pinnedAchievementId: number) =>
+      `/me/pinned-achievement/${pinnedAchievementId}`,
     settings: "/me/settings",
     settingsMedia: "/me/settings/media",
   },
