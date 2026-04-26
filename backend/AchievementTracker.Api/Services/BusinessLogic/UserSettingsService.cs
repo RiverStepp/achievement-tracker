@@ -61,10 +61,11 @@ public sealed class UserSettingsService(
         if (values is null)
             return null;
 
-        var countriesTask = _lookups.GetCountriesAsync(ct);
-        var timeZonesTask = _lookups.GetIanaTimeZonesAsync(ct);
-        var pronounsTask = _lookups.GetPronounOptionsAsync(ct);
-        await Task.WhenAll(countriesTask, timeZonesTask, pronounsTask);
+        // These lookups share the same scoped DbContext; EF Core does not allow concurrent
+        // operations on a single context instance.
+        var countries = await _lookups.GetCountriesAsync(ct);
+        var timeZones = await _lookups.GetIanaTimeZonesAsync(ct);
+        var pronouns = await _lookups.GetPronounOptionsAsync(ct);
 
         return new UserSettingsResponseDto(
             values.DisplayName,
@@ -76,9 +77,9 @@ public sealed class UserSettingsService(
             values.SocialLinks,
             values.ProfileImage,
             values.BannerImage,
-            await countriesTask,
-            await timeZonesTask,
-            await pronounsTask);
+            countries,
+            timeZones,
+            pronouns);
     }
 
     public async Task<UpdateUserSettingsResult> UpdateSettingsAsync(

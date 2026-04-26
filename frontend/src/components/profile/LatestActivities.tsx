@@ -1,53 +1,11 @@
 import type { UserProfile } from "@/types/profile";
 import { formatDate } from "@/lib/format";
-
 type LatestActivitiesProps = {
   profile: UserProfile;
 };
 
-type ActivityItem = {
-  id: string;
-  kind: "achievement" | "post" | "comment";
-  title: string;
-  detail: string;
-  occurredAt: string;
-};
-
 export const LatestActivities = ({ profile }: LatestActivitiesProps) => {
-  const achievementItems: ActivityItem[] = (profile.achievements ?? []).map(
-    (item) => ({
-      id: `achievement-${item.id}`,
-      kind: "achievement",
-      title: `Unlocked: ${item.achievement.name}`,
-      detail: item.game.name,
-      occurredAt: item.unlockedAt,
-    }),
-  );
-
-  const postItems: ActivityItem[] = (profile.feed?.items ?? []).map((post) => ({
-    id: `post-${post.postID}`,
-    kind: "post",
-    title: "Posted an update",
-    detail: post.content.text,
-    occurredAt: post.metadata.createdAt,
-  }));
-
-  const commentItems: ActivityItem[] = (profile.feed?.comments ?? []).map(
-    (comment) => ({
-      id: `comment-${comment.commentID}`,
-      kind: "comment",
-      title: "Left a comment",
-      detail: comment.content.text,
-      occurredAt: comment.createdAt.createdAt,
-    }),
-  );
-
-  const latestActivities = [...achievementItems, ...postItems, ...commentItems]
-    .sort(
-      (a, b) =>
-        new Date(b.occurredAt).getTime() - new Date(a.occurredAt).getTime(),
-    )
-    .slice(0, 10);
+  const latestActivities = (profile.latestActivity ?? []).slice(0, 10);
 
   return (
     <div className="max-h-[460px] p-4 bg-app-panel rounded-lg shadow-md shadow-app-border">

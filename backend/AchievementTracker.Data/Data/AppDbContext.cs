@@ -19,6 +19,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
      public DbSet<LocationCountry> LocationCountries => Set<LocationCountry>();
      public DbSet<LocationStateRegion> LocationStateRegions => Set<LocationStateRegion>();
      public DbSet<MessageEmbed> MessageEmbeds => Set<MessageEmbed>();
+     public DbSet<Notification> Notifications => Set<Notification>();
      public DbSet<PronounOption> PronounOptions => Set<PronounOption>();
      public DbSet<Role> Roles => Set<Role>();
      public DbSet<SocialPostAttachment> SocialPostAttachments => Set<SocialPostAttachment>();

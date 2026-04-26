@@ -65,15 +65,20 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
      public async Task<LeaderboardPageDto> GetLeaderboardPageAsync(int page, int pageSize, CancellationToken ct = default)
      {
           var eligibleRows = await (
-               from au in _db.AppUsers.AsNoTracking()
-               where au.IsListedOnLeaderboards && au.IsActive
-               join login in _db.UserExternalLogins.AsNoTracking() on au.AppUserId equals login.AppUserId
-               where login.AuthProvider == eAuthProvider.Steam && login.IsActive
-               join profile in _db.UserSteamProfiles.AsNoTracking() on login.UserExternalLoginId equals profile.UserExternalLoginId
+               from profile in _db.UserSteamProfiles.AsNoTracking()
                where profile.IsActive
+               join loginCandidate in _db.UserExternalLogins.AsNoTracking()
+                    .Where(x => x.AuthProvider == eAuthProvider.Steam && x.IsActive)
+                    on profile.UserExternalLoginId equals loginCandidate.UserExternalLoginId into loginJoin
+               from login in loginJoin.DefaultIfEmpty()
+               join appUserCandidate in _db.AppUsers.AsNoTracking().Where(x => x.IsActive)
+                    on login.AppUserId equals appUserCandidate.AppUserId into appUserJoin
+               from appUser in appUserJoin.DefaultIfEmpty()
+               where login == null || (appUser != null && appUser.IsListedOnLeaderboards)
                select new
                {
-                    au.PublicId,
+                    PublicId = appUser != null ? (Guid?)appUser.PublicId : null,
+                    IsClaimed = login != null && appUser != null,
                     profile.SteamId,
                     profile.PersonaName,
                     AvatarUrl = profile.AvatarMediumUrl,
@@ -162,6 +167,8 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     return new
                     {
                          eu.PublicId,
+                         eu.SteamId,
+                         eu.IsClaimed,
                          eu.PersonaName,
                          eu.AvatarUrl,
                          eu.ProfileUrl,
@@ -186,6 +193,8 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                .Select((e, i) => new LeaderboardEntryDto(
                     Rank: baseRank + i,
                     PublicId: e.PublicId,
+                    SteamProfileId: e.SteamId,
+                    IsClaimed: e.IsClaimed,
                     PersonaName: e.PersonaName,
                     AvatarUrl: e.AvatarUrl,
                     ProfileUrl: e.ProfileUrl,

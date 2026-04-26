@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { MoreHorizontal, RefreshCw, Link as LinkIcon } from "lucide-react";
+import { MoreHorizontal, RefreshCw, Link as LinkIcon, Settings as SettingsIcon } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -16,11 +17,12 @@ type ProfileActionsMenuProps = {
 };
 
 export const ProfileActionsMenu = ({ isMe = false, handle }: ProfileActionsMenuProps) => {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [isQueueing, setIsQueueing] = useState(false);
 
   const handleCopyProfileLink = async () => {
-    const profileUrl = `${window.location.origin}/profile/${handle}`;
+    const profileUrl = `${window.location.origin}/u/${handle}`;
 
     try {
       await navigator.clipboard.writeText(profileUrl);
@@ -95,6 +97,27 @@ export const ProfileActionsMenu = ({ isMe = false, handle }: ProfileActionsMenuP
                 <span className="text-xs text-app-muted">Share this profile page</span>
               </span>
             </button>
+
+            {isMe ? (
+              <button
+                type="button"
+                className={menuItemClassName}
+                onClick={() => {
+                  navigate("/settings");
+                  setOpen(false);
+                }}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-app-bg text-app-muted">
+                  <SettingsIcon className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <span className="flex flex-col">
+                  <span className="font-medium text-app-text">Settings</span>
+                  <span className="text-xs text-app-muted">
+                    Manage your profile details and preferences
+                  </span>
+                </span>
+              </button>
+            ) : null}
 
             {isMe ? (
               <button

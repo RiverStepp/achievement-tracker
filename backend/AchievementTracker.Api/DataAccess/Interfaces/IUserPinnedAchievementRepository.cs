@@ -18,4 +18,9 @@ public interface IUserPinnedAchievementRepository
         int displayOrder,
         int displayOrderStep,
         CancellationToken ct = default);
+
+    Task<UnpinAchievementResult> TryUnpinAsync(
+        int appUserId,
+        int appUserPinnedAchievementId,
+        CancellationToken ct = default);
 }

@@ -8,6 +8,7 @@ public sealed record SocialFeedItemDto
      public Guid AuthorPublicId { get; init; }
      public string? AuthorHandle { get; init; }
      public string? AuthorDisplayName { get; init; }
+     public string? AuthorAvatarUrl { get; init; }
      public DateTime CreateDate { get; init; }
      public string? Content { get; init; }
      public List<SocialPostAttachmentDto> Attachments { get; init; } = [];

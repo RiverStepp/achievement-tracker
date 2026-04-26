@@ -21,4 +21,9 @@ public interface IMeService
           int appUserPinnedAchievementId,
           UpdatePinnedAchievementDisplayOrderRequestDto request,
           CancellationToken ct = default);
+
+     Task<UnpinAchievementResult> UnpinAchievementAsync(
+          int appUserId,
+          int appUserPinnedAchievementId,
+          CancellationToken ct = default);
 }

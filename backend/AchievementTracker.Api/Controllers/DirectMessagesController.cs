@@ -8,15 +8,16 @@ namespace AchievementTracker.Api.Controllers;
 [ApiController]
 [Route("dm")]
 [Authorize]
-public class DirectMessagesController(IDirectMessageService dmService, ICurrentUser currentUser) : ControllerBase
+public class DirectMessagesController(
+     IDirectMessageService dmService,
+     ICurrentUser currentUser) : ControllerBase
 {
      private const int MinPageSize = 1;
      private const int MaxPageSize = 100;
-     
+
      private readonly IDirectMessageService _dmService = dmService;
      private readonly ICurrentUser _currentUser = currentUser;
 
-     // Get all conversations for the current user
      [HttpGet("conversations")]
      public async Task<IActionResult> GetConversations(CancellationToken ct)
      {
@@ -25,7 +26,6 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
           return Ok(conversations);
      }
 
-     // Get message history for a specific conversation with cursor-based pagination
      [HttpGet("conversations/{conversationId:int}/messages")]
      public async Task<IActionResult> GetMessages(
           int conversationId,
@@ -42,7 +42,6 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
           return Ok(messages);
      }
 
-     // Send a direct message via REST 
      [HttpPost("send")]
      public async Task<IActionResult> SendMessage([FromBody] SendMessageRequest request, CancellationToken ct)
      {
@@ -51,7 +50,6 @@ public class DirectMessagesController(IDirectMessageService dmService, ICurrentU
           return Ok(message);
      }
 
-     // Mark all messages in a conversation as read
      [HttpPost("conversations/{conversationId:int}/read")]
      public async Task<IActionResult> MarkAsRead(int conversationId, CancellationToken ct)
      {

@@ -1,45 +1,69 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import type { UserProfile } from "@/types/profile";
+import { useAuth } from "@/auth/AuthProvider";
 import { Post } from "@/components/social/post";
-import { mockHomeFeedPosts } from "@/data/mockPosts";
-import { Spinner } from "@/components/ui/spinner";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
+import { toast } from "@/components/ui/use-toast";
+import { feedService, type SocialAuthorOverrides } from "@/services/feed";
+import type { UserProfile } from "@/types/profile";
+import type { Post as PostModel } from "@/types/post";
 
 type FeedProps = {
   variant?: "home" | "profile";
   userProfile?: UserProfile;
+  refreshKey?: number;
 };
 
 const FEED_REFRESH_INTERVAL_MS = 30_000;
 const FEED_REFRESH_SPINNER_MS = 900;
-const INITIAL_POST_COUNT = 60;
-const LOAD_MORE_POST_COUNT = 30;
 const TOP_SCROLL_THRESHOLD_PX = 8;
+const HOME_FEED_PAGE_SIZE = 20;
+const PROFILE_FEED_PAGE_SIZE = 20;
 
-export const Feed = ({ variant, userProfile }: FeedProps) => {
+export const Feed = ({ variant, userProfile, refreshKey = 0 }: FeedProps) => {
+  const { userProfile: currentUserProfile } = useAuth();
   const resolvedVariant = variant ?? (userProfile ? "profile" : "home");
   const isProfileFeed = resolvedVariant === "profile" && !!userProfile;
   const isHomeFeed = resolvedVariant === "home";
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoadingInitial, setIsLoadingInitial] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isAtTop, setIsAtTop] = useState(true);
-  const [visibleCount, setVisibleCount] = useState(INITIAL_POST_COUNT);
+  const [remoteFeedItems, setRemoteFeedItems] = useState<PostModel[]>([]);
+  const [remoteHasMore, setRemoteHasMore] = useState(false);
+  const [remoteNextPageToken, setRemoteNextPageToken] = useState<string | null>(null);
+  const [hasLoadedRemoteFeed, setHasLoadedRemoteFeed] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isAtTopRef = useRef(true);
-  const profileFeedItems = userProfile?.feed?.items ?? [];
-  const allFeedItems = useMemo(() => {
-    const items = isProfileFeed ? profileFeedItems : mockHomeFeedPosts;
-    return [...items].sort(
-      (left, right) =>
-        new Date(right.metadata.createdAt).getTime() -
-        new Date(left.metadata.createdAt).getTime()
-    );
-  }, [isProfileFeed, profileFeedItems]);
-  const visibleFeedItems = useMemo(
-    () => allFeedItems.slice(0, visibleCount),
-    [allFeedItems, visibleCount]
+
+  const authorOverrides = useMemo<SocialAuthorOverrides>(() => {
+    const overrides: SocialAuthorOverrides = {};
+
+    if (currentUserProfile?.user.publicId) {
+      overrides[currentUserProfile.user.publicId] = {
+        avatarUrl: currentUserProfile.avatarUrl,
+        displayName: currentUserProfile.displayName,
+        handle: currentUserProfile.handle,
+      };
+    }
+
+    if (userProfile?.user.publicId) {
+      overrides[userProfile.user.publicId] = {
+        avatarUrl: userProfile.avatarUrl,
+        displayName: userProfile.displayName,
+        handle: userProfile.handle,
+      };
+    }
+
+    return overrides;
+  }, [currentUserProfile, userProfile]);
+
+  const fallbackItems = useMemo(
+    () => (isProfileFeed ? userProfile?.feed?.items ?? [] : []),
+    [isProfileFeed, userProfile?.feed?.items]
   );
-  const hasMorePosts = allFeedItems.length > visibleFeedItems.length;
+  const allFeedItems = hasLoadedRemoteFeed ? remoteFeedItems : fallbackItems;
 
   const title = isProfileFeed ? `${userProfile.displayName}'s Feed` : "Feed";
   const subtitle = isProfileFeed
@@ -59,12 +83,6 @@ export const Feed = ({ variant, userProfile }: FeedProps) => {
       }
 
       setIsRefreshing(true);
-      setVisibleCount(INITIAL_POST_COUNT);
-
-      const scrollContainer = scrollContainerRef.current;
-      if (scrollContainer) {
-        scrollContainer.scrollTop = 0;
-      }
 
       if (spinnerTimeoutId) {
         window.clearTimeout(spinnerTimeoutId);
@@ -88,19 +106,176 @@ export const Feed = ({ variant, userProfile }: FeedProps) => {
   }, []);
 
   useEffect(() => {
-    setVisibleCount(INITIAL_POST_COUNT);
-  }, [resolvedVariant, userProfile?.handle]);
+    let cancelled = false;
 
-  useEffect(() => {
-    if (visibleCount > allFeedItems.length) {
-      setVisibleCount(allFeedItems.length || INITIAL_POST_COUNT);
+    const loadFeed = async () => {
+      setIsLoadingInitial(true);
+
+      try {
+        if (isProfileFeed && userProfile?.user.publicId) {
+          console.log("[feed] loading profile feed", {
+            authorPublicId: userProfile.user.publicId,
+            handle: userProfile.handle,
+            refreshKey,
+          });
+
+          const page = await feedService.getFeedByUser(
+            userProfile.user.publicId,
+            { pageSize: PROFILE_FEED_PAGE_SIZE },
+            authorOverrides
+          );
+
+          if (cancelled) {
+            return;
+          }
+
+          setRemoteFeedItems(page.items);
+          setRemoteHasMore(page.hasMore);
+          setRemoteNextPageToken(page.nextPageToken);
+          setHasLoadedRemoteFeed(true);
+
+          console.log("[feed] profile feed loaded", {
+            authorPublicId: userProfile.user.publicId,
+            itemCount: page.items.length,
+            hasMore: page.hasMore,
+          });
+          return;
+        }
+
+        if (isHomeFeed) {
+          console.log("[feed] loading home feed", { refreshKey });
+
+          const page = await feedService.getFeed(
+            { pageSize: HOME_FEED_PAGE_SIZE },
+            authorOverrides
+          );
+
+          if (cancelled) {
+            return;
+          }
+
+          setRemoteFeedItems(page.items);
+          setRemoteHasMore(page.hasMore);
+          setRemoteNextPageToken(page.nextPageToken);
+          setHasLoadedRemoteFeed(true);
+
+          const scrollContainer = scrollContainerRef.current;
+          if (scrollContainer) {
+            scrollContainer.scrollTop = 0;
+          }
+
+          console.log("[feed] home feed loaded", {
+            itemCount: page.items.length,
+            hasMore: page.hasMore,
+          });
+          return;
+        }
+
+        if (!cancelled) {
+          setHasLoadedRemoteFeed(true);
+          setRemoteFeedItems(fallbackItems);
+          setRemoteHasMore(false);
+          setRemoteNextPageToken(null);
+        }
+      } catch (error: any) {
+        if (cancelled) {
+          return;
+        }
+
+        console.log("[feed] feed load failed", {
+          variant: resolvedVariant,
+          error,
+        });
+        setHasLoadedRemoteFeed(true);
+        setRemoteFeedItems(fallbackItems);
+        setRemoteHasMore(false);
+        setRemoteNextPageToken(null);
+        toast({
+          title: "Could not load feed",
+          description:
+            error?.response?.data?.error ||
+            error?.message ||
+            "The feed could not be loaded.",
+          variant: "destructive",
+        });
+      } finally {
+        if (!cancelled) {
+          setIsLoadingInitial(false);
+        }
+      }
+    };
+
+    void loadFeed();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    authorOverrides,
+    fallbackItems,
+    isHomeFeed,
+    isProfileFeed,
+    refreshKey,
+    resolvedVariant,
+    userProfile,
+  ]);
+
+  const handleShowMore = async () => {
+    if (!remoteHasMore || !remoteNextPageToken || isLoadingMore) {
+      return;
     }
-  }, [allFeedItems.length, visibleCount]);
 
-  const handleShowMore = () => {
-    setVisibleCount((currentCount) =>
-      Math.min(currentCount + LOAD_MORE_POST_COUNT, allFeedItems.length)
-    );
+    console.log("[feed] loading next page", {
+      variant: resolvedVariant,
+      nextPageToken: remoteNextPageToken,
+    });
+
+    setIsLoadingMore(true);
+
+    try {
+      const page =
+        isProfileFeed && userProfile?.user.publicId
+          ? await feedService.getFeedByUser(
+              userProfile.user.publicId,
+              {
+                pageSize: PROFILE_FEED_PAGE_SIZE,
+                pageToken: remoteNextPageToken,
+              },
+              authorOverrides
+            )
+          : await feedService.getFeed(
+              {
+                pageSize: HOME_FEED_PAGE_SIZE,
+                pageToken: remoteNextPageToken,
+              },
+              authorOverrides
+            );
+
+      setRemoteFeedItems((current) => [...current, ...page.items]);
+      setRemoteHasMore(page.hasMore);
+      setRemoteNextPageToken(page.nextPageToken);
+
+      console.log("[feed] next page loaded", {
+        variant: resolvedVariant,
+        itemCount: page.items.length,
+        hasMore: page.hasMore,
+      });
+    } catch (error: any) {
+      console.log("[feed] failed to load next page", {
+        variant: resolvedVariant,
+        error,
+      });
+      toast({
+        title: "Could not load more posts",
+        description:
+          error?.response?.data?.error ||
+          error?.message ||
+          "The next feed page could not be loaded.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingMore(false);
+    }
   };
 
   const handleFeedScroll = () => {
@@ -134,20 +309,30 @@ export const Feed = ({ variant, userProfile }: FeedProps) => {
           {isRefreshing ? <Spinner className="h-5 w-5" /> : null}
         </div>
 
-        {visibleFeedItems.length === 0 ? (
+        {isLoadingInitial ? (
+          <div className="flex justify-center py-10">
+            <Spinner className="h-6 w-6" />
+          </div>
+        ) : allFeedItems.length === 0 ? (
           <p className="text-sm text-app-muted">
-            This user has not posted anything yet.
+            {isHomeFeed
+              ? "The community feed is empty right now."
+              : "This user has not posted anything yet."}
           </p>
         ) : (
           <div className="space-y-4">
-            {visibleFeedItems.map((item) => (
-              <Post key={item.postID} post={item} />
+            {allFeedItems.map((item) => (
+              <Post key={item.publicId ?? item.postID} post={item} />
             ))}
 
-            {hasMorePosts ? (
+            {remoteHasMore ? (
               <div className="flex justify-center pt-2">
-                <Button variant="outline" onClick={handleShowMore}>
-                  Show more
+                <Button
+                  variant="outline"
+                  onClick={() => void handleShowMore()}
+                  disabled={isLoadingMore}
+                >
+                  {isLoadingMore ? "Loading..." : "Show more"}
                 </Button>
               </div>
             ) : null}

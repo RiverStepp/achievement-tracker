@@ -12,9 +12,7 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
 {
      private readonly AppDbContext _db = db;
 
-    // Finds a direct conversation for the participant pair and adds a message.
-    // Uses a deterministic SQL Server app lock to serialize only this participant pair.
-     public async Task<DirectMessage> SendMessageToConversationAsync(int senderUserId, int recipientUserId, string content, CancellationToken ct = default)   
+     public async Task<DirectMessage> SendMessageToConversationAsync(int senderUserId, int recipientUserId, string content, CancellationToken ct = default)
      {
           await using var tx = await _db.Database.BeginTransactionAsync(IsolationLevel.ReadCommitted, ct);
 
@@ -84,7 +82,6 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
           return message;
      }
 
-     // Returns null if the user is not a participant; fetches participant membership and messages in a single DB trip
      public async Task<(List<DirectMessage> Messages, long? LastReadMessageId)?> GetMessagesIfParticipantAsync(int conversationId, int userId, int pageSize, long? beforeMessageId, CancellationToken ct = default)
      {
            var participant = await _db.ConversationParticipants
@@ -108,7 +105,6 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
           return ([.. participant.Conversation.Messages.OrderBy(m => m.DirectMessageId)], lastReadMessageId);
      }
 
-      // Fetches all conversations for a user with per-conversation unread counts in a single query
      public async Task<List<ConversationWithUnread>> GetUserConversationsAsync(int userId, CancellationToken ct = default)
      {
           return await _db.ConversationParticipants
@@ -142,8 +138,6 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                .ToListAsync(ct);
      }
 
-     // Marks the conversation as read via a single UPDATE with a subquery.
-     // Returns null if the user is not a participant, otherwise returns the other participant's PublicIds.
      public async Task<List<Guid>?> MarkConversationAsReadAsync(int conversationId, int userId, CancellationToken ct = default)
      {
           int rowsAffected = await _db.ConversationParticipants

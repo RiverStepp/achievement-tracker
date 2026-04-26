@@ -3,20 +3,38 @@ import { Label } from "@/components/ui/label"
 import { useState } from "react";
 import { AchievementsGrid } from "./AchievementsGrid";
 import { AchievementIcon } from "./AchievementIcon";
+import { PinnedAchievementsDialog } from "./PinnedAchievementsDialog";
 
 type AchievementPanelProps = {
     profile: UserProfile;
+    isMe?: boolean;
+    onPinnedAchievementsSaved?: () => void;
 }
 type FilterOption = "newest" | "oldest" | "a-z" | "z-a" | "rarest" | "common" | "game";
 
-export const AchievementPanel = ({profile}: AchievementPanelProps) => {
+export const AchievementPanel = ({
+    profile,
+    isMe = false,
+    onPinnedAchievementsSaved,
+}: AchievementPanelProps) => {
     const [filter, setFilter] = useState<FilterOption>("newest");
     const pinnedAchievements =
         profile.achievements?.filter((item) => item.isPinned) ?? [];
     return (
         <>
         <div className="h-full p-4 bg-app-panel rounded-lg shadow-md shadow-app-border mb-4">
-            <h2 className="app-heading mb-2">Pinned Achievements</h2>
+            <div className="mb-2 flex items-start justify-between gap-3">
+                <div>
+                    <h2 className="app-heading">Pinned Achievements</h2>
+                </div>
+
+                {isMe ? (
+                    <PinnedAchievementsDialog
+                        achievements={profile.achievements ?? []}
+                        onSaved={onPinnedAchievementsSaved}
+                    />
+                ) : null}
+            </div>
             {pinnedAchievements.length ? (
                 <div className="flex flex-row flex-wrap max-h-48 min-h-fit">
                     {pinnedAchievements.map((item) => (

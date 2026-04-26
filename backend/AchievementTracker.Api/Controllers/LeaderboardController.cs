@@ -10,7 +10,8 @@ public class LeaderboardController(ILeaderboardService leaderboardService) : Con
 {
      private readonly ILeaderboardService _leaderboardService = leaderboardService;
 
-     // Returns a paginated leaderboard ranked by total Steam achievements unlocked. Only includes users who have opted in to leaderboard visibility and have synced their achievements.
+     // Returns a paginated leaderboard ranked by total Steam achievements unlocked.
+     // Includes claimed users who opted in and unclaimed Steam profiles.
      [HttpGet]
      [ProducesResponseType(typeof(LeaderboardPageDto), StatusCodes.Status200OK)]
      public async Task<IActionResult> GetLeaderboard(

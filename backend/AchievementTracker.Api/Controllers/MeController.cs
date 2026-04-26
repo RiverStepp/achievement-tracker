@@ -227,4 +227,24 @@ public sealed class MeController(
 
           return Ok(summary);
      }
+
+     [Authorize]
+     [HttpDelete("/me/pinned-achievement/{pinnedAchievementId:int}")]
+     public async Task<IActionResult> UnpinAchievement(
+          int pinnedAchievementId,
+          CancellationToken ct)
+     {
+          if (_currentUser.AppUserId is null)
+               return Unauthorized();
+
+          UnpinAchievementResult outcome = await _meService.UnpinAchievementAsync(
+               _currentUser.AppUserId.Value,
+               pinnedAchievementId,
+               ct);
+
+          if (!outcome.Success)
+               return BadRequest(new { error = outcome.ErrorMessage });
+
+          return Ok();
+     }
 }
