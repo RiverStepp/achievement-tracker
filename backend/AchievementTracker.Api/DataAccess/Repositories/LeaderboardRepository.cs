@@ -78,6 +78,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                select new
                {
                     PublicId = appUser != null ? (Guid?)appUser.PublicId : null,
+                    Handle = appUser != null ? appUser.Handle : null,
                     IsClaimed = login != null && appUser != null,
                     profile.SteamId,
                     profile.PersonaName,
@@ -169,7 +170,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                          eu.PublicId,
                          eu.SteamId,
                          eu.IsClaimed,
-                         eu.PersonaName,
+                         PersonaName = !string.IsNullOrWhiteSpace(eu.Handle) ? eu.Handle : eu.PersonaName,
                          eu.AvatarUrl,
                          eu.ProfileUrl,
                          TotalAchievementsUnlocked = unlocked,
