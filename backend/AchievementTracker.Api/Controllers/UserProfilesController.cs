@@ -1,3 +1,4 @@
+using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.Requests;
 using AchievementTracker.Api.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -7,7 +8,7 @@ namespace AchievementTracker.Api.Controllers;
 
 [ApiController]
 [Route("users")]
-public sealed class UserProfilesController(IUserProfileService userProfileService) : ControllerBase
+public sealed class UserProfilesController(IUserProfileService userProfileService, IAppUserRepository appUserRepository) : ControllerBase
 {
     [AllowAnonymous]
     [HttpGet("handles/{handle}/public-id")]
@@ -35,5 +36,16 @@ public sealed class UserProfilesController(IUserProfileService userProfileServic
             return NotFound();
 
         return Ok(response);
+    }
+
+    [Authorize]
+    [HttpGet("search")]
+    public async Task<IActionResult> SearchUsers([FromQuery] string q, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(q) || q.TrimStart('@').Trim().Length < 2)
+            return BadRequest(new { error = "Query must be at least 2 characters." });
+
+        var results = await appUserRepository.SearchByHandleAsync(q, limit: 10, ct);
+        return Ok(results);
     }
 }
