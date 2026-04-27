@@ -51,4 +51,7 @@ export const endpoints = {
   steamGames: {
     getDetails: (gameId: number) => `/steam/games/${gameId}`,
   },
+  leaderboard: {
+    get: "/leaderboard",
+  },
 } as const;
