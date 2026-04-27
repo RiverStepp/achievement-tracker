@@ -21,7 +21,36 @@ public sealed class UserProfileService(
             return null;
 
         var steamId = await appUserRepository.GetSteamIdByPublicIdAsync(publicId, ct);
+        var normalizedRequest = NormalizeRequest(request);
 
+        if (steamId == null)
+            return await userProfileRepository.GetBasicProfileByPublicIdAsync(publicId, normalizedRequest, ct);
+
+        return await userProfileRepository.GetProfileAsync(steamId.Value, normalizedRequest, ct);
+    }
+
+    public async Task<UserProfileResponse?> GetProfileBySteamIdAsync(long steamId, GetUserProfileRequest request, CancellationToken ct = default)
+    {
+        if (steamId <= 0)
+            return null;
+
+        if (!await userProfileRepository.SteamProfileExistsAsync(steamId, ct))
+            return null;
+
+        return await userProfileRepository.GetProfileAsync(steamId, NormalizeRequest(request), ct);
+    }
+
+    public Task<Guid?> GetPublicIdByHandleAsync(string handle, CancellationToken ct = default)
+    {
+        string normalizedHandle = handle.Trim();
+        if (!normalizedHandle.StartsWith("@"))
+            normalizedHandle = $"@{normalizedHandle}";
+
+        return appUserRepository.GetPublicIdByHandleAsync(normalizedHandle, ct);
+    }
+
+    private GetUserProfileRequest NormalizeRequest(GetUserProfileRequest request)
+    {
         var options = profileOptions.Value;
         var gamesPageSize =
             request.GamesPageSize > 0 ? Math.Min(request.GamesPageSize, MaxGamesPageSize) : options.GamesPageSize;
@@ -36,35 +65,16 @@ public sealed class UserProfileService(
                 ? Math.Min(request.LatestActivityPageSize, options.MaxLatestActivityPageSize)
                 : options.LatestActivityPageSize;
 
-        var pageNumber = Math.Max(1, request.GamesPageNumber);
-        var achievementsPageNumber = Math.Max(1, request.AchievementsPageNumber);
-        var achievementsByPointsPageNumber = Math.Max(1, request.AchievementsByPointsPageNumber);
-        var latestActivityPageNumber = Math.Max(1, request.LatestActivityPageNumber);
-
-        var normalizedRequest = new GetUserProfileRequest
+        return new GetUserProfileRequest
         {
-            GamesPageNumber = pageNumber,
+            GamesPageNumber = Math.Max(1, request.GamesPageNumber),
             GamesPageSize = gamesPageSize,
-            AchievementsPageNumber = achievementsPageNumber,
+            AchievementsPageNumber = Math.Max(1, request.AchievementsPageNumber),
             AchievementsPageSize = achievementsPageSize,
-            AchievementsByPointsPageNumber = achievementsByPointsPageNumber,
+            AchievementsByPointsPageNumber = Math.Max(1, request.AchievementsByPointsPageNumber),
             AchievementsByPointsPageSize = achievementsByPointsPageSize,
-            LatestActivityPageNumber = latestActivityPageNumber,
+            LatestActivityPageNumber = Math.Max(1, request.LatestActivityPageNumber),
             LatestActivityPageSize = latestActivityPageSize
         };
-
-        if (steamId == null)
-            return await userProfileRepository.GetBasicProfileByPublicIdAsync(publicId, normalizedRequest, ct);
-
-        return await userProfileRepository.GetProfileAsync(steamId.Value, normalizedRequest, ct);
-    }
-
-    public Task<Guid?> GetPublicIdByHandleAsync(string handle, CancellationToken ct = default)
-    {
-        string normalizedHandle = handle.Trim();
-        if (!normalizedHandle.StartsWith("@"))
-            normalizedHandle = $"@{normalizedHandle}";
-
-        return appUserRepository.GetPublicIdByHandleAsync(normalizedHandle, ct);
     }
 }

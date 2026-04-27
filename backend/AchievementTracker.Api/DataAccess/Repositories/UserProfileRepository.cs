@@ -14,6 +14,13 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
 {
     private readonly AppDbContext _db = db;
 
+    public Task<bool> SteamProfileExistsAsync(long steamId, CancellationToken ct = default)
+    {
+        return _db.UserSteamProfiles
+            .AsNoTracking()
+            .AnyAsync(x => x.IsActive && x.SteamId == steamId, ct);
+    }
+
     public async Task<UserProfileResponse?> GetBasicProfileByPublicIdAsync(
         Guid publicId,
         GetUserProfileRequest request,
@@ -113,7 +120,8 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
                 request.LatestActivityPageNumber,
                 request.LatestActivityPageSize,
                 0,
-                []));
+                []),
+            true);
     }
 
     public async Task<UserProfileResponse?> GetProfileAsync(long steamId, GetUserProfileRequest request, CancellationToken ct = default)
@@ -325,7 +333,8 @@ public sealed class UserProfileRepository(AppDbContext db) : IUserProfileReposit
                 request.LatestActivityPageNumber,
                 request.LatestActivityPageSize,
                 latestActivityTotal,
-                latestActivity)
+                latestActivity),
+            appUser != null
         );
     }
 
