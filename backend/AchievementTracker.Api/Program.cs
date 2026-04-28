@@ -21,9 +21,17 @@ using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Sets up key vault
-string keyVaultUri = builder.Configuration["KeyVault:VaultUri"]!;
-builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+// Key Vault is optional so local/Coolify env vars can fully drive configuration.
+bool keyVaultEnabled = builder.Configuration.GetValue<bool>("KeyVault:Enabled");
+string? keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
+
+if (keyVaultEnabled)
+{
+     if (string.IsNullOrWhiteSpace(keyVaultUri))
+          throw new InvalidOperationException("KeyVault:Enabled is true but KeyVault:VaultUri is missing.");
+
+     builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+}
 
 string? steamApiKey = builder.Configuration["Authentication:Steam:ApiKey"];
 
