@@ -9,6 +9,7 @@ import { UserProfile } from "@/types/profile";
 import { AboutPanel } from "./AboutPanel";
 import { LatestActivities } from "./LatestActivities";
 import { AchievementPanel } from "../achievments/AchievementPanel";
+import { GamesPanel } from "../game/GamesPanel";
 
 type ProfileTabsProps = {
     profile: UserProfile;
@@ -27,6 +28,9 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({
             <TabsTrigger value="achievements" className="">
                 Achievements
             </TabsTrigger>
+            <TabsTrigger value="games" className="">
+                Games
+            </TabsTrigger>
             <TabsTrigger value="Feed" className="">
                 Feed
             </TabsTrigger>
@@ -40,6 +44,9 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({
               isMe={isMe}
               onPinnedAchievementsSaved={onPinnedAchievementsSaved}
             />
+        </TabsContent>
+        <TabsContent value="games">
+            <GamesPanel profile={profile} />
         </TabsContent>
         <TabsContent value="Feed">
             <Feed variant="profile" userProfile={profile} />    

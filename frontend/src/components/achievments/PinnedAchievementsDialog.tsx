@@ -142,19 +142,9 @@ export const PinnedAchievementsDialog = ({
     const removedPinnedKeys = initiallyPinnedKeys.filter(
       (key) => !selectedKeySet.has(key)
     );
-
-    if (removedPinnedKeys.length > 0) {
-      console.log("[pinned-achievements] save blocked by unsupported unpin", {
-        removedPinnedCount: removedPinnedKeys.length,
-      });
-      toast({
-        title: "Removing pinned achievements is not available",
-        description:
-          "This screen can add new pins, but existing pins cannot be removed with the current API.",
-        variant: "destructive",
-      });
-      return;
-    }
+    const removedAchievements = removedPinnedKeys
+      .map((key) => achievementByKey.get(key))
+      .filter((achievement): achievement is ProfileAchievement => Boolean(achievement));
 
     const addedAchievements = selectedKeys
       .filter((key) => !initialPinnedKeySet.has(key))
@@ -163,10 +153,11 @@ export const PinnedAchievementsDialog = ({
 
     console.log("[pinned-achievements] saving selection", {
       selectedCount: selectedKeys.length,
+      removedCount: removedAchievements.length,
       addedCount: addedAchievements.length,
     });
 
-    if (addedAchievements.length === 0) {
+    if (addedAchievements.length === 0 && removedAchievements.length === 0) {
       handleOpenChange(false);
       return;
     }
@@ -174,6 +165,16 @@ export const PinnedAchievementsDialog = ({
     setIsSaving(true);
 
     try {
+      for (const achievement of removedAchievements) {
+        if (!achievement.pinnedAchievementId) {
+          throw new Error(
+            `Missing pinnedAchievementId for ${achievement.achievement.name}`
+          );
+        }
+
+        await profileService.unpinAchievement(achievement.pinnedAchievementId);
+      }
+
       for (const achievement of addedAchievements) {
         if (!achievement.steamAchievementId) {
           throw new Error(
@@ -186,7 +187,7 @@ export const PinnedAchievementsDialog = ({
 
       toast({
         title: "Pinned achievements updated",
-        description: "Your newly selected achievements have been pinned.",
+        description: "Your pinned achievements have been updated.",
       });
       handleOpenChange(false);
       onSaved?.();
@@ -197,7 +198,7 @@ export const PinnedAchievementsDialog = ({
         description:
           error?.response?.data?.error ||
           error?.message ||
-          "The selected achievements could not be pinned.",
+          "The selected achievements could not be updated.",
         variant: "destructive",
       });
     } finally {
@@ -231,7 +232,7 @@ export const PinnedAchievementsDialog = ({
           <div className="rounded-2xl border border-app-border bg-app-bg/60 p-3 text-sm text-app-muted">
             Selected {selectedKeys.length} of {MAX_PINNED_ACHIEVEMENTS}.
             <span className="block pt-1 text-xs">
-              Existing pins can stay selected. New pins are saved when you press Save.
+              Select to pin, deselect to unpin. Changes are saved when you press Save.
             </span>
           </div>
 

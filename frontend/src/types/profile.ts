@@ -60,6 +60,21 @@ export interface ProfileAchievement {
   game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl" | "iconUrl">;
 }
 
+export interface ProfileGame {
+  id: number;
+  name: string;
+  playtimeForever?: number | null;
+  earnedCount: number;
+  totalAchievements: number;
+  percentCompletion?: number | null;
+  isCompleted: boolean;
+  pointsEarned: number;
+  pointsAvailable: number;
+  latestUnlockDate: string;
+  durationMinutes?: number | null;
+  game: Pick<Game, "id" | "name" | "steamAppId" | "headerImageUrl" | "iconUrl">;
+}
+
 export type ProfileLatestActivityKind = "achievement" | "post" | "comment";
 
 export interface ProfileLatestActivityItem {
@@ -94,6 +109,7 @@ export interface UserProfile extends ProfileIdentity {
   steam?: SteamUser | null;
   connections: ProfileConnections;
   summary?: ProfileSummaryStats; 
+  games?: ProfileGame[];
   achievements?: ProfileAchievement[];
   latestActivity?: ProfileLatestActivityItem[];
   feed?: {
