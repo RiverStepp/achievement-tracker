@@ -4,6 +4,7 @@ WORKDIR /src
 COPY backend/AchievementTracker.Api.sln ./backend/
 COPY backend/AchievementTracker.Api/AchievementTracker.Api.csproj ./backend/AchievementTracker.Api/
 COPY backend/AchievementTracker.Data/AchievementTracker.Data.csproj ./backend/AchievementTracker.Data/
+COPY backend/AchievementTracker.Tests/AchievementTracker.Tests.csproj ./backend/AchievementTracker.Tests/
 
 RUN dotnet restore ./backend/AchievementTracker.Api.sln
 
