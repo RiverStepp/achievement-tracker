@@ -10,6 +10,7 @@ using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -91,6 +92,18 @@ builder.Services.AddCors(options =>
                .AllowAnyHeader()
                .AllowAnyMethod()
                .AllowCredentials());
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+     options.ForwardedHeaders =
+          ForwardedHeaders.XForwardedFor |
+          ForwardedHeaders.XForwardedProto |
+          ForwardedHeaders.XForwardedHost;
+
+     // Coolify terminates TLS at the proxy and forwards requests from dynamic container IPs.
+     options.KnownNetworks.Clear();
+     options.KnownProxies.Clear();
 });
 
 // REDIS_REQUIRED: Replace this with a Redis-backed IDistributedCache for restart-safe + multi-instance refresh tokens.
@@ -330,8 +343,14 @@ if (app.Environment.IsDevelopment())
      app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseCors();
-app.UseHttpsRedirection();
+
+if (!app.Environment.IsProduction())
+{
+     app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();
