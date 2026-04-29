@@ -15,10 +15,13 @@ import { ChevronRight } from "lucide-react";
 import { SettingsPage } from "./routes/SettingsPage";
 import { LeaderboardPage } from "./routes/LeaderboardPage";
 import { CreateProfileDialog } from "@/components/profile/CreateProfileDialog";
+import { CookieConsentBanner } from "@/components/app/CookieConsentBanner";
 
 const App: React.FC = () => {
   const location = useLocation();
   const isHomeRoute = location.pathname === "/";
+  const isMessagesRoute = location.pathname === "/messages";
+  const usesInternalScroll = isHomeRoute || isMessagesRoute;
 
   return (
     <>
@@ -55,7 +58,7 @@ const App: React.FC = () => {
             {/* Routed content: ONLY scroll area */}
             <main
               className={`min-w-0 h-full min-h-0 py-4 ${
-                isHomeRoute ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
+                usesInternalScroll ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
               }`}
             >
               <Routes>
@@ -73,6 +76,7 @@ const App: React.FC = () => {
         </div>
       </div>
       <CreateProfileDialog />
+      <CookieConsentBanner />
       <Toaster />
     </>
   );

@@ -119,7 +119,8 @@ public sealed class ProfileGatheringScriptRunner(
                throw new FileNotFoundException("Profile gathering script entry is missing.");
           }
 
-          string? dbConnectionString = _configuration.GetConnectionString("DefaultConnection");
+          string? dbConnectionString = NormalizeConfiguredValue(
+               _configuration.GetConnectionString("DefaultConnection"));
           string? dbUser = _configuration["DbConnection:DbUser"];
           string? dbPassword = _configuration["DbConnection:DbPassword"];
           string? dbHost = _configuration["DbConnection:DbHost"];
@@ -128,7 +129,8 @@ public sealed class ProfileGatheringScriptRunner(
 
           if (string.IsNullOrWhiteSpace(dbConnectionString))
           {
-               dbConnectionString = _configuration["DbConnection:ConnectionString"];
+               dbConnectionString = NormalizeConfiguredValue(
+                    _configuration["DbConnection:ConnectionString"]);
           }
 
           if (!string.IsNullOrWhiteSpace(dbConnectionString))
@@ -259,5 +261,23 @@ public sealed class ProfileGatheringScriptRunner(
                steamIdOrUsernameArgument,
                incrementalAchievementsOnly
           );
+     }
+
+     private static string? NormalizeConfiguredValue(string? value)
+     {
+          if (string.IsNullOrWhiteSpace(value))
+          {
+               return value;
+          }
+
+          string trimmed = value.Trim();
+
+          if ((trimmed.StartsWith('\'') && trimmed.EndsWith('\'')) ||
+              (trimmed.StartsWith('"') && trimmed.EndsWith('"')))
+          {
+               return trimmed[1..^1];
+          }
+
+          return trimmed;
      }
 }

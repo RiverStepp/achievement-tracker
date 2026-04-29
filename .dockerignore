@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.git/
+**/.DS_Store
+**/Thumbs.db
+.vs/
+.vscode/
+frontend/.env
+scripts/.env

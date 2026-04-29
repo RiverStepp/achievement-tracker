@@ -18,6 +18,8 @@ export const endpoints = {
     get: "/me",
     socialIdentity: "/me/social-identity",
     pinAchievement: "/me/pin-achievement",
+    unpinAchievement: (pinnedAchievementId: number) =>
+      `/me/pinned-achievement/${pinnedAchievementId}`,
     settings: "/me/settings",
     settingsMedia: "/me/settings/media",
   },
@@ -47,11 +49,18 @@ export const endpoints = {
     getProfile: (publicId: string) => `/users/${publicId}/profile`,
     getPublicIdByHandle: (handle: string) =>
       `/users/handles/${encodeURIComponent(handle.replace(/^@/, ""))}/public-id`,
+    search: "/users/search",
   },
   steamGames: {
     getDetails: (gameId: number) => `/steam/games/${gameId}`,
   },
   leaderboard: {
     get: "/leaderboard",
+  }
+  dm: {
+    conversations: "/dm/conversations",
+    messages: (conversationId: number) => `/dm/conversations/${conversationId}/messages`,
+    send: "/dm/send",
+    markRead: (conversationId: number) => `/dm/conversations/${conversationId}/read`,
   },
 } as const;

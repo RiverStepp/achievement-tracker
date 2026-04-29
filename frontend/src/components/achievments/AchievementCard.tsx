@@ -1,21 +1,67 @@
 import { ProfileAchievement } from "@/types/profile";
-import { FileQuestion } from 'lucide-react';
+import { CalendarDays, FileQuestion } from "lucide-react";
+import { formatDate } from "@/lib/format";
+
 type AchievementCardProps = {
-    achievement: ProfileAchievement;
+  achievement: ProfileAchievement;
 };
 
-export const AchievementCard = ({ achievement }: AchievementCardProps) => {
-    return (
-        <div>
-            <div className="flex items-center mb-2">
-                {achievement.game.iconUrl ?
-                 <img src={achievement.game.iconUrl} alt={`${achievement.game.name} Icon`} className="h-4 w-4 object-cover rounded mr-2" />
-                  : <FileQuestion className="h-4 w-4 text-app-muted mr-1" />}
-                <span className="text-app-muted text-xs">{achievement.game.name}</span>
-            </div>
-            <h3 className="app-heading text-sm">{achievement.achievement.name}</h3>
-            <p className="text-app-muted text-xs">{achievement.achievement.description}</p>
-            <p className="text-app-muted text-xs mt-1">{achievement.achievement.globalPercentage?.toFixed(1)}% of players have unlocked this.</p>
-        </div>
-    );
+const fallbackGameImage =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 54'%3E%3Crect width='96' height='54' rx='10' fill='%23334155'/%3E%3Cpath d='M18 38l14-15 10 12 8-9 16 12H18z' fill='%2394a3b8'/%3E%3Ccircle cx='30' cy='18' r='5' fill='%2394a3b8'/%3E%3C/svg%3E";
+
+function buildSteamHeaderImageUrl(steamAppId?: number) {
+  return steamAppId
+    ? `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`
+    : undefined;
 }
+
+export const AchievementCard = ({ achievement }: AchievementCardProps) => {
+  const gameImageUrl =
+    achievement.game.iconUrl ??
+    achievement.game.headerImageUrl ??
+    buildSteamHeaderImageUrl(achievement.game.steamAppId);
+
+  return (
+    <div className="w-full space-y-3">
+      <div className="flex items-center gap-2">
+        {gameImageUrl ? (
+          <img
+            src={gameImageUrl}
+            alt={`${achievement.game.name} art`}
+            className="h-9 w-9 rounded-md object-cover"
+            onError={(event) => {
+              event.currentTarget.onerror = null;
+              event.currentTarget.src = fallbackGameImage;
+            }}
+          />
+        ) : (
+          <div className="flex h-9 w-9 items-center justify-center rounded-md bg-app-panel2">
+            <FileQuestion className="h-4 w-4 text-app-muted" />
+          </div>
+        )}
+        <span className="min-w-0 break-words text-xs text-app-muted">
+          {achievement.game.name}
+        </span>
+      </div>
+
+      <div className="space-y-1">
+        <h3 className="app-heading break-words text-sm">
+          {achievement.achievement.name}
+        </h3>
+        <p className="break-words text-app-muted text-xs leading-relaxed">
+          {achievement.achievement.description ?? "No description available."}
+        </p>
+      </div>
+
+      <div className="flex items-center gap-2 text-xs text-app-muted">
+        <CalendarDays className="h-3.5 w-3.5" />
+        <span>Unlocked {formatDate(achievement.unlockedAt)}</span>
+      </div>
+
+      <p className="break-words text-app-muted text-xs">
+        {achievement.achievement.globalPercentage?.toFixed(1)}% of players have
+        unlocked this.
+      </p>
+    </div>
+  );
+};
