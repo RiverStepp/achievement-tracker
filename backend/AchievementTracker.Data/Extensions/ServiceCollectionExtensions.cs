@@ -9,7 +9,8 @@ public static class ServiceCollectionExtensions
 {
     public static IServiceCollection AddDataAccess(this IServiceCollection services, IConfiguration configuration)
     {
-        var connectionString = configuration.GetConnectionString("DefaultConnection");
+        var connectionString = NormalizeConfiguredValue(
+            configuration.GetConnectionString("DefaultConnection"));
 
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -23,5 +24,22 @@ public static class ServiceCollectionExtensions
 
         return services;
     }
-}
 
+    private static string? NormalizeConfiguredValue(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return value;
+        }
+
+        string trimmed = value.Trim();
+
+        if ((trimmed.StartsWith('\'') && trimmed.EndsWith('\'')) ||
+            (trimmed.StartsWith('"') && trimmed.EndsWith('"')))
+        {
+            return trimmed[1..^1];
+        }
+
+        return trimmed;
+    }
+}

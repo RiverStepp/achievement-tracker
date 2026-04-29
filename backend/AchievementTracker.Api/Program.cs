@@ -10,6 +10,7 @@ using AchievementTracker.Models.Options;
 using Azure.Identity;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -21,9 +22,17 @@ using HeaderNames = Microsoft.Net.Http.Headers.HeaderNames;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
-// Sets up key vault
-string keyVaultUri = builder.Configuration["KeyVault:VaultUri"]!;
-builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+// Key Vault is optional so local/Coolify env vars can fully drive configuration.
+bool keyVaultEnabled = builder.Configuration.GetValue<bool>("KeyVault:Enabled");
+string? keyVaultUri = builder.Configuration["KeyVault:VaultUri"];
+
+if (keyVaultEnabled)
+{
+     if (string.IsNullOrWhiteSpace(keyVaultUri))
+          throw new InvalidOperationException("KeyVault:Enabled is true but KeyVault:VaultUri is missing.");
+
+     builder.Configuration.AddAzureKeyVault(new Uri(keyVaultUri), new DefaultAzureCredential());
+}
 
 string? steamApiKey = builder.Configuration["Authentication:Steam:ApiKey"];
 
@@ -83,6 +92,18 @@ builder.Services.AddCors(options =>
                .AllowAnyHeader()
                .AllowAnyMethod()
                .AllowCredentials());
+});
+
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+     options.ForwardedHeaders =
+          ForwardedHeaders.XForwardedFor |
+          ForwardedHeaders.XForwardedProto |
+          ForwardedHeaders.XForwardedHost;
+
+     // Coolify terminates TLS at the proxy and forwards requests from dynamic container IPs.
+     options.KnownNetworks.Clear();
+     options.KnownProxies.Clear();
 });
 
 // REDIS_REQUIRED: Replace this with a Redis-backed IDistributedCache for restart-safe + multi-instance refresh tokens.
@@ -218,6 +239,8 @@ builder.Services.AddHttpClient<ISteamClient, SteamClient>(client =>
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
 builder.Services.AddScoped<IAppUserRepository, AppUserRepository>();
+builder.Services.AddScoped<ILeaderboardRepository, LeaderboardRepository>();
+builder.Services.AddScoped<ILeaderboardService, LeaderboardService>();
 builder.Services.AddScoped<IMeService, MeService>();
 builder.Services.AddScoped<ISocialRepository, SocialRepository>();
 builder.Services.AddScoped<ISocialAttachmentStorageService, SocialAttachmentStorageService>();
@@ -322,8 +345,14 @@ if (app.Environment.IsDevelopment())
      app.UseSwaggerUI();
 }
 
+app.UseForwardedHeaders();
 app.UseCors();
-app.UseHttpsRedirection();
+
+if (!app.Environment.IsProduction())
+{
+     app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseRateLimiter();

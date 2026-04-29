@@ -28,7 +28,7 @@ export const AchievementIcon = ({ achievement }: AchievementIconProps) => {
             }}
           />
         </HoverCardTrigger>
-        <HoverCardContent>
+        <HoverCardContent className="w-[19rem] p-3">
           <AchievementCard achievement={achievement} />
         </HoverCardContent>
       </HoverCard>

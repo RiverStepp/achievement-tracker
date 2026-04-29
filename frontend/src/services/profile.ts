@@ -1,6 +1,6 @@
 import { api } from "@/lib/api";
 import { endpoints } from "@/lib/endpoints";
-import type { UserProfile } from "@/types/profile";
+import type { ProfileAchievement, UserProfile } from "@/types/profile";
 import type { AppUser } from "@/types/models";
 import type { SteamUser } from "@/types/auth";
 import type { SocialKind } from "@/types/profile";
@@ -80,6 +80,20 @@ type ProfileAchievementItemDto = {
   points: number;
 };
 
+type ProfileGameItemDto = {
+  gameName: string;
+  headerImageUrl: string | null;
+  playtimeForever: number | null;
+  earnedCount: number;
+  totalAchievements: number;
+  percentCompletion: number | null;
+  isCompleted: boolean;
+  pointsEarned: number;
+  pointsAvailable: number;
+  latestUnlockDate: string;
+  durationMinutes: number | null;
+};
+
 type ProfilePinnedAchievementDto = {
   appUserPinnedAchievementId: number;
   displayOrder: number;
@@ -118,7 +132,7 @@ type UserProfileResponse = {
   visibleSocialLinks: ProfileSocialLinkItemDto[];
   steamProfile: SteamProfileMetadataDto | null;
   totals: UserTotalsDto;
-  gamesByRecentAchievement: PagedResultDto<unknown>;
+  gamesByRecentAchievement: PagedResultDto<ProfileGameItemDto>;
   recentAchievements: PagedResultDto<ProfileAchievementItemDto>;
   achievementsByPoints: PagedResultDto<ProfileAchievementItemDto>;
   pinnedAchievements: ProfilePinnedAchievementDto[];
@@ -156,6 +170,30 @@ function synthesizeId(seed: string) {
     hash = (hash * 31 + seed.charCodeAt(i)) | 0;
   }
   return Math.abs(hash);
+}
+
+function buildSteamHeaderImageUrl(steamAppId: number) {
+  return `https://cdn.cloudflare.steamstatic.com/steam/apps/${steamAppId}/header.jpg`;
+}
+
+function buildProfileGame(gameId: number, gameName: string) {
+  const headerImageUrl = buildSteamHeaderImageUrl(gameId);
+
+  return {
+    id: gameId,
+    name: gameName,
+    steamAppId: gameId,
+    iconUrl: headerImageUrl,
+    headerImageUrl,
+  };
+}
+
+function synthesizeGameId(seed: string) {
+  return synthesizeId(`game|${seed}`);
+}
+
+function normalizeGameName(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function mergePlatforms(base: UserProfile["connections"]["platforms"], extra: UserProfile["connections"]["platforms"]) {
@@ -256,13 +294,7 @@ export function mapUserProfileResponse(
       points: item.points,
       globalPercentage: item.rarity ?? undefined,
     },
-    game: {
-      id: item.gameId,
-      name: item.gameName,
-      steamAppId: item.gameId,
-      iconUrl: undefined,
-      headerImageUrl: undefined,
-    },
+    game: buildProfileGame(item.gameId, item.gameName),
   }));
 
   const recentAchievements: UserProfile["achievements"] = response.recentAchievements.items.map((item) => ({
@@ -280,13 +312,7 @@ export function mapUserProfileResponse(
       points: item.points,
       globalPercentage: item.rarity ?? undefined,
     },
-    game: {
-      id: item.gameId,
-      name: item.gameName,
-      steamAppId: item.gameId,
-      iconUrl: undefined,
-      headerImageUrl: undefined,
-    },
+    game: buildProfileGame(item.gameId, item.gameName),
   }));
 
   const achievementIdsByKey = new Map(
@@ -309,11 +335,61 @@ export function mapUserProfileResponse(
       ) ?? item.steamAchievementId;
   }
 
+  const profileGames = response.gamesByRecentAchievement.items.map((item) => {
+    const gameId = synthesizeGameId(item.gameName);
+
+    return {
+      id: gameId,
+      name: item.gameName,
+      playtimeForever: item.playtimeForever,
+      earnedCount: item.earnedCount,
+      totalAchievements: item.totalAchievements,
+      percentCompletion: item.percentCompletion,
+      isCompleted: item.isCompleted,
+      pointsEarned: item.pointsEarned,
+      pointsAvailable: item.pointsAvailable,
+      latestUnlockDate: item.latestUnlockDate,
+      durationMinutes: item.durationMinutes,
+      game: {
+        id: gameId,
+        name: item.gameName,
+        steamAppId: gameId,
+        iconUrl: item.headerImageUrl ?? undefined,
+        headerImageUrl: item.headerImageUrl ?? undefined,
+      },
+    };
+  });
+
+  const profileGameByName = new Map(
+    profileGames.map((item) => [normalizeGameName(item.name), item])
+  );
+
+  const hydrateAchievementGame = <T extends Pick<ProfileAchievement, "game">>(
+    item: T
+  ) => {
+    const matchedGame = profileGameByName.get(normalizeGameName(item.game.name));
+    if (!matchedGame) {
+      return item;
+    }
+
+    return {
+      ...item,
+      game: {
+        ...item.game,
+        iconUrl: matchedGame.game.iconUrl ?? item.game.iconUrl,
+        headerImageUrl: matchedGame.game.headerImageUrl ?? item.game.headerImageUrl,
+      },
+    };
+  };
+
+  const hydratedPinnedAchievements = pinnedAchievements.map(hydrateAchievementGame);
+  const hydratedRecentAchievements = recentAchievements.map(hydrateAchievementGame);
+
   const achievementMap = new Map<number, (typeof recentAchievements)[number]>();
-  for (const item of pinnedAchievements) {
+  for (const item of hydratedPinnedAchievements) {
     achievementMap.set(item.id, item);
   }
-  for (const item of recentAchievements) {
+  for (const item of hydratedRecentAchievements) {
     const existing = Array.from(achievementMap.values()).find(
       (candidate) =>
         candidate.game.id === item.game.id &&
@@ -417,6 +493,7 @@ export function mapUserProfileResponse(
       gamesTracked: response.totals.ownedGamesCount,
       hoursPlayed: totalHours,
     },
+    games: profileGames,
     achievements: Array.from(achievementMap.values()).sort(
       (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime()
     ),
@@ -515,5 +592,13 @@ export const profileService = {
     });
 
     console.log("[profile] pinAchievement success", { steamAchievementId });
+  },
+
+  unpinAchievement: async (pinnedAchievementId: number): Promise<void> => {
+    console.log("[profile] unpinAchievement request", { pinnedAchievementId });
+
+    await api.delete(endpoints.me.unpinAchievement(pinnedAchievementId));
+
+    console.log("[profile] unpinAchievement success", { pinnedAchievementId });
   },
 } as const;
