@@ -53,6 +53,12 @@ public sealed class DirectMessageService(
           return conversations.Select(c => new ConversationDto(
                c.ConversationId,
                c.ParticipantPublicIds,
+               c.Participants.Select(p => new ConversationParticipantDto(
+                    p.PublicId,
+                    p.Handle,
+                    p.DisplayName,
+                    p.ProfileImageUrl
+               )).ToList(),
                c.LastMessageId.HasValue ? new MessageDto(
                     c.LastMessageId.Value,
                     c.ConversationId,

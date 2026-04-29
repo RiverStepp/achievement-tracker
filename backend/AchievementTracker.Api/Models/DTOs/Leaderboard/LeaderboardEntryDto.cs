@@ -3,6 +3,7 @@ namespace AchievementTracker.Api.Models.DTOs.Leaderboard;
 public sealed record LeaderboardEntryDto(
      int Rank,
     Guid? PublicId,
+    string? Handle,
     long SteamProfileId,
     bool IsClaimed,
      string? PersonaName,

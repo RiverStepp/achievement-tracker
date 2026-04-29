@@ -41,6 +41,9 @@ const getInitials = (name: string) =>
     .slice(0, 2)
     .toUpperCase();
 
+const getAuthorProfilePath = (author: CommentModel["author"] | PostModel["author"]) =>
+  `/u/${author.handle || author.publicId}`;
+
 const mapComment = (comment: SocialCommentResponse): CommentModel => ({
   commentID: 0,
   publicId: comment.commentPublicId,
@@ -68,19 +71,35 @@ type CommentThreadProps = {
 const CommentThread = ({ comment, depth = 0 }: CommentThreadProps) => (
   <div className={cn("space-y-3 rounded-xl border border-app-border bg-app-bg/60 p-3", depth > 0 ? "ml-6" : "")}>
     <div className="flex items-start gap-3">
-      <Avatar className="h-10 w-10 border border-app-border">
-        <AvatarImage
-          src={comment.author.avatarUrl ?? undefined}
-          alt={`${comment.author.displayName} avatar`}
-        />
-        <AvatarFallback className="bg-app-panel text-app-text">
-          {getInitials(comment.author.displayName)}
-        </AvatarFallback>
-      </Avatar>
+      <Link
+        to={getAuthorProfilePath(comment.author)}
+        className="shrink-0 transition-transform hover:scale-[1.02]"
+        aria-label={`Open ${comment.author.displayName}'s profile`}
+      >
+        <Avatar className="h-10 w-10 border border-app-border">
+          <AvatarImage
+            src={comment.author.avatarUrl ?? undefined}
+            alt={`${comment.author.displayName} avatar`}
+          />
+          <AvatarFallback className="bg-app-panel text-app-text">
+            {getInitials(comment.author.displayName)}
+          </AvatarFallback>
+        </Avatar>
+      </Link>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span className="font-medium text-app-text">{comment.author.displayName}</span>
-          <span className="text-xs text-app-muted">@{comment.author.handle}</span>
+          <Link
+            to={getAuthorProfilePath(comment.author)}
+            className="font-medium text-app-text hover:underline"
+          >
+            {comment.author.displayName}
+          </Link>
+          <Link
+            to={getAuthorProfilePath(comment.author)}
+            className="text-xs text-app-muted hover:text-app-text"
+          >
+            @{comment.author.handle}
+          </Link>
           <span className="text-xs text-app-muted">
             {formatDate(comment.createdAt.createdAt)}
           </span>
@@ -145,7 +164,7 @@ export const Post = ({ post }: PostProps) => {
     isAuthenticated &&
     !needsProfileSetup &&
     commentBody.trim().length > 0;
-  const profilePath = `/u/${post.author.handle || post.author.publicId}`;
+  const profilePath = getAuthorProfilePath(post.author);
 
   const openComments = async () => {
     console.log("[post] comments dialog requested", {
@@ -417,19 +436,28 @@ export const Post = ({ post }: PostProps) => {
               <span>Top comment</span>
             </div>
             <div className="mt-3 flex items-start gap-3">
-              <Avatar className="h-10 w-10 border border-app-border">
-                <AvatarImage
-                  src={topComment.author.avatarUrl ?? undefined}
-                  alt={`${topComment.author.displayName} avatar`}
-                />
-                <AvatarFallback className="bg-app-bg text-app-text">
-                  {getInitials(topComment.author.displayName)}
-                </AvatarFallback>
-              </Avatar>
+              <Link
+                to={getAuthorProfilePath(topComment.author)}
+                className="shrink-0 transition-transform hover:scale-[1.02]"
+                aria-label={`Open ${topComment.author.displayName}'s profile`}
+              >
+                <Avatar className="h-10 w-10 border border-app-border">
+                  <AvatarImage
+                    src={topComment.author.avatarUrl ?? undefined}
+                    alt={`${topComment.author.displayName} avatar`}
+                  />
+                  <AvatarFallback className="bg-app-bg text-app-text">
+                    {getInitials(topComment.author.displayName)}
+                  </AvatarFallback>
+                </Avatar>
+              </Link>
               <div>
-                <p className="text-sm font-medium text-app-text">
+                <Link
+                  to={getAuthorProfilePath(topComment.author)}
+                  className="text-sm font-medium text-app-text hover:underline"
+                >
                   {topComment.author.displayName}
-                </p>
+                </Link>
                 <p className="mt-1 text-sm text-app-muted">
                   {topComment.content.text}
                 </p>

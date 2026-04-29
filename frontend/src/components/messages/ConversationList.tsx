@@ -1,6 +1,7 @@
 import { PenSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import type { ConversationDto } from "@/types/messages";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type { ConversationDto, ConversationParticipantDto } from "@/types/messages";
  
 type Props = {
   conversations: ConversationDto[];
@@ -12,6 +13,10 @@ type Props = {
  
 function shortId(publicId: string) {
   return publicId.slice(0, 8);
+}
+
+function getDisplayName(participant: ConversationParticipantDto) {
+  return participant.displayName || participant.handle || shortId(participant.publicId);
 }
  
 function formatTime(isoDate: string) {
@@ -29,14 +34,41 @@ function formatTime(isoDate: string) {
 }
  
 function getOtherParticipant(
-  participantPublicIds: string[],
+  conversation: ConversationDto,
   currentUserPublicId: string | null
-): string {
-  if (!currentUserPublicId) return participantPublicIds[0] ?? "Unknown";
-  const other = participantPublicIds.find(
-    (id) => id.toLowerCase() !== currentUserPublicId.toLowerCase()
+): ConversationParticipantDto {
+  const participants =
+    conversation.participants?.length
+      ? conversation.participants
+      : conversation.participantPublicIds.map((publicId) => ({
+          publicId,
+          handle: null,
+          displayName: null,
+          profileImageUrl: null,
+        }));
+
+  if (!currentUserPublicId) {
+    return participants[0] ?? {
+      publicId: "Unknown",
+      handle: null,
+      displayName: "Unknown",
+      profileImageUrl: null,
+    };
+  }
+
+  const other = participants.find(
+    (participant) =>
+      participant.publicId.toLowerCase() !== currentUserPublicId.toLowerCase()
   );
-  return other ?? participantPublicIds[0] ?? "Unknown";
+  return (
+    other ??
+    participants[0] ?? {
+      publicId: "Unknown",
+      handle: null,
+      displayName: "Unknown",
+      profileImageUrl: null,
+    }
+  );
 }
  
 export function ConversationList({
@@ -70,10 +102,8 @@ export function ConversationList({
           </div>
         ) : (
           conversations.map((conv) => {
-            const otherParticipantId = getOtherParticipant(
-              conv.participantPublicIds,
-              currentUserPublicId
-            );
+            const otherParticipant = getOtherParticipant(conv, currentUserPublicId);
+            const otherParticipantName = getDisplayName(otherParticipant);
             const isSelected = conv.conversationId === selectedId;
             const hasUnread = conv.unreadCount > 0;
  
@@ -88,9 +118,15 @@ export function ConversationList({
                     : "hover:bg-app-bg/60"
                 }`}
               >
-                <div className="flex-shrink-0 h-9 w-9 rounded-full bg-app-border flex items-center justify-center text-sm font-semibold text-app-muted uppercase">
-                  {shortId(otherParticipantId).charAt(0)}
-                </div>
+                <Avatar className="flex-shrink-0 h-9 w-9">
+                  <AvatarImage
+                    src={otherParticipant.profileImageUrl ?? undefined}
+                    alt={`${otherParticipantName} avatar`}
+                  />
+                  <AvatarFallback className="bg-app-border text-app-muted uppercase">
+                    {otherParticipantName.charAt(0)}
+                  </AvatarFallback>
+                </Avatar>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center justify-between gap-1">
                     <span
@@ -98,7 +134,7 @@ export function ConversationList({
                         hasUnread ? "font-semibold text-app-text" : "text-app-text"
                       }`}
                     >
-                      {shortId(otherParticipantId)}
+                      {otherParticipantName}
                     </span>
                     {conv.lastMessage && (
                       <span className="text-xs text-app-muted shrink-0">
