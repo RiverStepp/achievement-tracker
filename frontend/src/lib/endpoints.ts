@@ -56,7 +56,7 @@ export const endpoints = {
   },
   leaderboard: {
     get: "/leaderboard",
-  }
+  },
   dm: {
     conversations: "/dm/conversations",
     messages: (conversationId: number) => `/dm/conversations/${conversationId}/messages`,
