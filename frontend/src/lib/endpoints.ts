@@ -54,6 +54,9 @@ export const endpoints = {
   steamGames: {
     getDetails: (gameId: number) => `/steam/games/${gameId}`,
   },
+  leaderboard: {
+    get: "/leaderboard",
+  }
   dm: {
     conversations: "/dm/conversations",
     messages: (conversationId: number) => `/dm/conversations/${conversationId}/messages`,
