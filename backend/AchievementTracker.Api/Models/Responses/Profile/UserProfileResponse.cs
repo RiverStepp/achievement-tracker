@@ -8,5 +8,6 @@ public sealed record UserProfileResponse(
     PagedResultDto<ProfileAchievementItemDto> RecentAchievements,
     PagedResultDto<ProfileAchievementItemDto> AchievementsByPoints,
     IReadOnlyList<ProfilePinnedAchievementDto> PinnedAchievements,
-    PagedResultDto<ProfileLatestActivityItemDto> LatestActivity
+    PagedResultDto<ProfileLatestActivityItemDto> LatestActivity,
+    bool IsClaimed
 );
