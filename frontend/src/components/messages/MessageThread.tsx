@@ -1,8 +1,14 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { Loader2, ChevronUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { dmService } from "@/services/messages";
-import type { ConversationDto, MessageDto } from "@/types/messages";
+import type {
+  ConversationDto,
+  ConversationParticipantDto,
+  MessageDto,
+} from "@/types/messages";
  
 type Props = {
   conversation: ConversationDto;
@@ -40,6 +46,30 @@ function isSameDay(a: string, b: string) {
  
 function shortId(publicId: string) {
   return publicId.slice(0, 8);
+}
+
+function getDisplayName(participant: ConversationParticipantDto) {
+  return participant.displayName || participant.handle || shortId(participant.publicId);
+}
+
+function getProfilePath(participant: ConversationParticipantDto) {
+  return `/u/${participant.handle || participant.publicId}`;
+}
+
+function getParticipant(
+  conversation: ConversationDto,
+  publicId: string
+): ConversationParticipantDto {
+  return (
+    conversation.participants?.find(
+      (participant) => participant.publicId.toLowerCase() === publicId.toLowerCase()
+    ) ?? {
+      publicId,
+      handle: null,
+      displayName: null,
+      profileImageUrl: null,
+    }
+  );
 }
  
 export function MessageThread({
@@ -179,6 +209,8 @@ export function MessageThread({
           msg.senderPublicId.toLowerCase() === currentUserPublicId?.toLowerCase();
         const prev = messages[i - 1];
         const showDateSep = !prev || !isSameDay(prev.sentDate, msg.sentDate);
+        const sender = getParticipant(conversation, msg.senderPublicId);
+        const senderName = getDisplayName(sender);
  
         return (
           <div key={msg.directMessageId}>
@@ -195,9 +227,21 @@ export function MessageThread({
               className={`flex mb-1 ${isOwn ? "justify-end" : "justify-start"}`}
             >
               {!isOwn && (
-                <div className="flex-shrink-0 h-7 w-7 rounded-full bg-app-border flex items-center justify-center text-xs font-semibold text-app-muted uppercase mr-2 mt-1">
-                  {shortId(msg.senderPublicId).charAt(0)}
-                </div>
+                <Link
+                  to={getProfilePath(sender)}
+                  className="flex-shrink-0 mr-2 mt-1 transition-transform hover:scale-[1.03]"
+                  aria-label={`Open ${senderName}'s profile`}
+                >
+                  <Avatar className="h-7 w-7">
+                    <AvatarImage
+                      src={sender.profileImageUrl ?? undefined}
+                      alt={`${senderName} avatar`}
+                    />
+                    <AvatarFallback className="bg-app-border text-app-muted uppercase text-xs">
+                      {senderName.charAt(0)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Link>
               )}
               <div
                 className={`max-w-[70%] rounded-2xl px-3 py-2 text-sm ${

@@ -4,6 +4,7 @@ import { endpoints } from "@/lib/endpoints";
 export type LeaderboardEntry = {
   rank: number;
   publicId: string | null;
+  handle: string | null;
   steamProfileId: string;
   isClaimed: boolean;
   personaName: string | null;
@@ -27,6 +28,7 @@ type LeaderboardPageDto = {
   entries: {
     rank: number;
     publicId: string | null;
+    handle: string | null;
     steamProfileId: number;
     isClaimed: boolean;
     personaName: string | null;
@@ -54,6 +56,7 @@ export const leaderboardService = {
       entries: dto.entries.map((e) => ({
         rank: e.rank,
         publicId: e.publicId ?? null,
+        handle: e.handle?.replace(/^@/, "") ?? null,
         steamProfileId: String(e.steamProfileId),
         isClaimed: e.isClaimed,
         personaName: e.personaName,

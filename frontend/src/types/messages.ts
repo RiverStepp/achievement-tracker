@@ -5,10 +5,18 @@ export interface MessageDto {
   content: string;
   sentDate: string;
 }
+
+export interface ConversationParticipantDto {
+  publicId: string;
+  handle: string | null;
+  displayName: string | null;
+  profileImageUrl: string | null;
+}
  
 export interface ConversationDto {
   conversationId: number;
   participantPublicIds: string[];
+  participants?: ConversationParticipantDto[];
   lastMessage: MessageDto | null;
   unreadCount: number;
   createDate: string;

@@ -7,6 +7,7 @@ public sealed class ConversationWithUnread
 {
      public int ConversationId { get; init; }
      public List<Guid> ParticipantPublicIds { get; init; } = [];
+     public List<ConversationParticipantSummary> Participants { get; init; } = [];
      public int UnreadCount { get; init; }
      public DateTime CreateDate { get; init; }
      // The most recent message's details (null when the conversation has no messages yet)
@@ -14,6 +15,14 @@ public sealed class ConversationWithUnread
      public Guid? LastMessageSenderPublicId { get; init; }
      public string? LastMessageContent { get; init; }
      public DateTime? LastMessageSentDate { get; init; }
+}
+
+public sealed class ConversationParticipantSummary
+{
+     public Guid PublicId { get; init; }
+     public string? Handle { get; init; }
+     public string? DisplayName { get; init; }
+     public string? ProfileImageUrl { get; init; }
 }
 
 // Repository interface for managing direct message data access operations

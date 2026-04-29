@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/auth/AuthProvider";
 import { useChatHub } from "@/hooks/useChathub";
 import { dmService } from "@/services/messages";
@@ -6,10 +7,91 @@ import { ConversationList } from "@/components/messages/ConversationList";
 import { MessageThread } from "@/components/messages/MessageThread";
 import { MessageInput } from "@/components/messages/MessageInput";
 import { NewConversationDialog } from "@/components/messages/NewConversationDialog";
-import type { ConversationDto, MessageDto } from "@/types/messages";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import type {
+    ConversationDto,
+    ConversationParticipantDto,
+    MessageDto,
+} from "@/types/messages";
 import { Loader2, MessageSquare } from "lucide-react";
  
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL as string | undefined;
+
+type UserSearchResult = {
+    publicId: string;
+    handle: string;
+    displayName: string | null;
+    profileImageUrl: string | null;
+};
+
+function shortId(publicId: string) {
+    return publicId.slice(0, 8);
+}
+
+function getDisplayName(participant: ConversationParticipantDto) {
+    return participant.displayName || participant.handle || shortId(participant.publicId);
+}
+
+function getProfilePath(participant: ConversationParticipantDto | null) {
+    if (!participant) return null;
+    return `/u/${participant.handle || participant.publicId}`;
+}
+
+function getParticipantFallback(publicId: string): ConversationParticipantDto {
+    return {
+        publicId,
+        handle: null,
+        displayName: null,
+        profileImageUrl: null,
+    };
+}
+
+function getOtherParticipant(
+    conversation: ConversationDto | null,
+    currentUserPublicId: string | null
+): ConversationParticipantDto | null {
+    if (!conversation) return null;
+
+    const participants =
+        conversation.participants?.length
+            ? conversation.participants
+            : conversation.participantPublicIds.map(getParticipantFallback);
+
+    if (!currentUserPublicId) return participants[0] ?? null;
+
+    return (
+        participants.find(
+            (participant) =>
+                participant.publicId.toLowerCase() !== currentUserPublicId.toLowerCase()
+        ) ??
+        participants[0] ??
+        null
+    );
+}
+
+function mergeParticipantIntoConversation(
+    conversation: ConversationDto,
+    participant: ConversationParticipantDto
+): ConversationDto {
+    const participants = conversation.participants?.length
+        ? conversation.participants
+        : conversation.participantPublicIds.map(getParticipantFallback);
+    const existingIndex = participants.findIndex(
+        (item) => item.publicId.toLowerCase() === participant.publicId.toLowerCase()
+    );
+
+    if (existingIndex === -1) {
+        return { ...conversation, participants: [...participants, participant] };
+    }
+
+    const nextParticipants = [...participants];
+    nextParticipants[existingIndex] = {
+        ...nextParticipants[existingIndex],
+        ...participant,
+    };
+
+    return { ...conversation, participants: nextParticipants };
+}
  
 export const MessagesPage = () => {
     const { userProfile, appUser } = useAuth();
@@ -131,7 +213,14 @@ export const MessagesPage = () => {
     );
  
     const handleNewConversationSend = useCallback(
-        async (recipientPublicId: string, content: string) => {
+        async (recipientPublicId: string, content: string, recipient: UserSearchResult) => {
+            const recipientParticipant: ConversationParticipantDto = {
+                publicId: recipient.publicId,
+                handle: recipient.handle,
+                displayName: recipient.displayName,
+                profileImageUrl: recipient.profileImageUrl,
+            };
+
             if (isConnected()) {
                 await sendMessage(recipientPublicId, content);
                 const data = await fetchConversations();
@@ -140,26 +229,44 @@ export const MessagesPage = () => {
                         (id) => id.toLowerCase() === recipientPublicId.toLowerCase()
                     )
                 );
-                if (newConv) setSelectedConversation(newConv);
+                if (newConv) {
+                    const hydrated = mergeParticipantIntoConversation(
+                        newConv,
+                        recipientParticipant
+                    );
+                    setSelectedConversation(hydrated);
+                    setConversations((prev) =>
+                        prev.map((c) =>
+                            c.conversationId === hydrated.conversationId ? hydrated : c
+                        )
+                    );
+                }
             } else {
                 const msg = await dmService.sendMessage(recipientPublicId, content);
                 const data = await fetchConversations();
                 const newConv = data.find(
                     (c) => c.conversationId === msg.conversationId
                 );
-                if (newConv) setSelectedConversation(newConv);
+                if (newConv) {
+                    const hydrated = mergeParticipantIntoConversation(
+                        newConv,
+                        recipientParticipant
+                    );
+                    setSelectedConversation(hydrated);
+                    setConversations((prev) =>
+                        prev.map((c) =>
+                            c.conversationId === hydrated.conversationId ? hydrated : c
+                        )
+                    );
+                }
             }
         },
         [isConnected, sendMessage, fetchConversations]
     );
  
-    const otherParticipantShortId = selectedConversation
-        ? (
-            selectedConversation.participantPublicIds.find(
-                (id) => id.toLowerCase() !== currentUserPublicId?.toLowerCase()
-            ) ?? selectedConversation.participantPublicIds[0]
-          )?.slice(0, 8)
-        : null;
+    const otherParticipant = getOtherParticipant(selectedConversation, currentUserPublicId);
+    const otherParticipantName = otherParticipant ? getDisplayName(otherParticipant) : null;
+    const otherParticipantProfilePath = getProfilePath(otherParticipant);
  
     if (loading) {
         return (
@@ -188,12 +295,35 @@ export const MessagesPage = () => {
                     <>
                         {/* Thread header */}
                         <div className="shrink-0 px-4 py-3 border-b border-app-border flex items-center gap-3">
-                            <div className="h-8 w-8 rounded-full bg-app-border flex items-center justify-center text-sm font-semibold text-app-muted uppercase">
-                                {otherParticipantShortId?.charAt(0)}
-                            </div>
-                            <span className="app-heading text-sm truncate">
-                                {otherParticipantShortId}
-                            </span>
+                            {otherParticipantProfilePath ? (
+                                <Link
+                                    to={otherParticipantProfilePath}
+                                    className="shrink-0 transition-transform hover:scale-[1.02]"
+                                    aria-label={`Open ${otherParticipantName ?? "user"}'s profile`}
+                                >
+                                    <Avatar className="h-8 w-8">
+                                        <AvatarImage
+                                            src={otherParticipant?.profileImageUrl ?? undefined}
+                                            alt={`${otherParticipantName ?? "User"} avatar`}
+                                        />
+                                        <AvatarFallback className="bg-app-border text-app-muted uppercase">
+                                            {otherParticipantName?.charAt(0)}
+                                        </AvatarFallback>
+                                    </Avatar>
+                                </Link>
+                            ) : null}
+                            {otherParticipantProfilePath ? (
+                                <Link
+                                    to={otherParticipantProfilePath}
+                                    className="app-heading text-sm truncate hover:underline"
+                                >
+                                    {otherParticipantName}
+                                </Link>
+                            ) : (
+                                <span className="app-heading text-sm truncate">
+                                    {otherParticipantName}
+                                </span>
+                            )}
                         </div>
  
                         {/* Messages */}

@@ -6,6 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -23,7 +24,11 @@ type UserSearchResult = {
 type Props = {
   open: boolean;
   onClose: () => void;
-  onSend: (recipientPublicId: string, content: string) => Promise<void>;
+  onSend: (
+    recipientPublicId: string,
+    content: string,
+    recipient: UserSearchResult
+  ) => Promise<void>;
 };
 
 function useDebounce<T>(value: T, delay: number): T {
@@ -109,7 +114,7 @@ export function NewConversationDialog({ open, onClose, onSend }: Props) {
     setSending(true);
     setError(null);
     try {
-      await onSend(selected.publicId, trimmedContent);
+      await onSend(selected.publicId, trimmedContent, selected);
       reset();
       onClose();
     } catch {
@@ -174,9 +179,15 @@ export function NewConversationDialog({ open, onClose, onSend }: Props) {
                       onClick={() => handleSelect(user)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-app-bg transition-colors"
                     >
-                      <div className="h-8 w-8 rounded-full bg-app-border flex items-center justify-center text-xs font-semibold text-app-muted uppercase shrink-0">
-                        {(user.displayName ?? user.handle).charAt(0)}
-                      </div>
+                      <Avatar className="h-8 w-8 shrink-0">
+                        <AvatarImage
+                          src={user.profileImageUrl ?? undefined}
+                          alt={`${user.displayName ?? user.handle} avatar`}
+                        />
+                        <AvatarFallback className="bg-app-border text-app-muted uppercase">
+                          {(user.displayName ?? user.handle).charAt(0)}
+                        </AvatarFallback>
+                      </Avatar>
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-app-text truncate">
                           {user.displayName ?? user.handle}

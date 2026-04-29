@@ -73,8 +73,8 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
       </div>
 
       <div className="flex-1 min-w-0">
-        {entry.isClaimed && entry.publicId ? (
-          <Link to={`/u/${entry.publicId}`} className="block">
+        {entry.isClaimed && entry.handle ? (
+          <Link to={`/u/${entry.handle}`} className="block">
             {nameContent}
           </Link>
         ) : (
