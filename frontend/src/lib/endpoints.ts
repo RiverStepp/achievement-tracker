@@ -53,4 +53,7 @@ export const endpoints = {
   steamGames: {
     getDetails: (gameId: number) => `/steam/games/${gameId}`,
   },
+  steamAchievements: {
+    search: "/steam/achievements/search",
+  },
 } as const;
