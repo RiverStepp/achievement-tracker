@@ -97,7 +97,7 @@ function EntryRow({ entry }: { entry: LeaderboardEntry }) {
   );
 }
 
-export const LeaderboardWidget = () => {
+export const LeaderboardPanel = () => {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([]);
   const [isLoadingInitial, setIsLoadingInitial] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

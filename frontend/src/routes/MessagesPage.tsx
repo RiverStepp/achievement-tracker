@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/auth/AuthProvider";
-import { useChatHub } from "@/hooks/useChatHub";
+import { useChatHub } from "@/hooks/useChathub";
 import { dmService } from "@/services/messages";
 import { ConversationList } from "@/components/messages/ConversationList";
 import { MessageThread } from "@/components/messages/MessageThread";

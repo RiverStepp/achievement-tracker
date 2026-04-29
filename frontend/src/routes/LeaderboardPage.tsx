@@ -1,4 +1,4 @@
-import { LeaderboardWidget } from "@/components/leaderboard/LeaderboardWidget";
+import { LeaderboardPanel } from "@/components/leaderboard/LeaderboardPanel";
 
 export const LeaderboardPage = () => {
   return (
