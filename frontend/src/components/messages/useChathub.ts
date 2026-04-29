@@ -41,7 +41,7 @@ export function useChatHub(
  
     connectionRef.current = connection;
  
-    connection.start().catch((err) => {
+    connection.start().catch((err: unknown) => {
       console.warn("[chat] SignalR connection failed:", err);
     });
  
