@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Home, CircleUser, Settings, LogOut, Mail, Medal, ChevronsUpDown } from "lucide-react";
+import { Home, CircleUser, Settings, LogOut, Mail, Medal, ChevronsUpDown, Search } from "lucide-react";
 import { useAuth } from "@/auth/AuthProvider";
 import logo from "@/assets/logo.png";
 import { LoginOrSignup } from "./LoginOrSignup";
@@ -93,6 +93,17 @@ export const SideBar = () => {
             <Link to="/leaderboard" className="inline-flex items-center gap-4">
               <Medal className="h-6 w-6 shrink-0" />
               <span>Leaderboard</span>
+            </Link>
+          </Button>
+          <Button
+            asChild
+            variant="ghost"
+            size="lg"
+            className="h-12 w-fit justify-start gap-4 px-4 app-heading"
+          >
+            <Link to="/search" className="inline-flex items-center gap-4">
+              <Search className="h-6 w-6 shrink-0" />
+              <span>Search</span>
             </Link>
           </Button>
 
