@@ -14,15 +14,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { ChevronRight } from "lucide-react";
 import { SettingsPage } from "./routes/SettingsPage";
 import { LeaderboardPage } from "./routes/LeaderboardPage";
+import { SearchPage } from "./routes/SearchPage";
 import { CreateProfileDialog } from "@/components/profile/CreateProfileDialog";
 import { CookieConsentBanner } from "@/components/app/CookieConsentBanner";
-import { SiteFooter } from "@/components/app/SiteFooter";
-import { TermsOfServicePage } from "@/routes/TermsOfServicePage";
-import { PrivacyPolicyPage } from "@/routes/PrivacyPolicyPage";
 
 const App: React.FC = () => {
   const location = useLocation();
   const isHomeRoute = location.pathname === "/";
+  const isMessagesRoute = location.pathname === "/messages";
+  const usesInternalScroll = isHomeRoute || isMessagesRoute;
 
   return (
     <>
@@ -56,26 +56,23 @@ const App: React.FC = () => {
               </div>
             </aside>
 
-            {/* Routed content and footer: ONLY scroll area */}
-            <main className="min-w-0 h-full min-h-0 py-4 flex flex-col">
-              <div
-                className={`flex-1 min-h-0 ${
-                  isHomeRoute ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
-                }`}
-              >
-                <Routes>
-                  <Route path="/" element={<HomePage />} />
-                  <Route path="/u/:profileKey" element={<ProfilePage />} />
-                  <Route path="/auth/callback" element={<AuthCallbackPage />} />
-                  <Route path="/leaderboard" element={<LeaderboardPage />} />
-                  <Route path="/messages" element={<MessagesPage />} />
-                  <Route path="/settings" element={<SettingsPage />} />
-                  <Route path="/games/:gameId" element={<GamePage />} />
-                  <Route path="/terms" element={<TermsOfServicePage />} />
-                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
-                </Routes>
-              </div>
-              <SiteFooter />
+            {/* Routed content: ONLY scroll area */}
+            <main
+              className={`min-w-0 h-full min-h-0 py-4 ${
+                usesInternalScroll ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
+              }`}
+            >
+              <Routes>
+                <Route path="/" element={<HomePage />} />
+                <Route path="/u/:profileKey" element={<ProfilePage />} />
+                <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                <Route path="/leaderboard" element={<LeaderboardPage />} />
+                <Route path="/search" element={<SearchPage />} />
+                <Route path="/messages" element={<MessagesPage />} />
+                <Route path="/settings" element={<SettingsPage />} />
+                <Route path="/games/:gameId" element={<GamePage />} />
+
+              </Routes>
             </main>
           </div>
         </div>
