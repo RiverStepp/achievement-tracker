@@ -1,0 +1,4 @@
+pyodbc
+python-dotenv
+azure-identity
+azure-keyvault-secrets
