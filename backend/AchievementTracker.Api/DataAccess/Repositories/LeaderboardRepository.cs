@@ -168,6 +168,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                     return new
                     {
                          eu.PublicId,
+                         eu.Handle,
                          eu.SteamId,
                          eu.IsClaimed,
                          PersonaName = !string.IsNullOrWhiteSpace(eu.Handle) ? eu.Handle : eu.PersonaName,
@@ -194,6 +195,7 @@ public sealed class LeaderboardRepository(AppDbContext db) : ILeaderboardReposit
                .Select((e, i) => new LeaderboardEntryDto(
                     Rank: baseRank + i,
                     PublicId: e.PublicId,
+                    Handle: e.Handle,
                     SteamProfileId: e.SteamId,
                     IsClaimed: e.IsClaimed,
                     PersonaName: e.PersonaName,

@@ -113,6 +113,15 @@ public sealed class DirectMessageRepository(AppDbContext db) : IDirectMessageRep
                {
                     ConversationId = p.ConversationId,
                     ParticipantPublicIds = p.Conversation.Participants.Select(x => x.AppUserPublicId).ToList(),
+                    Participants = p.Conversation.Participants
+                         .Select(x => new ConversationParticipantSummary
+                         {
+                              PublicId = x.AppUser.PublicId,
+                              Handle = x.AppUser.Handle,
+                              DisplayName = x.AppUser.DisplayName,
+                              ProfileImageUrl = x.AppUser.ProfileImageUrl
+                         })
+                         .ToList(),
                     UnreadCount = p.Conversation.Messages.Count(m =>
                          m.SenderAppUserId != userId &&
                          (p.LastReadMessageId == null || m.DirectMessageId > p.LastReadMessageId.Value)),

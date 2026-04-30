@@ -21,6 +21,8 @@ import { CookieConsentBanner } from "@/components/app/CookieConsentBanner";
 const App: React.FC = () => {
   const location = useLocation();
   const isHomeRoute = location.pathname === "/";
+  const isMessagesRoute = location.pathname === "/messages";
+  const usesInternalScroll = isHomeRoute || isMessagesRoute;
 
   return (
     <>
@@ -57,7 +59,11 @@ const App: React.FC = () => {
             {/* Routed content: ONLY scroll area */}
             <main
               className={`min-w-0 h-full min-h-0 py-4 ${
+<<<<<<< HEAD
                 isHomeRoute ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
+=======
+                usesInternalScroll ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
+>>>>>>> main
               }`}
             >
               <Routes>

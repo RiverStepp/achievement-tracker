@@ -1,5 +1,6 @@
 using AchievementTracker.Api.DataAccess.Interfaces;
 using AchievementTracker.Api.Models.DTOs.Steam;
+using AchievementTracker.Api.Models.DTOs.Users;
 using AchievementTracker.Api.Models.Results;
 using AchievementTracker.Data.Data;
 using AchievementTracker.Data.Entities;
@@ -114,6 +115,21 @@ public sealed class AppUserRepository(AppDbContext db): IAppUserRepository
                .SingleOrDefaultAsync(ct);
      }
 
+     public async Task<List<UserSearchResultDto>> SearchByHandleAsync(string query, int limit = 10, CancellationToken ct = default)
+     {
+          string normalized = query.TrimStart('@').Trim();
+          if (string.IsNullOrEmpty(normalized))
+               return [];
+
+          return await _db.AppUsers
+               .AsNoTracking()
+               .Where(x => x.IsActive && x.Handle != null && x.Handle.Contains(normalized))
+               .OrderBy(x => x.Handle)
+               .Take(limit)
+               .Select(x => new UserSearchResultDto(x.PublicId, x.Handle!, x.DisplayName, x.ProfileImageUrl))
+               .ToListAsync(ct);
+     }
+     
      #region helpers
      private async Task<(UserExternalLogin Login, bool IsNewUser)> GetOrCreateSteamLoginAsync(
           string canonicalSteamId,
