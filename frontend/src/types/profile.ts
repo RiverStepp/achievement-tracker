@@ -90,6 +90,18 @@ export interface ProfileSummaryStats {
   totalAchievements: number;
   gamesTracked: number;
   hoursPlayed?: number;
+  totalPoints?: number;
+  gamesAt100Percent?: number;
+  startedGamesCount?: number;
+  avgCompletionPercent?: number | null;
+}
+
+export type ProfileAchievementSortMode = "latest" | "points";
+
+export interface ProfileSteamSyncMeta {
+  lastCheckedDate: string | null;
+  lastSyncedDate: string | null;
+  isPrivate: boolean;
 }
 
 export interface ProfileConnections {
@@ -108,9 +120,13 @@ export interface UserProfile extends ProfileIdentity {
   user: AppUser;
   steam?: SteamUser | null;
   connections: ProfileConnections;
-  summary?: ProfileSummaryStats; 
+  summary?: ProfileSummaryStats;
   games?: ProfileGame[];
   achievements?: ProfileAchievement[];
+  achievementsByLatestUnlock?: ProfileAchievement[];
+  achievementsByPointsOrder?: ProfileAchievement[];
+  steamSync?: ProfileSteamSyncMeta | null;
+  isClaimed?: boolean | null;
   latestActivity?: ProfileLatestActivityItem[];
   feed?: {
     items: Post[];

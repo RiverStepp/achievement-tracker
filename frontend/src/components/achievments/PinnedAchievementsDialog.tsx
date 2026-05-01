@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MoreHorizontal } from "lucide-react";
 
 import { AchievementIcon } from "@/components/achievments/AchievementIcon";
+import { AchievementHoverScope } from "@/components/achievments/AchievementHoverScope";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -237,7 +238,8 @@ export const PinnedAchievementsDialog = ({
           </div>
 
           <div className="max-h-[420px] overflow-y-auto pr-1 app-scrollbar">
-            <div className="space-y-2">
+            <AchievementHoverScope>
+              <div className="space-y-2">
               {sortedAchievements.map((achievement) => {
                 const key = getAchievementKey(achievement);
                 const isSelected = selectedKeySet.has(key);
@@ -257,7 +259,7 @@ export const PinnedAchievementsDialog = ({
                       isUnavailable ? "opacity-60" : "",
                     ].join(" ")}
                   >
-                    <AchievementIcon achievement={achievement} />
+                    <AchievementIcon achievement={achievement} navigable={false} />
 
                     <div className="min-w-0 flex-1">
                       <p className="truncate font-medium text-app-text">
@@ -288,7 +290,8 @@ export const PinnedAchievementsDialog = ({
                   </button>
                 );
               })}
-            </div>
+              </div>
+            </AchievementHoverScope>
           </div>
 
           <DialogFooter>

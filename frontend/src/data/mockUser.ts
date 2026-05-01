@@ -64,6 +64,10 @@ export const mockUserProfile: UserProfile = {
     totalAchievements: 3482,
     gamesTracked: 164,
     hoursPlayed: 1920,
+    totalPoints: 90210,
+    gamesAt100Percent: 42,
+    startedGamesCount: 120,
+    avgCompletionPercent: 78.5,
   },
   achievements: [
     {
