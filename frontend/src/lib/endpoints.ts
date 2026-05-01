@@ -63,4 +63,7 @@ export const endpoints = {
     send: "/dm/send",
     markRead: (conversationId: number) => `/dm/conversations/${conversationId}/read`,
   },
+  steamAchievements: {
+    search: "/steam/achievements/search",
+  },
 } as const;

@@ -17,6 +17,9 @@ import { LeaderboardPage } from "./routes/LeaderboardPage";
 import { SearchPage } from "./routes/SearchPage";
 import { CreateProfileDialog } from "@/components/profile/CreateProfileDialog";
 import { CookieConsentBanner } from "@/components/app/CookieConsentBanner";
+import { SiteFooter } from "@/components/app/SiteFooter";
+import { TermsOfServicePage } from "@/routes/TermsOfServicePage";
+import { PrivacyPolicyPage } from "@/routes/PrivacyPolicyPage";
 
 const App: React.FC = () => {
   const location = useLocation();
@@ -56,23 +59,29 @@ const App: React.FC = () => {
               </div>
             </aside>
 
-            {/* Routed content: ONLY scroll area */}
-            <main
-              className={`min-w-0 h-full min-h-0 py-4 ${
-                usesInternalScroll ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
-              }`}
-            >
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/u/:profileKey" element={<ProfilePage />} />
-                <Route path="/auth/callback" element={<AuthCallbackPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/messages" element={<MessagesPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/games/:gameId" element={<GamePage />} />
-
-              </Routes>
+            {/* Routed content and footer: scroll area is inner wrapper only */}
+            <main className="min-w-0 h-full min-h-0 py-4 flex flex-col">
+              <div
+                className={`flex-1 min-h-0 ${
+                  usesInternalScroll
+                    ? "overflow-hidden"
+                    : "overflow-y-auto app-scrollbar"
+                }`}
+              >
+                <Routes>
+                  <Route path="/" element={<HomePage />} />
+                  <Route path="/u/:profileKey" element={<ProfilePage />} />
+                  <Route path="/auth/callback" element={<AuthCallbackPage />} />
+                  <Route path="/leaderboard" element={<LeaderboardPage />} />
+                  <Route path="/search" element={<SearchPage />} />
+                  <Route path="/messages" element={<MessagesPage />} />
+                  <Route path="/settings" element={<SettingsPage />} />
+                  <Route path="/games/:gameId" element={<GamePage />} />
+                  <Route path="/terms" element={<TermsOfServicePage />} />
+                  <Route path="/privacy" element={<PrivacyPolicyPage />} />
+                </Routes>
+              </div>
+              <SiteFooter />
             </main>
           </div>
         </div>
