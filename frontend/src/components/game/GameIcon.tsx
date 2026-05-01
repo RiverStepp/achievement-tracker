@@ -1,6 +1,8 @@
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card";
+import { useExclusiveHoverCardGroup } from "@/components/ui/exclusive-hover-card-scope";
 import type { ProfileGame } from "@/types/profile";
 import { GameCard } from "./GameCard";
+import { ACHIEVEMENT_HOVER_CARD_OPEN_DELAY_MS } from "@/constants/profileUi";
 
 type GameIconProps = {
   game: ProfileGame;
@@ -11,10 +13,26 @@ const fallbackGameImage =
 
 export const GameIcon = ({ game }: GameIconProps) => {
   const imageUrl = game.game.iconUrl ?? game.game.headerImageUrl ?? fallbackGameImage;
+  const hoverGroup = useExclusiveHoverCardGroup();
+  const hoverKey = `${game.id}|${game.name}|${game.latestUnlockDate}`;
+  const useExclusiveHover = hoverGroup !== null;
+
+  const open = useExclusiveHover ? hoverGroup.activeKey === hoverKey : undefined;
+  const onOpenChange =
+    useExclusiveHover && hoverGroup
+      ? (next: boolean) => {
+          hoverGroup.setActiveKey(next ? hoverKey : null);
+        }
+      : undefined;
 
   return (
     <div className="w-fit rounded-md hover:outline hover:outline-2 hover:outline-cyan-100/75 hover:outline-offset-2">
-      <HoverCard openDelay={10} closeDelay={80}>
+      <HoverCard
+        open={open}
+        onOpenChange={onOpenChange}
+        openDelay={ACHIEVEMENT_HOVER_CARD_OPEN_DELAY_MS}
+        closeDelay={0}
+      >
         <HoverCardTrigger asChild>
           <img
             src={imageUrl}

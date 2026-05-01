@@ -5,7 +5,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Feed } from "../home/Feed";
-import { UserProfile } from "@/types/profile";
+import type { ProfileAchievementSortMode, UserProfile } from "@/types/profile";
 import { AboutPanel } from "./AboutPanel";
 import { LatestActivities } from "./LatestActivities";
 import { AchievementPanel } from "../achievments/AchievementPanel";
@@ -15,12 +15,16 @@ type ProfileTabsProps = {
     profile: UserProfile;
     isMe?: boolean;
     onPinnedAchievementsSaved?: () => void;
+    achievementSortMode: ProfileAchievementSortMode;
+    onAchievementSortModeChange: (mode: ProfileAchievementSortMode) => void;
 };
 
 export const ProfileTabs: React.FC<ProfileTabsProps> = ({
-  profile,
-  isMe = false,
-  onPinnedAchievementsSaved,
+    profile,
+    isMe = false,
+    onPinnedAchievementsSaved,
+    achievementSortMode,
+    onAchievementSortModeChange,
 }) => {
   return (
     <Tabs defaultValue="achievements" className="w-full">
@@ -41,6 +45,8 @@ export const ProfileTabs: React.FC<ProfileTabsProps> = ({
         <TabsContent value="achievements">
             <AchievementPanel
               profile={profile}
+              achievementSortMode={achievementSortMode}
+              onAchievementSortModeChange={onAchievementSortModeChange}
               isMe={isMe}
               onPinnedAchievementsSaved={onPinnedAchievementsSaved}
             />

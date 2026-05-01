@@ -48,6 +48,13 @@ export const AchievementCard = ({ achievement }: AchievementCardProps) => {
         <h3 className="app-heading break-words text-sm">
           {achievement.achievement.name}
         </h3>
+        {typeof achievement.achievement.points === "number" ? (
+          <p className="text-xs font-semibold text-app-text">
+            {achievement.achievement.points === 1
+              ? "1 point"
+              : `${achievement.achievement.points} points`}
+          </p>
+        ) : null}
         <p className="break-words text-app-muted text-xs leading-relaxed">
           {achievement.achievement.description ?? "No description available."}
         </p>
@@ -59,8 +66,9 @@ export const AchievementCard = ({ achievement }: AchievementCardProps) => {
       </div>
 
       <p className="break-words text-app-muted text-xs">
-        {achievement.achievement.globalPercentage?.toFixed(1)}% of players have
-        unlocked this.
+        {achievement.achievement.globalPercentage != null
+          ? `${achievement.achievement.globalPercentage.toFixed(1)}% of players have unlocked this.`
+          : "Rarity data is not available for this achievement."}
       </p>
     </div>
   );

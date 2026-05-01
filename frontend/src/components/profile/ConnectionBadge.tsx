@@ -29,7 +29,7 @@ export const ConnectionBadge = ({ platform, usernameOrId, profileUrl, accountVer
             href={profileUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className={`inline-flex shrink-0 items-center gap-2 px-3 py-1 rounded-full text-sm text-white outline outline-1 outline-white/30 ${platformColors[platform]}`}
+            className={`inline-flex shrink-0 items-center gap-2 px-3 py-1 rounded-full text-sm text-white border border-black/35 shadow-inner shadow-black/20 ${platformColors[platform]}`}
         >
             <span className="font-semibold">{platformLabel[platform]}</span>
             <span className="opacity-90">{usernameOrId}</span>

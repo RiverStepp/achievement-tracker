@@ -17,10 +17,7 @@ import {
   persistUserProfile,
 } from "@/profile/profileSetup";
 import { profileService } from "@/services/profile";
-import {
-  mapUserSettingsToUserProfile,
-  userSettingsService,
-} from "@/services/userSettings";
+import { userSettingsService } from "@/services/userSettings";
 import type {
   AuthTokenResponse,
   AuthStatus,
@@ -117,23 +114,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    let fallbackProfile = attachPublicIdToProfile(userProfile, appUser?.publicId);
-
-    try {
-      const settings = await userSettingsService.get();
-      fallbackProfile = mapUserSettingsToUserProfile(settings, {
-        appUser,
-        steamUser,
-        fallback: fallbackProfile,
-      });
-      const resolvedHandle = settings.handle ?? fallbackProfile?.handle ?? null;
-      const resolvedDisplayName = settings.displayName ?? fallbackProfile?.displayName ?? null;
-      const shouldRequireProfileSetup =
-        hasPendingProfileSetup() || !resolvedHandle || !resolvedDisplayName;
-      setNeedsProfileSetup(shouldRequireProfileSetup);
-    } catch (error) {
-      console.log("[auth] failed to load user settings during profile refresh", { error });
-    }
+    const fallbackProfile = attachPublicIdToProfile(userProfile, appUser?.publicId);
 
     if (appUser?.publicId) {
       try {
@@ -147,6 +128,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         );
         persistCurrentProfile(steamUser.steamId, freshProfile);
+        const shouldRequireProfileSetup =
+          hasPendingProfileSetup() || !freshProfile.handle || !freshProfile.displayName?.trim();
+        setNeedsProfileSetup(shouldRequireProfileSetup);
         return freshProfile;
       } catch (error) {
         console.log("[auth] failed to load current user profile", {
@@ -158,6 +142,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (fallbackProfile) {
       persistCurrentProfile(steamUser.steamId, fallbackProfile);
+      const shouldRequireProfileSetup =
+        hasPendingProfileSetup() ||
+        !fallbackProfile.handle ||
+        !fallbackProfile.displayName?.trim();
+      setNeedsProfileSetup(shouldRequireProfileSetup);
       return fallbackProfile;
     }
 
@@ -201,25 +190,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      let settingsHandle: string | null = null;
-      let settingsDisplayName: string | null = null;
-
-      try {
-        const settings = await userSettingsService.get();
-        settingsHandle = settings.handle;
-        settingsDisplayName = settings.displayName;
-        profile = mapUserSettingsToUserProfile(settings, {
-          appUser: nextAppUser,
-          steamUser: nextSteamUser,
-          fallback: profile,
-        });
-      } catch (error) {
-        console.log("[auth] settings load during session failed", { error });
-      }
-
       persistCurrentProfile(res.data.steamId, profile);
-      const resolvedHandle = settingsHandle ?? profile?.handle ?? res.data.handle ?? null;
-      const resolvedDisplayName = settingsDisplayName ?? profile?.displayName ?? null;
+      const resolvedHandle = profile?.handle ?? res.data.handle ?? null;
+      const resolvedDisplayName = profile?.displayName ?? null;
       const shouldRequireProfileSetup =
         hasPendingProfileSetup() || !resolvedHandle || !resolvedDisplayName;
       setNeedsProfileSetup(shouldRequireProfileSetup);
@@ -232,23 +205,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (nextAppUser?.publicId) {
         sessionStorage.setItem("appUserPublicId", nextAppUser.publicId);
-      }
-
-      if (nextAppUser?.publicId && settingsHandle && settingsDisplayName) {
-        try {
-          const freshProfile = await profileService.getProfile(
-            nextAppUser.publicId,
-            undefined,
-            profile,
-            {
-              steamId: nextSteamUser.steamId,
-              isSelf: true,
-            }
-          );
-          persistCurrentProfile(res.data.steamId, freshProfile);
-        } catch (error) {
-          console.log("[auth] profile refresh after session load failed", { error });
-        }
       }
 
       return res.data;
@@ -390,18 +346,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     if (!response.isNewUser && response.handle && response.displayName) {
       try {
-        const settings = await userSettingsService.get();
-        const baseProfile = mapUserSettingsToUserProfile(settings, {
-          appUser: nextAppUser,
-          steamUser: nextSteamUser,
-          fallback: storedProfile,
-        });
-        persistCurrentProfile(response.steamId, baseProfile);
-
         const freshProfile = await profileService.getProfile(
           response.appUserPublicId,
           undefined,
-          baseProfile,
+          storedProfile,
           {
             steamId: response.steamId,
             isSelf: true,

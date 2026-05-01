@@ -77,7 +77,7 @@ export const ProfileActionsMenu = ({ isMe = false, handle }: ProfileActionsMenuP
             type="button"
             variant="secondary"
             size="icon"
-            className="h-11 w-11 rounded-full border border-app-border bg-app-panel/95 text-app-text shadow-md shadow-app-border backdrop-blur-sm transition-colors hover:bg-app-panel2 focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="h-11 w-11 rounded-full border border-app-border bg-app-panel/95 text-app-text shadow-md shadow-app-border backdrop-blur-sm transition-colors hover:bg-app-panel2 focus-visible:ring-2 focus-visible:ring-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-app-bg"
             aria-label="Profile actions"
           >
             <MoreHorizontal className="h-5 w-5" aria-hidden="true" />

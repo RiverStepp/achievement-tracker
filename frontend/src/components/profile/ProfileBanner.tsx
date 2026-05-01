@@ -1,6 +1,6 @@
 import type { UserProfile } from "@/types/profile";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
-import { Trophy, Gamepad2, Clock } from "lucide-react";
+import { Trophy, Gamepad2, Clock, Star, CircleCheck, Percent, PlayCircle } from "lucide-react";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { RoleBadge } from "./RoleBadge";
 import { ProfileActionsMenu } from "./ProfileActionsMenu";
@@ -46,7 +46,7 @@ export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
         </Avatar>
         <div className="pt-2 grid w-full grid-cols-[1fr_auto_1fr] items-center gap-6">
           <div className="order-1">
-            <div className="flex items-center justify-items-centergap-2">
+            <div className="flex items-center gap-2">
               {profile.user.roles?.[0] ? <RoleBadge role={profile.user.roles[0]} /> : null}
               <h1 className="app-heading">{displayName}</h1>
             </div>
@@ -66,15 +66,42 @@ export const ProfileBanner = ({ profile, isMe }: ProfileBannerProps) => {
               
           </div>
           {summary && (
-            <div className="flex flex-wrap items-center justify-center gap-6 text-base text-app-muted order-2">
+            <div className="flex flex-wrap items-center justify-center gap-4 lg:gap-6 text-base text-app-muted order-2">
+              {typeof summary.totalPoints === "number" ? (
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-app-muted" aria-hidden="true" />
+                  <span className="text-app-text font-semibold">{summary.totalPoints}</span> points
+                </div>
+              ) : null}
               <div className="flex items-center gap-2">
                 <Trophy className="h-4 w-4 text-app-muted" aria-hidden="true" />
                 <span className="text-app-text font-semibold">{summary.totalAchievements}</span> achievements
               </div>
               <div className="flex items-center gap-2">
                 <Gamepad2 className="h-4 w-4 text-app-muted" aria-hidden="true" />
-                <span className="text-app-text font-semibold">{summary.gamesTracked}</span> games
+                <span className="text-app-text font-semibold">{summary.gamesTracked}</span> owned
               </div>
+              {typeof summary.gamesAt100Percent === "number" ? (
+                <div className="flex items-center gap-2">
+                  <CircleCheck className="h-4 w-4 text-app-muted" aria-hidden="true" />
+                  <span className="text-app-text font-semibold">{summary.gamesAt100Percent}</span> completed
+                </div>
+              ) : null}
+              {typeof summary.startedGamesCount === "number" ? (
+                <div className="flex items-center gap-2">
+                  <PlayCircle className="h-4 w-4 text-app-muted" aria-hidden="true" />
+                  <span className="text-app-text font-semibold">{summary.startedGamesCount}</span> started
+                </div>
+              ) : null}
+              {typeof summary.avgCompletionPercent === "number" ? (
+                <div className="flex items-center gap-2">
+                  <Percent className="h-4 w-4 text-app-muted" aria-hidden="true" />
+                  <span className="text-app-text font-semibold">
+                    {summary.avgCompletionPercent.toFixed(1)}%
+                  </span>
+                  avg completion
+                </div>
+              ) : null}
               {typeof summary.hoursPlayed === "number" && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-app-muted" aria-hidden="true" />

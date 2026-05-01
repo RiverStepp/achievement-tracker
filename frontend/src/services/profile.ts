@@ -1,6 +1,12 @@
 import { api } from "@/lib/api";
 import { endpoints } from "@/lib/endpoints";
 import type { ProfileAchievement, UserProfile } from "@/types/profile";
+import {
+  PROFILE_API_ACHIEVEMENTS_BY_POINTS_PAGE_SIZE,
+  PROFILE_API_ACHIEVEMENTS_PAGE_SIZE,
+  PROFILE_API_GAMES_PAGE_SIZE,
+  PROFILE_API_LATEST_ACTIVITY_PAGE_SIZE,
+} from "@/constants/profileUi";
 import type { AppUser } from "@/types/models";
 import type { SteamUser } from "@/types/auth";
 import type { SocialKind } from "@/types/profile";
@@ -137,6 +143,7 @@ type UserProfileResponse = {
   achievementsByPoints: PagedResultDto<ProfileAchievementItemDto>;
   pinnedAchievements: ProfilePinnedAchievementDto[];
   latestActivity: PagedResultDto<ProfileLatestActivityItemDto>;
+  isClaimed?: boolean;
 };
 
 const SOCIAL_KIND_BY_PLATFORM: Record<number, SocialKind> = {
@@ -147,14 +154,24 @@ const SOCIAL_KIND_BY_PLATFORM: Record<number, SocialKind> = {
 
 const DEFAULT_REQUEST: GetUserProfileRequest = {
   gamesPageNumber: 1,
-  gamesPageSize: 250,
+  gamesPageSize: PROFILE_API_GAMES_PAGE_SIZE,
   achievementsPageNumber: 1,
-  achievementsPageSize: 1000,
+  achievementsPageSize: PROFILE_API_ACHIEVEMENTS_PAGE_SIZE,
   achievementsByPointsPageNumber: 1,
-  achievementsByPointsPageSize: 1000,
+  achievementsByPointsPageSize: PROFILE_API_ACHIEVEMENTS_BY_POINTS_PAGE_SIZE,
   latestActivityPageNumber: 1,
-  latestActivityPageSize: 100,
+  latestActivityPageSize: PROFILE_API_LATEST_ACTIVITY_PAGE_SIZE,
 };
+
+function avgCompletionFractionToDisplayPercent(value: number | null | undefined): number | null {
+  if (value == null || Number.isNaN(value)) {
+    return null;
+  }
+  if (value >= 0 && value <= 1) {
+    return value * 100;
+  }
+  return value;
+}
 
 function normalizeHandle(value?: string | null) {
   return value?.replace(/^@/, "").trim() || "";
@@ -297,7 +314,9 @@ export function mapUserProfileResponse(
     game: buildProfileGame(item.gameId, item.gameName),
   }));
 
-  const recentAchievements: UserProfile["achievements"] = response.recentAchievements.items.map((item) => ({
+  const mapProfileAchievementDtoItem = (
+    item: ProfileAchievementItemDto
+  ): ProfileAchievement => ({
     id: synthesizeId(toAchievementKey(item.gameId, item.achievementName, item.unlockDate)),
     steamAchievementId: undefined,
     unlockedAt: item.unlockDate,
@@ -313,7 +332,10 @@ export function mapUserProfileResponse(
       globalPercentage: item.rarity ?? undefined,
     },
     game: buildProfileGame(item.gameId, item.gameName),
-  }));
+  });
+
+  const achievementsFromLatestUnlock = response.recentAchievements.items.map(mapProfileAchievementDtoItem);
+  const achievementsFromPointsOrdered = response.achievementsByPoints.items.map(mapProfileAchievementDtoItem);
 
   const achievementIdsByKey = new Map(
     response.latestActivity.items
@@ -328,12 +350,17 @@ export function mapUserProfileResponse(
       ])
   );
 
-  for (const item of recentAchievements) {
-    item.steamAchievementId =
-      achievementIdsByKey.get(
-        toAchievementKey(item.game.id, item.achievement.name, item.unlockedAt)
-      ) ?? item.steamAchievementId;
-  }
+  const hydrateSteamAchievementIds = (collection: ProfileAchievement[]) => {
+    for (const item of collection) {
+      item.steamAchievementId =
+        achievementIdsByKey.get(
+          toAchievementKey(item.game.id, item.achievement.name, item.unlockedAt)
+        ) ?? item.steamAchievementId;
+    }
+  };
+
+  hydrateSteamAchievementIds(achievementsFromLatestUnlock);
+  hydrateSteamAchievementIds(achievementsFromPointsOrdered);
 
   const profileGames = response.gamesByRecentAchievement.items.map((item) => {
     const gameId = synthesizeGameId(item.gameName);
@@ -383,23 +410,27 @@ export function mapUserProfileResponse(
   };
 
   const hydratedPinnedAchievements = pinnedAchievements.map(hydrateAchievementGame);
-  const hydratedRecentAchievements = recentAchievements.map(hydrateAchievementGame);
+  const hydratedAchievementsLatest = achievementsFromLatestUnlock.map(hydrateAchievementGame);
+  const hydratedAchievementsByPointsOrdered = achievementsFromPointsOrdered.map(hydrateAchievementGame);
 
-  const achievementMap = new Map<number, (typeof recentAchievements)[number]>();
-  for (const item of hydratedPinnedAchievements) {
-    achievementMap.set(item.id, item);
-  }
-  for (const item of hydratedRecentAchievements) {
-    const existing = Array.from(achievementMap.values()).find(
-      (candidate) =>
-        candidate.game.id === item.game.id &&
-        candidate.achievement.name === item.achievement.name &&
-        candidate.unlockedAt === item.unlockedAt
-    );
-    if (!existing) {
-      achievementMap.set(item.id, item);
+  function mergeAchievementCollection(map: Map<number, ProfileAchievement>, items: ProfileAchievement[]) {
+    for (const item of items) {
+      const existing = Array.from(map.values()).find(
+        (candidate) =>
+          candidate.game.id === item.game.id &&
+          candidate.achievement.name === item.achievement.name &&
+          candidate.unlockedAt === item.unlockedAt
+      );
+      if (!existing) {
+        map.set(item.id, item);
+      }
     }
   }
+
+  const achievementMap = new Map<number, ProfileAchievement>();
+  mergeAchievementCollection(achievementMap, hydratedPinnedAchievements);
+  mergeAchievementCollection(achievementMap, hydratedAchievementsLatest);
+  mergeAchievementCollection(achievementMap, hydratedAchievementsByPointsOrdered);
 
   const steamProfileUrl = response.steamProfile?.profileUrl || fallback?.steam?.profileUrl || null;
   const linkedAccounts: UserProfile["connections"]["linkedAccounts"] = steamProfileUrl
@@ -492,11 +523,25 @@ export function mapUserProfileResponse(
       totalAchievements: response.totals.totalAchievements,
       gamesTracked: response.totals.ownedGamesCount,
       hoursPlayed: totalHours,
+      totalPoints: response.totals.totalPoints,
+      gamesAt100Percent: response.totals.gamesAt100Percent,
+      startedGamesCount: response.totals.startedGamesCount,
+      avgCompletionPercent: avgCompletionFractionToDisplayPercent(response.totals.avgCompletionPercent),
     },
     games: profileGames,
     achievements: Array.from(achievementMap.values()).sort(
       (left, right) => new Date(right.unlockedAt).getTime() - new Date(left.unlockedAt).getTime()
     ),
+    achievementsByLatestUnlock: hydratedAchievementsLatest,
+    achievementsByPointsOrder: hydratedAchievementsByPointsOrdered,
+    steamSync: response.steamProfile
+      ? {
+          lastCheckedDate: response.steamProfile.lastCheckedDate,
+          lastSyncedDate: response.steamProfile.lastSyncedDate,
+          isPrivate: response.steamProfile.isPrivate,
+        }
+      : null,
+    isClaimed: typeof response.isClaimed === "boolean" ? response.isClaimed : null,
     latestActivity: response.latestActivity.items
       .map(mapLatestActivityItem)
       .filter((item): item is NonNullable<typeof item> => item !== null)

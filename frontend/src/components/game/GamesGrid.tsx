@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { ExclusiveHoverCardScope } from "@/components/ui/exclusive-hover-card-scope";
 import { GameIcon } from "@/components/game/GameIcon";
 import type { ProfileGame } from "@/types/profile";
 
@@ -41,12 +42,14 @@ export const GamesGrid = ({ games, filter }: GamesGridProps) => {
   }, [filter, games]);
 
   return (
-    <div className="inline-flex w-fit min-h-fit flex-row flex-wrap">
-      {sortedGames.map((game) => (
-        <div key={`${game.id}-${game.latestUnlockDate}`} className="m-1 text-sm">
-          <GameIcon game={game} />
-        </div>
-      ))}
-    </div>
+    <ExclusiveHoverCardScope>
+      <div className="inline-flex w-fit min-h-fit flex-row flex-wrap">
+        {sortedGames.map((game) => (
+          <div key={`${game.id}-${game.latestUnlockDate}`} className="m-1 text-sm">
+            <GameIcon game={game} />
+          </div>
+        ))}
+      </div>
+    </ExclusiveHoverCardScope>
   );
 };
