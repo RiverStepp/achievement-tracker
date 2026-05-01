@@ -59,7 +59,6 @@ const App: React.FC = () => {
               </div>
             </aside>
 
- frontend--privacy-policy-tos
             {/* Routed content and footer: scroll area is inner wrapper only */}
             <main className="min-w-0 h-full min-h-0 py-4 flex flex-col">
               <div
@@ -83,23 +82,6 @@ const App: React.FC = () => {
                 </Routes>
               </div>
               <SiteFooter />
-            {/* Routed content: ONLY scroll area */}
-            <main
-              className={`min-w-0 h-full min-h-0 py-4 ${
-                usesInternalScroll ? "overflow-hidden" : "overflow-y-auto app-scrollbar"
-              }`}
-            >
-              <Routes>
-                <Route path="/" element={<HomePage />} />
-                <Route path="/u/:profileKey" element={<ProfilePage />} />
-                <Route path="/auth/callback" element={<AuthCallbackPage />} />
-                <Route path="/leaderboard" element={<LeaderboardPage />} />
-                <Route path="/search" element={<SearchPage />} />
-                <Route path="/messages" element={<MessagesPage />} />
-                <Route path="/settings" element={<SettingsPage />} />
-                <Route path="/games/:gameId" element={<GamePage />} />
-
-              </Routes>
             </main>
           </div>
         </div>
